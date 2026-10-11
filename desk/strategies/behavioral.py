@@ -266,7 +266,9 @@ class DartMonkey(Strategy):
     )
 
     def __init__(self, bets_per_tick: float = 0.2, stake: float = 3.0, max_positions: int = 30,
-                 seed: int | None = None, min_price: float = 0.05, max_price: float = 0.95):
+                 seed: int | None = None, min_price: float = 0.05, max_price: float = 0.95,
+                 max_hours: float | None = None):
+        self.max_hours = max_hours
         self.bets_per_tick = bets_per_tick
         self.stake = stake
         self.max_positions = max_positions
@@ -281,6 +283,7 @@ class DartMonkey(Strategy):
             (m, side)
             for m in snap.markets.values()
             if m.is_tradeable and m.ticker not in account.open_tickers
+            and (self.max_hours is None or (m.seconds_to_close(snap.now) or 0) <= self.max_hours * 3600)
             for side in (Side.YES, Side.NO)
             if self.min_price <= m.ask(side) <= self.max_price
         ]

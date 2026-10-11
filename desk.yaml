@@ -6,12 +6,13 @@ db_path: data/desk.db     # the ledger: every paper trade and payout
 starting_cash: 1000       # paper dollars each employee starts with
 
 tick_seconds: 15          # how often everyone looks at the market
-crypto_series: [KXBTCD, KXBTC, KXETHD, KXETH]
-crypto_symbols: [BTC, ETH]
+# 15-minute up/down series first: they settle 96x a day, the fastest feedback
+crypto_series: [KXBTC15M, KXETH15M, KXSOL15M, KXBTCD, KXBTC, KXETHD, KXETH]
+crypto_symbols: [BTC, ETH, SOL]
 crypto_horizon_hours: 6
 
 broad_scan: true          # also scan non-crypto markets closing within broad_max_days
-broad_max_days: 7
+broad_max_days: 2         # short so non-crypto bets also settle fast
 
 liquidity_share: 0.5      # assume faster bots take half of every displayed order
 
@@ -27,22 +28,29 @@ strategies:
     min_edge: 0.04        # model must beat price by 4c after fees
     implied_weight: 0.1   # how much to trust options-market volatility vs. recent moves
     max_bet: 25
+    max_seconds: 900      # only bets that settle within 15 minutes (fast feedback)
   vol_arb:                # 📐 Vega Vinny - reads volatility from Kalshi itself
     min_edge: 0.04
-  sniper:                 # 🎯 The Sniper - last 10 minutes, near-certain outcomes
+    max_seconds: 900
+  sniper:                 # 🎯 The Sniper - final minutes, near-certain outcomes
     min_win_prob: 0.95
+    max_seconds: 300
     max_bet: 50
   momentum:               # 🏄 Momentum Mo - trends continue
     momentum_weight: 1.0
     momentum_window: 15   # minutes
+    max_seconds: 900
   mean_revert:            # 🪀 Rubber Band Randy - moves snap back
     momentum_weight: -0.5
     momentum_window: 5
+    max_seconds: 900
   longshot_fade:          # 🧊 Buzzkill Bill - bets against long shots
     min_yes: 0.03
     max_yes: 0.12
+    max_days: 2
     stake: 5
   longshot_buy:           # 🎰 Long Shot Lenny - buys the long shots Bill fades
+    max_days: 2
     stake: 2
   nickel_picker:          # 🪙 Nickel Nick - 92-97c near-sure things closing within 12h
     stake: 10
@@ -50,4 +58,5 @@ strategies:
     min_notional: 250
   dart_monkey:            # 🐒 Dart Monkey Dan - random bets; the benchmark to beat
     bets_per_tick: 0.2
+    max_hours: 24
     stake: 3

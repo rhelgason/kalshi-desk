@@ -18,17 +18,22 @@ class DeskConfig:
     starting_cash: float = 1000.0  # paper dollars per employee
 
     tick_seconds: float = 15.0
-    universe_refresh_seconds: float = 300.0
-    settle_check_seconds: float = 120.0
+    universe_refresh_seconds: float = 300.0  # broad (non-crypto) market scan
+    crypto_refresh_seconds: float = 60.0     # a new 15-minute window opens every 15 minutes
+    settle_check_seconds: float = 60.0
 
-    # Crypto ladders scanned every tick
-    crypto_series: list[str] = field(default_factory=lambda: ["KXBTCD", "KXBTC", "KXETHD", "KXETH"])
-    crypto_symbols: list[str] = field(default_factory=lambda: ["BTC", "ETH"])
+    # Crypto markets scanned every tick. The 15-minute "up or down" series settle
+    # 96 times a day each, which makes them the fastest source of feedback.
+    crypto_series: list[str] = field(default_factory=lambda: [
+        "KXBTC15M", "KXETH15M", "KXSOL15M",  # 15-minute up/down
+        "KXBTCD", "KXBTC", "KXETHD", "KXETH",  # hourly ladders and ranges
+    ])
+    crypto_symbols: list[str] = field(default_factory=lambda: ["BTC", "ETH", "SOL"])
     crypto_horizon_hours: float = 6.0
 
     # Broad scan (for strategies that look beyond crypto)
     broad_scan: bool = True
-    broad_max_days: float = 7.0
+    broad_max_days: float = 2.0
     broad_max_markets: int = 5000
 
     # How many of the busiest markets to pull trade tapes for (whale watching)

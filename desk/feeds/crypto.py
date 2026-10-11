@@ -176,6 +176,9 @@ class CryptoFeed:
 # Which underlying a Kalshi series tracks. Only series with numeric strikes
 # on a crypto price belong here.
 SERIES_UNDERLYING = {
+    "KXBTC15M": "BTC",  # 15-minute up/down (strike = price at the window's start)
+    "KXETH15M": "ETH",
+    "KXSOL15M": "SOL",
     "KXBTCD": "BTC",  # hourly above/below
     "KXBTC": "BTC",   # hourly ranges
     "KXETHD": "ETH",

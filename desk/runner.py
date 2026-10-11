@@ -66,6 +66,7 @@ class Desk:
         self.marks: dict[str, float] = {}
         self.last_snapshot: Optional[Snapshot] = None
         self._last_universe: Optional[datetime] = None
+        self._last_crypto: Optional[datetime] = None
         self._last_settle: Optional[datetime] = None
         self.tick_count = 0
 
@@ -78,6 +79,11 @@ class Desk:
     # ------------------------------------------------------------------
 
     async def refresh_universe(self) -> None:
+        await self.refresh_crypto()
+        await self.refresh_broad()
+
+    async def refresh_crypto(self) -> None:
+        """Find open crypto events settling within the horizon (cheap; runs every minute)."""
         now = _now()
         horizon = now + timedelta(hours=self.config.crypto_horizon_hours)
         tickers = []
@@ -90,9 +96,16 @@ class Desk:
             for e in events:
                 if e.strike_date and now < e.strike_date <= horizon:
                     tickers.append(e.event_ticker)
-            self.fees[series] = await self.client.get_fee_schedule(series)
+            if series not in self.fees:
+                self.fees[series] = await self.client.get_fee_schedule(series)
+        if set(tickers) != set(self.crypto_event_tickers):
+            logger.info("Crypto events: %s", ", ".join(sorted(tickers)) or "none")
         self.crypto_event_tickers = tickers
+        self._last_crypto = now
 
+    async def refresh_broad(self) -> None:
+        """Scan non-crypto markets closing soon (bigger; runs every few minutes)."""
+        now = _now()
         if self.config.broad_scan:
             start = int((now + timedelta(minutes=10)).timestamp())
             end = int((now + timedelta(days=self.config.broad_max_days)).timestamp())
@@ -103,9 +116,9 @@ class Desk:
                 self.broad_markets = {m.ticker: m for m in markets if m.is_tradeable}
             except KalshiAPIError as e:
                 logger.warning("Broad market scan failed: %s", e)
-
+            logger.info("Broad scan: %d markets closing within %g days", len(self.broad_markets),
+                        self.config.broad_max_days)
         self._last_universe = now
-        logger.info("Universe: %d crypto events, %d other markets", len(tickers), len(self.broad_markets))
 
     # ------------------------------------------------------------------
     # One tick
@@ -244,9 +257,12 @@ class Desk:
 
     async def tick(self) -> list[ExecutionResult]:
         now = _now()
+        if (self._last_crypto is None
+                or (now - self._last_crypto).total_seconds() >= self.config.crypto_refresh_seconds):
+            await self.refresh_crypto()
         if (self._last_universe is None
                 or (now - self._last_universe).total_seconds() >= self.config.universe_refresh_seconds):
-            await self.refresh_universe()
+            await self.refresh_broad()
 
         snap = await self.build_snapshot()
         self.last_snapshot = snap
