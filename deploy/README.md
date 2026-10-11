@@ -23,7 +23,7 @@ neither can bill you; going over a limit pauses things instead.
 | Bot | Vercel project `kalshi-desk-bot` (repo root, `api/tick.py` → `desk/cloud_app.py`) | env: `DATABASE_URL` (transaction pooler, port 6543), `TICK_SECRET` |
 | Scheduler | Supabase `cron.job` `kalshi-desk-tick`, every 2 min | secret lives in Supabase Vault as `kalshi_tick_secret` |
 | Cleanup | Supabase `cron.job` `kalshi-desk-cleanup`, daily | trims `cron.job_run_details` |
-| Dashboard | Vercel project `kalshi-desk` (`web/`) | env: `DATABASE_URL` (port 6543), `ADMIN_PASSWORD` (manager login; also in your local `.env`) |
+| Dashboard | Vercel project `kalshi-desk` (`web/`) | env: `DATABASE_URL` (**session** pooler, port 5432 — the transaction pooler can strand concurrent queries from postgres.js), `ADMIN_PASSWORD` (manager login; also in your local `.env`) |
 | Background jobs | GitHub Actions `.github/workflows/jobs.yml`, every 3h | secret: `DATABASE_URL` (session pooler). History sync, archive backfill, daily autotune, nightly backtest |
 
 ## Free-plan budgets
