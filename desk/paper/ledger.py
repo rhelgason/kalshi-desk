@@ -83,7 +83,11 @@ CREATE TABLE IF NOT EXISTS backtests (
 CREATE INDEX IF NOT EXISTS fills_strategy ON fills(strategy);
 CREATE INDEX IF NOT EXISTS settlements_strategy ON settlements(strategy);
 CREATE INDEX IF NOT EXISTS equity_strategy_ts ON equity(strategy, ts);
+CREATE INDEX IF NOT EXISTS settlements_strategy_ticker ON settlements(strategy, ticker);
 """
+
+
+TABLES = ("accounts", "fills", "settlements", "equity", "events", "status", "backtests")
 
 
 def _now() -> str:
@@ -153,6 +157,12 @@ class Ledger:
             self.db = sqlite3.connect(self.url)
             self.db.row_factory = sqlite3.Row
         self.db.executescript(SCHEMA)
+        if self.is_postgres:
+            # Supabase exposes the public schema through its auto-generated REST
+            # API. Row-level security with no policies blocks that API entirely;
+            # the bot and dashboard connect as the table owner, which RLS skips.
+            for table in TABLES:
+                self.db.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")
         # In-memory copies of append-only tables, loaded on first read. The bot
         # rebuilds its scoreboard every minute; rereading every row from a
         # remote database each time would waste bandwidth.
