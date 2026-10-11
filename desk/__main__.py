@@ -7,6 +7,7 @@ Command line for the desk.
     python -m desk accuracy      are each employee's probabilities any good?
     python -m desk backtest      replay the last N days of settled markets with every employee
     python -m desk tune EMPLOYEE --set param=v1,v2   search settings with a train/test split
+    python -m desk jobs          background jobs: history sync, archive backfill, autotuning
     python -m desk employees     who works here
     python -m desk whoami        check your Kalshi API key (read-only)
 """
@@ -44,7 +45,8 @@ def _setup_logging(verbose: bool) -> None:
 def _make_desk(cfg: DeskConfig, ledger: Ledger, record: str | None = None) -> Desk:
     client = KalshiClient(env=cfg.env, requests_per_second=cfg.requests_per_second)
     feed = CryptoFeed(tuple(cfg.crypto_symbols))
-    return Desk(cfg, client, build_strategies(cfg.strategies), ledger, feed=feed, record_path=record)
+    # None = staff from the HR roster (desk.yaml + website overrides, minus fired employees)
+    return Desk(cfg, client, None, ledger, feed=feed, record_path=record)
 
 
 async def cmd_scan(cfg: DeskConfig) -> None:
@@ -269,6 +271,18 @@ async def cmd_tune(cfg: DeskConfig, employee: str, sets: list[str], days: float,
         [{"params": r.params, "train": r.train.__dict__, "test": r.test.__dict__} for r in rows], indent=1))
 
 
+async def cmd_jobs(cfg: DeskConfig, backfill_minutes: float, force_tune: bool) -> None:
+    import json
+
+    from desk.jobs import run_jobs
+
+    if not is_postgres(cfg.db_path):
+        print("Jobs need the shared database: set DATABASE_URL.")
+        return
+    report = await run_jobs(cfg, backfill_seconds=backfill_minutes * 60, force_tune=force_tune)
+    print(json.dumps(report, indent=1, default=str))
+
+
 def cmd_employees() -> None:
     for key, cls in REGISTRY.items():
         p = cls.persona
@@ -319,6 +333,9 @@ def main(argv: list[str] | None = None) -> int:
     tn.add_argument("--fill-delay", type=int, default=1)
     tn.add_argument("--depth", type=float, default=100)
     tn.add_argument("--top", type=int, default=15)
+    jb = sub.add_parser("jobs", help="sync history, backfill the archive, autotune when due")
+    jb.add_argument("--backfill-minutes", type=float, default=10)
+    jb.add_argument("--force-tune", action="store_true")
     sub.add_parser("employees")
     sub.add_parser("whoami")
     args = parser.parse_args(argv)
@@ -343,6 +360,8 @@ def main(argv: list[str] | None = None) -> int:
         elif args.cmd == "tune":
             asyncio.run(cmd_tune(cfg, args.employee, args.set, args.days, args.series.split(","),
                                  args.fill_delay, args.depth, args.top))
+        elif args.cmd == "jobs":
+            asyncio.run(cmd_jobs(cfg, args.backfill_minutes, args.force_tune))
         elif args.cmd == "employees":
             cmd_employees()
         elif args.cmd == "whoami":

@@ -72,3 +72,12 @@ def test_sniper_uses_spot_vs_strike():
     bt = Backtest(data, [Sniper()], BacktestConfig())
     bt.run()
     assert bt.accounts["sniper"].settled_wins == 1
+
+
+def test_candle_parsing_handles_live_and_archived_formats():
+    from desk.backtest.data import _candle_tuple
+    live = {"yes_bid": {"close_dollars": "0.45"}, "yes_ask": {"close_dollars": "0.47"}, "volume_fp": "10.00"}
+    archived = {"yes_bid": {"close": "0.50"}, "yes_ask": {"close": "0.51"}, "volume": "90924.95"}
+    assert _candle_tuple(live) == (0.45, 0.47, 10.0)
+    assert _candle_tuple(archived) == (0.50, 0.51, 90924.95)
+    assert _candle_tuple({"yes_bid": {}, "yes_ask": {}}) is None

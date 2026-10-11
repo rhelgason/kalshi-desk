@@ -77,6 +77,10 @@ class TradeIntent:
     all_or_none: bool = False
     # For arbs: the minimum payout per contract-set, whatever happens
     guaranteed_payout: Optional[float] = None
+    # Resting (maker) order: wait on the book at limit_price instead of taking
+    # the current ask. Filled later only if other traders trade into it.
+    post_only: bool = False
+    ttl_seconds: float = 0.0
     intent_id: str = field(default_factory=lambda: uuid.uuid4().hex[:12])
 
     @property
@@ -115,6 +119,9 @@ class Strategy:
     persona: Persona = Persona("Nobody", "Unassigned", "?", "")
     # Set True to have the runner fetch recent trades into Snapshot.trades
     wants_trades: bool = False
+    # False if 15-minute price history can't replay this strategy (it needs the
+    # live trade tape, hourly ladders, or fills from other traders)
+    backtestable: bool = True
 
     def evaluate(self, snap: Snapshot, account: AccountView) -> list[TradeIntent]:
         raise NotImplementedError

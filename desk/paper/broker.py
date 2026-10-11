@@ -18,11 +18,13 @@ from __future__ import annotations
 
 import logging
 import math
+import uuid
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta
 from typing import Optional
 
 from desk.kalshi.fees import FeeSchedule
-from desk.kalshi.models import Fill, Level, Orderbook
+from desk.kalshi.models import Fill, Level, Orderbook, Side
 from desk.paper.account import PaperAccount
 from desk.paper.ledger import Ledger
 from desk.strategies.base import TradeIntent
@@ -51,13 +53,43 @@ class ExecutionResult:
         return sum(f.count * f.avg_price + f.fee for f in self.fills)
 
 
+@dataclass
+class RestingOrder:
+    """A paper maker order: a bid for `side` at `price`, waiting for sellers."""
+
+    order_id: str
+    strategy: str
+    ticker: str
+    side: str
+    price: float
+    count: float
+    placed_at: str
+    expires_at: str
+    reason: str = ""
+    filled: float = 0.0
+
+    @property
+    def remaining(self) -> float:
+        return round(self.count - self.filled, 2)
+
+
+def _trade_time(t: dict) -> Optional[datetime]:
+    try:
+        return datetime.fromisoformat(str(t.get("created_time", "")).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
 class PaperBroker:
     def __init__(self, ledger: Ledger, accounts: dict[str, PaperAccount], liquidity_share: float = 0.5,
-                 min_fill: float = 1.0):
+                 min_fill: float = 1.0, queue_share: float = 0.3):
         self.ledger = ledger
         self.accounts = accounts
         self.liquidity_share = liquidity_share
         self.min_fill = min_fill
+        # A trade exactly at our price only partly reaches us: others were in line first
+        self.queue_share = queue_share
+        self.resting: list[RestingOrder] = []
 
     def _shrunk(self, book: Orderbook) -> Orderbook:
         """A copy of the book with only our share of each level's size."""
@@ -121,6 +153,80 @@ class PaperBroker:
             )
             result.fills.append(LegFill(leg.ticker, leg.side.value, fill.count, fill.avg_price, fee))
         return result
+
+    # ------------------------------------------------------------------
+    # Resting (maker) orders
+    # ------------------------------------------------------------------
+
+    def _reserved(self, strategy: str) -> float:
+        return sum(o.price * o.remaining for o in self.resting if o.strategy == strategy)
+
+    def place(self, intent: TradeIntent, now: datetime) -> list[RestingOrder]:
+        """Rest each leg on the paper book, if the employee can cover it with free cash."""
+        acct = self.accounts[intent.strategy]
+        placed = []
+        for leg in intent.legs:
+            cost = leg.limit_price * leg.count
+            if cost > acct.cash - self._reserved(intent.strategy) + 1e-9:
+                continue
+            o = RestingOrder(
+                order_id=uuid.uuid4().hex[:10], strategy=intent.strategy, ticker=leg.ticker, side=leg.side.value,
+                price=leg.limit_price, count=leg.count, placed_at=now.isoformat(),
+                expires_at=(now + timedelta(seconds=intent.ttl_seconds or 60)).isoformat(), reason=intent.reason,
+            )
+            self.resting.append(o)
+            placed.append(o)
+        self.sync_resting_views()
+        return placed
+
+    def match(self, trades: dict[str, list[dict]], fees: dict[str, FeeSchedule], now: datetime) -> list[LegFill]:
+        """
+        Fill resting bids from the real trade tape. A YES bid at p is hit when a
+        taker sells YES (buys NO) at a YES price <= p. Trading through our price
+        fills us fully (up to the trade size); trading exactly at it fills only
+        `queue_share` of the size, since others were in line first.
+        """
+        fills = []
+        for o in self.resting:
+            placed = datetime.fromisoformat(o.placed_at)
+            for t in trades.get(o.ticker, []):
+                if o.remaining < 0.01:
+                    break
+                when = _trade_time(t)
+                taker = t.get("taker_outcome_side") or t.get("taker_side")
+                if not when or when <= placed or when > now or taker == o.side:
+                    continue
+                price = float(t.get(f"{o.side}_price_dollars") or 1)
+                size = float(t.get("count_fp") or 0)
+                if price < o.price - 1e-9:
+                    qty = size
+                elif abs(price - o.price) < 1e-9:
+                    qty = size * self.queue_share
+                else:
+                    continue
+                qty = math.floor(min(qty, o.remaining) * 100) / 100
+                if qty < 0.01:
+                    continue
+                fee = (fees.get(o.ticker) or FeeSchedule()).maker(o.price, qty)
+                acct = self.accounts[o.strategy]
+                acct.apply_fill(o.ticker, Side(o.side), qty, o.price, fee)
+                self.ledger.record_fill(o.strategy, o.ticker, Side(o.side), qty, o.price, fee,
+                                        intent_id=o.order_id, reason=f"maker fill: {o.reason}")
+                o.filled = round(o.filled + qty, 2)
+                fills.append(LegFill(o.ticker, o.side, qty, o.price, fee))
+        self.resting = [o for o in self.resting if o.remaining >= 0.01]
+        self.sync_resting_views()
+        return fills
+
+    def expire(self, now: datetime) -> int:
+        before = len(self.resting)
+        self.resting = [o for o in self.resting if datetime.fromisoformat(o.expires_at) > now]
+        self.sync_resting_views()
+        return before - len(self.resting)
+
+    def sync_resting_views(self) -> None:
+        for name, acct in self.accounts.items():
+            acct.resting = [o for o in self.resting if o.strategy == name]
 
     def settle(self, ticker: str, yes_value: float, ts: Optional[str] = None) -> dict[str, float]:
         """Settle `ticker` in every account that holds it. Returns P&L by strategy."""

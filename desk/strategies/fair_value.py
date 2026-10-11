@@ -208,6 +208,7 @@ class VegaVinny(CryptoFairValue):
     """
 
     key = "vol_arb"
+    backtestable = False  # needs hourly strike ladders, not just 15-minute markets
     persona = Persona(
         "Vega Vinny", "Volatility Trader", "📐",
         "Lets the market tell him how jumpy bitcoin is, then bets on the odd strike out.",

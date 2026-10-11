@@ -189,11 +189,14 @@ async def fetch_settled_markets(client: KalshiClient, series: str, start: dateti
 
 
 def _candle_tuple(c: dict) -> Optional[tuple[float, float, float]]:
-    bid = (c.get("yes_bid") or {}).get("close_dollars")
-    ask = (c.get("yes_ask") or {}).get("close_dollars")
+    """(yes_bid, yes_ask, volume) at the candle's close. Live candles use *_dollars/_fp
+    field names; archived ones use plain "close"/"volume"."""
+    yb, ya = c.get("yes_bid") or {}, c.get("yes_ask") or {}
+    bid = yb.get("close_dollars", yb.get("close"))
+    ask = ya.get("close_dollars", ya.get("close"))
     if bid is None or ask is None:
         return None
-    return float(bid), float(ask), float(c.get("volume_fp") or 0)
+    return float(bid), float(ask), float(c.get("volume_fp") or c.get("volume") or 0)
 
 
 def _open_close(m: dict) -> tuple[int, int]:

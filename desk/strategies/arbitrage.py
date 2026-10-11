@@ -101,6 +101,7 @@ def _coverage(m: Market, side: Side, pts: list[float]) -> Optional[tuple[int, in
 
 class CoverArb(Strategy):
     key = "cover_arb"
+    backtestable = False  # needs strike ladders; 15-minute markets are single contracts
     persona = Persona(
         "Risk-Free Rick", "Arbitrage Analyst", "🧮",
         "Only bets when the math guarantees a profit. Mostly drinks coffee and waits.",
@@ -212,6 +213,7 @@ class CoverArb(Strategy):
 
 class PartitionArb(Strategy):
     key = "bucket_arb"
+    backtestable = False
     persona = Persona(
         "Sudoku Sue", "Bucket Specialist", "🧩",
         "Checks whether a 'pick one' event's prices add up. They usually do.",

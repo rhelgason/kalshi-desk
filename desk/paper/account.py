@@ -42,6 +42,9 @@ class PaperAccount:
     trades: int = 0
     settled_wins: int = 0
     settled_losses: int = 0
+    transfers: float = 0.0  # net paper cash given (+) or taken (-); not profit
+    # Resting orders waiting on the book (set by the broker each tick; not persisted here)
+    resting: list = field(default_factory=list)
 
     def __post_init__(self):
         if not self.cash:
@@ -57,7 +60,16 @@ class PaperAccount:
     def open_tickers(self) -> set[str]:
         return {t for t, p in self.positions.items() if not p.is_flat}
 
+    @property
+    def capital(self) -> float:
+        """Money this employee has been given: starting cash plus net transfers."""
+        return self.starting_cash + self.transfers
+
     # Mutations ---------------------------------------------------------
+
+    def apply_transfer(self, amount: float) -> None:
+        self.cash += amount
+        self.transfers += amount
 
     def apply_fill(self, ticker: str, side: Side, count: float, price: float, fee: float) -> None:
         cost = count * price + fee

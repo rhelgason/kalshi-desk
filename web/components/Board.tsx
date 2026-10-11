@@ -4,13 +4,15 @@ import Link from "next/link";
 import { useState } from "react";
 import type { Employee, Series } from "@/lib/types";
 import { money, pct, tone } from "@/lib/format";
+import { LevelBadge, StatusBadge, Trophies } from "./Badges";
 import EquityChart from "./EquityChart";
 import Sparkline from "./Sparkline";
 
 /** The equity chart and the leaderboard, wired so hovering one highlights the other. */
 export default function Board({ employees, series }: { employees: Employee[]; series: Series[] }) {
   const [hot, setHot] = useState<string | null>(null);
-  const ranked = [...employees].sort((a, b) => (b.pnl ?? 0) - (a.pnl ?? 0));
+  const ranked = [...employees].filter((e) => e.status !== "fired").sort((a, b) => (b.pnl ?? 0) - (a.pnl ?? 0));
+  const alumni = employees.filter((e) => e.status === "fired");
   const byKey = Object.fromEntries(series.map((s) => [s.key, s.points]));
 
   return (
@@ -42,14 +44,18 @@ export default function Board({ employees, series }: { employees: Employee[]; se
             </thead>
             <tbody>
               {ranked.map((e, i) => (
-                <tr key={e.key} className={hot === e.key ? "hot" : ""} onMouseEnter={() => setHot(e.key)} onMouseLeave={() => setHot(null)}>
+                <tr key={e.key} className={`${hot === e.key ? "hot" : ""} ${e.status === "suspended" ? "benched" : ""}`}
+                  onMouseEnter={() => setHot(e.key)} onMouseLeave={() => setHot(null)}>
                   <td className="muted">{i + 1}</td>
                   <td>
                     <Link href={`/employee/${e.key}`} className="who">
                       <span className="emoji" aria-hidden>{e.emoji}</span>
                       <span>
-                        <div className="name">{e.name}</div>
-                        <div className="title">{e.title}</div>
+                        <div className="name">{e.name} <Trophies n={e.awards} /></div>
+                        <div className="badges">
+                          <LevelBadge level={e.level} title={e.level_title} />
+                          <StatusBadge e={e} />
+                        </div>
                       </span>
                     </Link>
                   </td>
@@ -66,6 +72,14 @@ export default function Board({ employees, series }: { employees: Employee[]; se
             </tbody>
           </table>
         </div>
+        {alumni.length > 0 && (
+          <p className="muted" style={{ marginTop: 12, fontSize: 13 }}>
+            Former employees:{" "}
+            {alumni.map((e, i) => (
+              <span key={e.key}>{i ? ", " : ""}<Link href={`/employee/${e.key}`}>{e.emoji} {e.name}</Link> ({money(e.pnl)})</span>
+            ))}
+          </p>
+        )}
       </section>
     </>
   );

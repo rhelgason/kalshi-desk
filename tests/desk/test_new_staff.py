@@ -39,10 +39,10 @@ def fair_ladder(spot, vol, strikes, close_in=timedelta(hours=1), half_spread=0.0
     return out
 
 
-def test_all_twelve_employees_registered_with_unique_names():
+def test_all_employees_registered_with_unique_names():
     staff = build_strategies({})
-    assert len(staff) == len(REGISTRY) == 12
-    assert len({s.persona.name for s in staff}) == 12
+    assert len(staff) == len(REGISTRY) == 14
+    assert len({s.persona.name for s in staff}) == 14
 
 
 class TestVegaVinny:
@@ -155,3 +155,34 @@ class TestWhaleWalt:
             self._trade("chased", "yes", 0.45, 1000),  # price has run from 0.45 to 0.52
         ]}
         assert WhaleWatcherWalt().evaluate(snap_of(m, trades=trades), account) == []
+
+
+class TestFran:
+    def test_backs_sports_favorites_only(self, account):
+        from desk.strategies import FrontRunnerFran
+        game = make_market("KXNFLGAME-26OCT12BUFLAR-BUF", yes_bid=0.80, yes_ask=0.81, event="KXNFLGAME-26OCT12BUFLAR",
+                           series="KXNFLGAME", close_in=timedelta(hours=10))
+        prop = make_market("KXNFLREC-26OCT12BUFLAR-X-4", yes_bid=0.80, yes_ask=0.81, event="KXNFLREC-26OCT12",
+                           series="KXNFLREC", close_in=timedelta(hours=10))
+        soon = make_market("KXMLBGAME-26OCT12-NYY", yes_bid=0.80, yes_ask=0.81, event="KXMLBGAME-26OCT12",
+                           series="KXMLBGAME", close_in=timedelta(minutes=30))
+        intents = FrontRunnerFran().evaluate(snap_of(game, prop, soon), account)
+        assert [i.legs[0].ticker for i in intents] == [game.ticker]
+
+
+class TestSam:
+    def test_quotes_inside_wide_spreads_both_sides(self, account):
+        from desk.strategies import SpreadSam
+        wide = make_market("W-1", yes_bid=0.40, yes_ask=0.45, event="W", volume_24h=50_000)
+        tight = make_market("T-1", yes_bid=0.40, yes_ask=0.41, event="T", volume_24h=50_000)
+        intents = SpreadSam().evaluate(snap_of(wide, tight), account)
+        assert len(intents) == 1 and intents[0].post_only
+        legs = {(l.side, l.limit_price) for l in intents[0].legs}
+        assert legs == {(Side.YES, 0.41), (Side.NO, 0.56)}  # 0.41 + 0.56 = 0.97: 3c if both fill
+
+    def test_stops_adding_to_a_lopsided_position(self, account):
+        from desk.strategies import SpreadSam
+        m = make_market("W-1", yes_bid=0.40, yes_ask=0.45, event="W", volume_24h=50_000)
+        account.apply_fill("W-1", Side.YES, 30, 0.41, 0)
+        intents = SpreadSam().evaluate(snap_of(m), account)
+        assert [l.side for l in intents[0].legs] == [Side.NO]

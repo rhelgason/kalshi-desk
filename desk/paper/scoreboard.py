@@ -25,7 +25,7 @@ from desk.paper.ledger import Ledger
 @dataclass
 class ScoreRow:
     strategy: str
-    starting_cash: float
+    starting_cash: float  # capital: starting cash plus any transfers (bonuses)
     equity: float
     realized_pnl: float
     open_positions: int
@@ -89,7 +89,7 @@ def scoreboard_rows(accounts: dict[str, PaperAccount], ledger: Ledger,
             dd = max_drawdown([e for _, e in ledger.equity_curve(name)] + [equity])
         rows.append(ScoreRow(
             strategy=name,
-            starting_cash=acct.starting_cash,
+            starting_cash=acct.capital,
             equity=equity,
             realized_pnl=acct.realized_pnl,
             open_positions=len(acct.open_tickers),

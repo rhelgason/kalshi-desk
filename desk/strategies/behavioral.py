@@ -184,6 +184,112 @@ class NickelNick(BandBettor):
         return f"near-sure thing: {side.value.upper()} @ {price:.2f} on '{m.title[:60]}'"
 
 
+class FrontRunnerFran(BandBettor):
+    """
+    Buys the favorite in sports match-winner markets ("Will X win?"), using the
+    same lesson the 15-minute crypto markets taught: favorites are slightly
+    underpriced, but not in the final minutes. Starts as an Intern; the
+    performance reviews decide whether she earns bigger bets.
+    """
+
+    key = "favorite_sports"
+    persona = Persona(
+        "Front-Runner Fran", "Sports Bettor", "🏈",
+        "Always bets on the favorite. Never the underdog. Never in the last hour.",
+    )
+
+    def __init__(self, min_price: float = 0.75, max_price: float = 0.92, min_seconds: float = 3600,
+                 max_hours: float = 72, stake: float = 10.0, min_volume_24h: float = 500, **kw):
+        super().__init__(min_seconds=min_seconds, max_hours=max_hours, stake=stake,
+                         min_volume_24h=min_volume_24h, **kw)
+        self.min_price = min_price
+        self.max_price = max_price
+
+    @staticmethod
+    def is_sports_game(m: Market) -> bool:
+        series = (m.series_ticker or m.event_ticker.split("-", 1)[0]).upper()
+        return "GAME" in series and not series.startswith(("KXBTC", "KXETH", "KXSOL"))
+
+    def pick(self, m: Market) -> Optional[Side]:
+        if not self.is_sports_game(m):
+            return None
+        for side in (Side.YES, Side.NO):
+            if self.min_price <= m.ask(side) <= self.max_price:
+                return side
+        return None
+
+    def describe(self, m, side, price):
+        return f"backing the favorite: {side.value.upper()} @ {price:.2f} on '{m.title[:60]}'"
+
+
+class SpreadSam(Strategy):
+    """
+    A market maker. Instead of paying the asking price, Sam posts bids one cent
+    better than the best YES bid and the best NO bid, then waits. If both fill,
+    one YES plus one NO pays exactly $1, so he keeps the gap (the spread) minus
+    his 2 cents of improvement. If only one side fills and the price keeps
+    moving, he's holding a losing bet; that's the risk market makers take.
+    Maker orders also pay much lower fees than taking.
+    """
+
+    key = "market_maker"
+    persona = Persona(
+        "Spread Sam", "Market Maker", "🤝",
+        "Never pays the asking price. Waits for someone else to be in a hurry.",
+    )
+    backtestable = False  # fills depend on other traders; the desk feeds him the live trade tape
+
+    def __init__(self, min_spread: float = 0.03, min_mid: float = 0.15, max_mid: float = 0.85,
+                 min_volume_24h: float = 5000, min_seconds: float = 1800, stake: float = 10.0,
+                 max_inventory: float = 30, max_markets: int = 6, ttl_seconds: float = 150, improve: float = 0.01):
+        self.min_spread = min_spread
+        self.min_mid = min_mid
+        self.max_mid = max_mid
+        self.min_volume_24h = min_volume_24h
+        self.min_seconds = min_seconds
+        self.stake = stake
+        self.max_inventory = max_inventory
+        self.max_markets = max_markets
+        self.ttl_seconds = ttl_seconds
+        self.improve = improve
+
+    def evaluate(self, snap: Snapshot, account: AccountView) -> list[TradeIntent]:
+        resting = {o.ticker for o in getattr(account, "resting", [])}
+        candidates = []
+        for m in snap.markets.values():
+            if not m.is_tradeable or m.ticker in resting or m.mid is None:
+                continue
+            if (m.seconds_to_close(snap.now) or 0) < self.min_seconds or m.volume_24h < self.min_volume_24h:
+                continue
+            spread = m.yes_ask - m.yes_bid
+            if spread < self.min_spread or not (self.min_mid <= m.mid <= self.max_mid):
+                continue
+            candidates.append(m)
+        candidates.sort(key=lambda m: m.volume_24h, reverse=True)
+
+        intents = []
+        for m in candidates[: self.max_markets]:
+            yes_px = round(m.yes_bid + self.improve, 2)
+            no_px = round(m.no_bid + self.improve, 2)
+            if yes_px >= m.yes_ask or no_px >= m.no_ask:
+                continue  # would cross the spread and become a taker
+            pos_yes, pos_no = account.position(m.ticker)
+            net = pos_yes - pos_no
+            legs = []
+            if net < self.max_inventory:
+                legs.append(Leg(m.ticker, Side.YES, yes_px, math.floor(self.stake / yes_px)))
+            if -net < self.max_inventory:
+                legs.append(Leg(m.ticker, Side.NO, no_px, math.floor(self.stake / no_px)))
+            legs = [leg for leg in legs if leg.count >= 1]
+            if legs:
+                intents.append(TradeIntent(
+                    strategy=self.key, legs=legs, post_only=True, ttl_seconds=self.ttl_seconds,
+                    reason=f"quoting {yes_px:.2f}/{no_px:.2f} (spread {m.yes_ask - m.yes_bid:.2f}) on '{m.title[:50]}'",
+                    expected_edge=(1 - yes_px - no_px) / 2,
+                ))
+        return intents
+
+
 class WhaleWatcherWalt(Strategy):
     """
     Watches the trade tape for big market orders ("whales") and follows them,
@@ -197,6 +303,7 @@ class WhaleWatcherWalt(Strategy):
         "Sees a big bet go through and yells 'follow that whale!'",
     )
     wants_trades = True
+    backtestable = False
 
     def __init__(self, min_notional: float = 250.0, lookback_seconds: float = 120, max_chase: float = 0.02,
                  min_price: float = 0.10, max_price: float = 0.90, stake: float = 10.0, max_positions: int = 30):

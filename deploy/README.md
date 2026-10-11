@@ -23,7 +23,8 @@ neither can bill you; going over a limit pauses things instead.
 | Bot | Vercel project `kalshi-desk-bot` (repo root, `api/tick.py` → `desk/cloud_app.py`) | env: `DATABASE_URL` (transaction pooler, port 6543), `TICK_SECRET` |
 | Scheduler | Supabase `cron.job` `kalshi-desk-tick`, every 2 min | secret lives in Supabase Vault as `kalshi_tick_secret` |
 | Cleanup | Supabase `cron.job` `kalshi-desk-cleanup`, daily | trims `cron.job_run_details` |
-| Dashboard | Vercel project `kalshi-desk` (`web/`) | env: `DATABASE_URL` (port 6543), optional `DASHBOARD_PASSWORD` |
+| Dashboard | Vercel project `kalshi-desk` (`web/`) | env: `DATABASE_URL` (port 6543), `ADMIN_PASSWORD` (manager login; also in your local `.env`) |
+| Background jobs | GitHub Actions `.github/workflows/jobs.yml`, every 3h | secret: `DATABASE_URL` (session pooler). History sync, archive backfill, daily autotune, nightly backtest |
 
 ## Free-plan budgets
 
@@ -31,7 +32,11 @@ neither can bill you; going over a limit pauses things instead.
   uses ~0.15 s of CPU, a cold start ~1.4 s, heavier runs (broad scan every
   10 min) more. `desk/cloud.py` tracks CPU used this month and skips runs if
   the month is on pace to pass 3 hours, so the dashboard never gets paused.
-- **Supabase: 500 MB database, 5 GB egress/month.** The bot keeps its state in
+- **GitHub Actions: 2,000 free minutes/month** for private repos. Each run is
+  ~3 minutes once the archive is filled (~12 during the first few days of
+  backfilling), so about 30-40% of the allowance.
+- **Supabase: 500 MB database, 5 GB egress/month.** The full 8-month history
+  store is roughly 25-40 MB. The bot keeps its state in
   one small row and computes accuracy inside Postgres.
 
 ## Common tasks

@@ -32,14 +32,44 @@ pytest tests/desk            # offline test suite
 | 🐋 | Whale Watcher Walt | Follows unusually large trades | Yes |
 | 🐒 | Dart Monkey Dan | Random bets | Yes. He's the benchmark: beat Dan or you're not skilled |
 
+## Running itself: HR, autotuning, and the manager's office
+
+The desk is meant to be hands-off. Three loops keep improving it:
+
+- **Performance reviews** (inside the bot, every `review_days`): crown the
+  Employee of the Week/Month with a bonus from the desk reserve, promote
+  employees who beat the promotion threshold to bigger bet sizes (Intern 0.5x
+  → Associate 1x → Senior 1.5x → VP 2x → Partner 3x), demote losers, and
+  suspend repeat offenders. Rules live in the database and are editable on the
+  site's **Handbook** page.
+- **Autotuning** (GitHub Actions, `.github/workflows/jobs.yml`, every 3h):
+  syncs settled markets into a permanent history store, backfills Kalshi's
+  archive, and once a day retunes each eligible employee on the last
+  `lookback_days` of history. A new setting is applied only if it made money
+  in the unseen test period and beats the current setting there.
+- **The manager** (you): log in on the site to suspend, fire, rehire, promote,
+  give bonuses, edit any employee's settings, toggle autotune, change the desk
+  rules, request a retune, or start a new season. Everything is logged in the
+  office news.
+
+Website changes are stored in the `employees` and `settings` tables and take
+effect on the bot's next run (about 2 minutes). desk.yaml provides defaults;
+website overrides win.
+
 ## How it fits together
 
 ```
 desk/kalshi/      API client (auth, rate limits, retries), models, fee math
 desk/feeds/       BTC/ETH spot (Kraken + Deribit) and volatility
 desk/strategies/  the employees; each turns a Snapshot into TradeIntents
-desk/paper/       paper accounts, broker (fills vs. real orderbooks), SQLite ledger, scoreboard
-desk/runner.py    the loop: discover -> snapshot -> strategies -> fill -> settle
+desk/paper/       paper accounts, broker (taker fills vs. real orderbooks, maker fills vs. the trade tape),
+                  ledger (SQLite or Postgres), scoreboard, accuracy
+desk/hr.py        roster, levels, performance reviews, awards
+desk/autotune.py  search spaces + validated retuning
+desk/jobs.py      background jobs (history sync, archive backfill, autotune, nightly backtest)
+desk/backtest/    replay engine, tuning with train/test split, permanent history store
+desk/cloud.py     one tick per serverless invocation (Vercel), state saved in Postgres
+desk/runner.py    the loop: HR sync -> discover -> snapshot -> strategies -> fill -> settle -> review
 ```
 
 Adding an employee: subclass `Strategy` in `desk/strategies/`, give it a

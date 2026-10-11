@@ -130,3 +130,33 @@ th.num { text-align: right; }
 .hero h1 { margin: 0; font-size: 24px; }
 .empty { color: var(--text-muted); padding: 24px 0; text-align: center; }
 .notice { border-left: 3px solid var(--series-1); padding: 8px 12px; background: var(--surface-2); border-radius: 0 8px 8px 0; color: var(--text-secondary); }
+
+/* HR & admin */
+.badge.warn { color: var(--text-primary); border-color: var(--warning); }
+.who .badges { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 3px; }
+tr.benched td { opacity: 0.55; }
+.spotlight { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; align-items: center; }
+.spot-main { display: flex; gap: 14px; align-items: center; }
+.spot-emoji { font-size: 44px; }
+.spot-name { font-size: 22px; font-weight: 650; display: block; }
+.spot-side { display: flex; gap: 24px; font-size: 13px; }
+.label { color: var(--text-secondary); font-size: 12.5px; }
+.btn { font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text-primary); cursor: pointer; }
+.btn:hover { border-color: var(--axis); }
+.btn:disabled { opacity: 0.5; cursor: default; }
+.btn.primary { background: var(--series-1); color: #fff; border-color: transparent; }
+.btn.danger { color: var(--down); border-color: var(--down); background: transparent; }
+.btn.on { outline: 2px solid var(--series-1); }
+.row-btns { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.form { display: grid; gap: 10px; }
+.form label { display: grid; gap: 4px; font-size: 13px; color: var(--text-secondary); }
+input[type="text"], input[type="number"], input[type="password"], textarea, select {
+  font: inherit; font-size: 13px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--surface-1); color: var(--text-primary); width: 100%;
+}
+.params { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.params label small { color: var(--text-muted); }
+.section-title { font-size: 13px; font-weight: 600; margin: 16px 0 8px; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 16px; font-size: 13px; }
+.kv dt { color: var(--text-muted); }
+.kv dd { margin: 0; }

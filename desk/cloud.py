@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import logging
 import resource
+from dataclasses import asdict
 import time
 from collections import deque
 from datetime import datetime, timedelta, timezone
@@ -35,7 +36,6 @@ from desk.kalshi.fees import FeeSchedule
 from desk.paper.account import PaperAccount, Position
 from desk.paper.ledger import Ledger
 from desk.runner import Desk
-from desk.strategies import build_strategies
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +82,7 @@ def dump_accounts(accounts: dict[str, PaperAccount]) -> dict:
         k: {
             "starting_cash": a.starting_cash, "cash": a.cash, "fees_paid": a.fees_paid,
             "realized_pnl": a.realized_pnl, "trades": a.trades,
-            "wins": a.settled_wins, "losses": a.settled_losses,
+            "wins": a.settled_wins, "losses": a.settled_losses, "transfers": a.transfers,
             "positions": {t: [p.yes, p.no, p.yes_cost, p.no_cost, p.yes_fees, p.no_fees]
                           for t, p in a.positions.items()},
         }
@@ -95,7 +95,8 @@ def load_accounts(data: dict) -> dict[str, PaperAccount]:
     for k, d in data.items():
         a = PaperAccount(k, d["starting_cash"], cash=d["cash"], fees_paid=d["fees_paid"],
                          realized_pnl=d["realized_pnl"], trades=d["trades"],
-                         settled_wins=d["wins"], settled_losses=d["losses"])
+                         settled_wins=d["wins"], settled_losses=d["losses"],
+                         transfers=d.get("transfers", 0.0))
         a.cash = d["cash"]  # __post_init__ resets a zero balance to starting cash
         for t, v in d["positions"].items():
             a.positions[t] = Position(t, *v)
@@ -161,22 +162,24 @@ async def run_cloud_tick(ledger: Optional[Ledger] = None, config_path: Optional[
             ledger.set_status(STATE_KEY, state)
             return {"ok": True, "skipped": "monthly CPU budget pacing", "budget": budget}
 
-        strategies = build_strategies(cfg.strategies)
+        if state.get("season", 1) != ledger.season:
+            # The website started a new season: everyone begins fresh
+            state = {"budget": state.get("budget"), "feed": state.get("feed"), "fees": state.get("fees")}
         accounts = load_accounts(state["accounts"]) if state.get("accounts") else None
-        if accounts is not None:
-            # Employees added since the last run start fresh
-            for s in strategies:
-                if s.key not in accounts:
-                    ledger.ensure_account(s.key, cfg.starting_cash)
-                    accounts[s.key] = PaperAccount(s.key, cfg.starting_cash)
-        for s in strategies:
-            if s.key in (state.get("strategies") or {}):
-                s.set_state(state["strategies"][s.key])
 
         feed = feed or CryptoFeed(tuple(cfg.crypto_symbols))
         load_feed(feed, state.get("feed") or {})
         client = client or KalshiClient(env=cfg.env, requests_per_second=cfg.requests_per_second)
-        desk = Desk(cfg, client, strategies, ledger, feed=feed, accounts=accounts)
+        # strategies=None: staff the desk from the HR roster (desk.yaml + website overrides)
+        desk = Desk(cfg, client, None, ledger, feed=feed, accounts=accounts)
+        from desk.paper.broker import RestingOrder
+
+        desk.broker.resting = [RestingOrder(**o) for o in state.get("resting") or []]
+        desk.broker.sync_resting_views()
+        strategies = desk.strategies
+        for s in strategies:
+            if s.key in (state.get("strategies") or {}):
+                s.set_state(state["strategies"][s.key])
 
         t = state.get("timers") or {}
         desk._last_universe = _dt(t.get("universe"))
@@ -213,9 +216,11 @@ async def run_cloud_tick(ledger: Optional[Ledger] = None, config_path: Optional[
         budget["runs"] = budget.get("runs", 0) + 1
 
         state = {
+            "season": ledger.season,
             "accounts": dump_accounts(desk.accounts),
+            "resting": [asdict(o) for o in desk.broker.resting],
             "feed": dump_feed(feed),
-            "strategies": {s.key: st for s in strategies if (st := s.get_state()) is not None},
+            "strategies": {s.key: st for s in desk.strategies if (st := s.get_state()) is not None},
             "timers": {"universe": _iso(desk._last_universe), "slow": _iso(desk._last_slow),
                        "equity": _iso(desk._last_equity), "accuracy": _iso(desk._last_accuracy)},
             "started_at": _iso(desk.started_at),

@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { isAdmin } from "@/lib/admin";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Kalshi Desk",
-  description: "A dozen paper-trading employees competing on live Kalshi markets.",
+  description: "Paper-trading employees competing on live Kalshi markets.",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const admin = await isAdmin();
   return (
     <html lang="en">
       <body>
@@ -18,7 +20,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </Link>
             <nav className="nav">
               <Link href="/">Floor</Link>
+              <Link href="/settings">Handbook</Link>
               <Link href="/backtests">Backtests</Link>
+              <Link href="/admin">{admin ? "👔 Manager" : "Log in"}</Link>
             </nav>
           </header>
           {children}

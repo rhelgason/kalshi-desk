@@ -83,3 +83,28 @@ async def test_tick_trades_and_settles(desk_and_client, monkeypatch):
     assert carl.realized_pnl > 0
     assert desk.accounts["longshot_fade"].realized_pnl > 0
     assert "Risk-Free Rick" in desk.scoreboard()
+
+
+async def test_desk_follows_roster_changes(desk_and_client, monkeypatch):
+    desk, client = desk_and_client
+    monkeypatch.setattr("desk.runner._now", lambda: NOW)
+    from desk import hr
+
+    # Suspend Bill from "the website": he stops trading but Rick keeps going
+    rec = desk.roster["longshot_fade"]
+    rec.status, rec.suspended_until = "suspended", (NOW + timedelta(days=3)).isoformat()
+    desk.ledger.upsert_employee(rec.to_row())
+    results = await desk.tick()
+    assert {r.intent.strategy for r in results if r.filled} == {"cover_arb"}
+
+
+async def test_level_scales_bet_size(desk_and_client, monkeypatch):
+    desk, client = desk_and_client
+    monkeypatch.setattr("desk.runner._now", lambda: NOW)
+    rec = desk.roster["longshot_fade"]
+    rec.level = 3  # VP: 2x
+    desk.ledger.upsert_employee(rec.to_row())
+    results = await desk.tick()
+    bill = next(r for r in results if r.intent.strategy == "longshot_fade" and r.filled)
+    unscaled = 5 // 0.95  # Bill's $5 stake at a 95c NO price
+    assert bill.fills[0].count == pytest.approx(2 * unscaled)

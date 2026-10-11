@@ -1,11 +1,16 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import AdminPanel from "@/components/AdminPanel";
 import AutoRefresh from "@/components/AutoRefresh";
+import { LevelBadge, StatusBadge, Trophies } from "@/components/Badges";
+import NewsFeed from "@/components/NewsFeed";
 import CalibrationChart from "@/components/CalibrationChart";
 import EquityChart from "@/components/EquityChart";
 import Setup from "@/components/Setup";
 import TradeFeed from "@/components/TradeFeed";
-import { getAccuracy, getEquity, getLive, getRecentFills, toSeries } from "@/lib/db";
+import { isAdmin } from "@/lib/admin";
+import { getAccuracy, getEquity, getLive, getNews, getPolicy, getRecentFills, getRoster, getTuningRuns, toSeries, withRoster } from "@/lib/db";
 import { cents, money, pct, tone } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -14,13 +19,18 @@ export default async function EmployeePage({ params }: { params: Promise<{ key: 
   const { key } = await params;
   let data;
   try {
-    const [live, equity, fills, accuracy] = await Promise.all([getLive(), getEquity(14, key), getRecentFills(50, key), getAccuracy()]);
-    data = { live, equity, fills, accuracy };
+    const [live, equity, fills, accuracy, roster, news, tuning, policy, admin] = await Promise.all([
+      getLive(), getEquity(14, key), getRecentFills(50, key), getAccuracy(), getRoster(), getNews(20, key),
+      getTuningRuns(key), getPolicy(), isAdmin(),
+    ]);
+    data = { live, equity, fills, accuracy, roster, news, tuning, policy, admin };
   } catch (e) {
     return <Setup error={String(e)} />;
   }
-  const e = data.live?.employees.find((x) => x.key === key);
-  if (!e || !data.live) notFound();
+  const base = data.live?.employees.find((x) => x.key === key);
+  if (!base || !data.live) notFound();
+  const e = withRoster([base], data.roster)[0];
+  const lastTune = data.tuning[0];
   const acc = data.accuracy.find((a) => a.strategy === key);
   const positions = data.live.positions.filter((p) => p.strategy === key);
 
@@ -40,9 +50,14 @@ export default async function EmployeePage({ params }: { params: Promise<{ key: 
       <div className="hero">
         <span className="emoji" aria-hidden>{e.emoji}</span>
         <div>
-          <h1>{e.name}</h1>
-          <div className="muted">{e.title} · <code>{e.key}</code></div>
+          <h1>{e.name} <Trophies n={e.awards} /></h1>
+          <div className="row-btns" style={{ marginTop: 4 }}>
+            <span className="muted">{e.title} · <code>{e.key}</code></span>
+            <LevelBadge level={e.level} title={e.level_title} />
+            <StatusBadge e={e} />
+          </div>
           <div style={{ marginTop: 4 }}>{e.blurb}</div>
+          {e.note && <div className="notice" style={{ marginTop: 8 }}>📝 {e.note}</div>}
         </div>
       </div>
 
@@ -113,6 +128,66 @@ export default async function EmployeePage({ params }: { params: Promise<{ key: 
           )}
         </section>
       </div>
+
+      <div className="grid two">
+        <section className="card">
+          <h2>Settings & tuning</h2>
+          <p className="sub">
+            {e.backtestable === false
+              ? "Can't be replayed from price history; the performance reviews judge this employee."
+              : e.autotune
+                ? `Autotune is on: the background job retests these every ${data.policy.autotune.every_hours}h and switches only when a tested improvement is found.`
+                : "Autotune is off: these settings only change when the manager changes them."}
+          </p>
+          <dl className="kv">
+            {Object.entries(e.params ?? {}).map(([k, v]) => (
+              <Fragment key={k}><dt>{k}{e.overrides && k in e.overrides ? " ✎" : ""}</dt><dd>{String(v)}</dd></Fragment>
+            ))}
+          </dl>
+          {lastTune && (
+            <>
+              <div className="section-title">Last retune · {new Date(lastTune.created_at).toLocaleDateString()}</div>
+              <p style={{ margin: 0 }}>
+                {lastTune.summary.applied ? "🔧 Switched settings" : "🔍 Kept settings"}: {lastTune.summary.why}. Tried{" "}
+                {lastTune.summary.tried} combinations.
+              </p>
+              <div className="table-wrap" style={{ marginTop: 8 }}>
+                <table>
+                  <thead><tr><th>Settings</th><th className="num">Train P&amp;L</th><th className="num">Test P&amp;L</th><th className="num">Test bets</th></tr></thead>
+                  <tbody>
+                    <tr>
+                      <td><strong>current</strong></td>
+                      <td className={`num ${tone(lastTune.summary.current.train.pnl)}`}>{money(lastTune.summary.current.train.pnl)}</td>
+                      <td className={`num ${tone(lastTune.summary.current.test.pnl)}`}>{money(lastTune.summary.current.test.pnl)}</td>
+                      <td className="num">{lastTune.summary.current.test.bets}</td>
+                    </tr>
+                    {lastTune.summary.top.slice(0, 5).map((r, i) => (
+                      <tr key={i}>
+                        <td className="muted" style={{ fontSize: 12 }}>{Object.entries(r.params).map(([k, v]) => `${k}=${v}`).join(", ")}{r.holds_up ? " ✓" : ""}</td>
+                        <td className={`num ${tone(r.train.pnl)}`}>{money(r.train.pnl)}</td>
+                        <td className={`num ${tone(r.test.pnl)}`}>{money(r.test.pnl)}</td>
+                        <td className="num">{r.test.bets}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </section>
+        <section className="card">
+          <h2>HR file</h2>
+          <dl className="kv" style={{ marginBottom: 12 }}>
+            <dt>Level</dt><dd>{e.level_title} ({e.multiplier ?? 1}x bet size)</dd>
+            <dt>Awards</dt><dd>{e.awards ?? 0}</dd>
+            <dt>Strikes</dt><dd>{e.strikes ?? 0}</dd>
+            <dt>Bankroll given</dt><dd>{money(e.starting_cash, false)}</dd>
+          </dl>
+          <NewsFeed items={data.news} employees={[e]} />
+        </section>
+      </div>
+
+      {data.admin && <AdminPanel e={e} roster={data.roster[key] ?? null} reserve={data.policy.reserve} />}
 
       <section className="card">
         <h2>Trades</h2>

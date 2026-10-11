@@ -1,9 +1,11 @@
 import AutoRefresh from "@/components/AutoRefresh";
 import Board from "@/components/Board";
+import NewsFeed from "@/components/NewsFeed";
+import Spotlight from "@/components/Spotlight";
 import Setup from "@/components/Setup";
 import StatusPill from "@/components/StatusPill";
 import TradeFeed from "@/components/TradeFeed";
-import { getEquity, getLive, getRecentFills, getSettledCount, toSeries } from "@/lib/db";
+import { getEquity, getLive, getNews, getPolicy, getRecentFills, getRoster, getSettledCount, toSeries, withRoster } from "@/lib/db";
 import { money, pct, tone, usd } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -11,15 +13,18 @@ export const dynamic = "force-dynamic";
 export default async function Home() {
   let data;
   try {
-    const [live, equity, fills, settled] = await Promise.all([getLive(), getEquity(7), getRecentFills(25), getSettledCount()]);
-    data = { live, equity, fills, settled };
+    const [live, equity, fills, settled, roster, news, policy] = await Promise.all([
+      getLive(), getEquity(7), getRecentFills(25), getSettledCount(), getRoster(), getNews(40), getPolicy(),
+    ]);
+    data = { live, equity, fills, settled, roster, news, policy };
   } catch (e) {
     return <Setup error={String(e)} />;
   }
-  const { live, equity, fills, settled } = data;
+  const { live, equity, fills, settled, roster, news, policy } = data;
   if (!live) return <Setup error="The bot hasn't published a status yet. Is it running?" />;
 
-  const employees = live.employees;
+  const employees = withRoster(live.employees, roster);
+  const award = news.find((n) => n.kind === "award") ?? null;
   const totalPnl = employees.reduce((s, e) => s + (e.pnl ?? 0), 0);
   const totalFees = employees.reduce((s, e) => s + (e.fees ?? 0), 0);
   const best = [...employees].sort((a, b) => (b.pnl ?? 0) - (a.pnl ?? 0))[0];
@@ -36,6 +41,8 @@ export default async function Home() {
         ))}
       </div>
 
+      <Spotlight award={award} employees={employees} policy={policy} />
+
       <div className="grid tiles">
         <div className="card tile">
           <div className="label">Whole desk, paper P&amp;L</div>
@@ -49,7 +56,7 @@ export default async function Home() {
         </div>
         <div className="card tile">
           <div className="label">Beating the dart monkey</div>
-          <div className="value">{beatingDan ?? "–"} <span className="muted" style={{ fontSize: 15 }}>/ {employees.length - 1}</span></div>
+          <div className="value">{beatingDan ?? "–"} <span className="muted" style={{ fontSize: 15 }}>/ {employees.filter((e) => e.status !== "fired").length - 1}</span></div>
           <div className="note">🐒 Dan is at {money(dan?.pnl)}</div>
         </div>
         <div className="card tile">
@@ -61,11 +68,18 @@ export default async function Home() {
 
       <Board employees={employees} series={toSeries(equity, employees)} />
 
-      <section className="card">
-        <h2>Latest trades</h2>
-        <p className="sub">Paper fills against the live Kalshi orderbook, newest first.</p>
-        <TradeFeed fills={fills} employees={employees} />
-      </section>
+      <div className="grid two">
+        <section className="card">
+          <h2>Latest trades</h2>
+          <p className="sub">Paper fills against the live Kalshi orderbook, newest first.</p>
+          <TradeFeed fills={fills} employees={employees} />
+        </section>
+        <section className="card">
+          <h2>Office news</h2>
+          <p className="sub">Hires, promotions, awards, suspensions, and retunes.</p>
+          <NewsFeed items={news.filter((n) => n.kind !== "review").slice(0, 25)} employees={employees} />
+        </section>
+      </div>
     </div>
   );
 }

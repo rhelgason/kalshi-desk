@@ -194,8 +194,8 @@ WITH bets AS (
            f.fee / NULLIF(f.count, 0) AS fpc,
            CASE WHEN f.side = 'yes' THEN s.yes_value ELSE 1 - s.yes_value END AS outcome
     FROM fills f
-    JOIN settlements s ON s.strategy = f.strategy AND s.ticker = f.ticker
-    WHERE f.count > 0
+    JOIN settlements s ON s.strategy = f.strategy AND s.ticker = f.ticker AND s.season = f.season
+    WHERE f.count > 0 AND f.season = %(season)s
 )
 """
 
@@ -205,7 +205,8 @@ def accuracy_report_sql(ledger: Ledger, strategies: list[str]) -> list[AccuracyS
     Same numbers as accuracy_report(), aggregated inside Postgres so only a
     few summary rows cross the network instead of every fill.
     """
-    totals = ledger._rows(_BETS_CTE + """
+    season = str(int(ledger.season))
+    totals = ledger._rows((_BETS_CTE + """
         SELECT strategy, count(*) AS n, avg(outcome) AS hit_rate, avg(price) AS avg_price,
                avg((price - outcome) ^ 2) AS brier_market,
                avg((model_prob - outcome) ^ 2) FILTER (WHERE model_prob IS NOT NULL) AS brier_model,
@@ -213,15 +214,15 @@ def accuracy_report_sql(ledger: Ledger, strategies: list[str]) -> list[AccuracyS
                avg(model_prob - price - fpc) FILTER (WHERE model_prob IS NOT NULL) AS expected_edge,
                avg(outcome - price - fpc) AS realized_edge
         FROM bets GROUP BY strategy
-    """)
-    bins = ledger._rows(_BETS_CTE + """
+    """).replace("%(season)s", season))
+    bins = ledger._rows((_BETS_CTE + """
         SELECT strategy, 'model' AS kind, LEAST(9, floor(model_prob * 10))::int AS b,
                count(*) AS n, avg(model_prob) AS f, avg(outcome) AS o
         FROM bets WHERE model_prob IS NOT NULL GROUP BY strategy, b
         UNION ALL
         SELECT strategy, 'market', LEAST(9, floor(price * 10))::int, count(*), avg(price), avg(outcome)
         FROM bets GROUP BY strategy, 3
-    """)
+    """).replace("%(season)s", season))
     by_strategy: dict[str, dict[str, list[CalibrationBin]]] = {}
     for r in sorted(bins, key=lambda r: r["b"]):
         by_strategy.setdefault(r["strategy"], {"model": [], "market": []})[r["kind"]].append(

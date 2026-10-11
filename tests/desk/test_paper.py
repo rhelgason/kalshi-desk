@@ -156,3 +156,53 @@ def test_accuracy_report_skill_and_calibration():
 
     bins = calibration([(0.05, 0), (0.07, 1), (0.95, 1)])
     assert [(b.n, b.hit_rate) for b in bins] == [(2, 0.5), (1, 1.0)]
+
+
+class TestRestingOrders:
+    def setup_method(self):
+        from datetime import datetime, timezone
+        self.now = datetime(2026, 10, 20, 12, 0, tzinfo=timezone.utc)
+        self.ledger = Ledger(":memory:")
+        self.accounts = self.ledger.load_accounts(100, ["mm"])
+        self.broker = PaperBroker(self.ledger, self.accounts)
+
+    def _trade(self, minutes, taker, yes_price, count):
+        from datetime import timedelta
+        return {"created_time": (self.now + timedelta(minutes=minutes)).isoformat(), "taker_outcome_side": taker,
+                "yes_price_dollars": f"{yes_price:.4f}", "no_price_dollars": f"{1 - yes_price:.4f}",
+                "count_fp": f"{count:.2f}"}
+
+    def test_place_reserves_cash_and_fills_from_tape(self):
+        from datetime import timedelta
+        intent = TradeIntent("mm", [Leg("T", Side.YES, 0.40, 10), Leg("T", Side.NO, 0.55, 10)], "",
+                             post_only=True, ttl_seconds=600)
+        assert len(self.broker.place(intent, self.now)) == 2
+        assert len(self.accounts["mm"].resting) == 2
+        trades = {"T": [
+            self._trade(-1, "no", 0.39, 50),   # before we were placed: ignored
+            self._trade(1, "yes", 0.39, 50),   # taker BOUGHT yes: doesn't hit our yes bid
+            self._trade(2, "no", 0.39, 4),     # taker sold yes through our price: 4 for us
+            self._trade(3, "no", 0.40, 10),    # at our price: we get the queue share (3)
+            self._trade(4, "yes", 0.44, 20),   # taker bought YES at 0.44: hit a 0.56 NO bid, better than ours
+            self._trade(5, "yes", 0.46, 20),   # taker bought YES at 0.46: hit NO bids at 0.54, through our 0.55
+        ]}
+        fills = self.broker.match(trades, {}, self.now + timedelta(minutes=6))
+        assert [(f.side, f.count) for f in fills] == [("yes", 4), ("yes", 3), ("no", 10)]
+        acct = self.accounts["mm"]
+        # 7 YES + 10 NO net to 7 pairs ($7 back) and 3 NO left
+        assert acct.position("T") == (0, 3)
+        assert acct.realized_pnl == pytest.approx(7 * (1 - 0.40 - 0.55))
+        assert [o.remaining for o in self.broker.resting] == [3]
+
+    def test_cannot_overcommit_cash(self):
+        # $100 bankroll: the first $75 order rests, the second would need $75 of the remaining $25
+        intent = TradeIntent("mm", [Leg("A", Side.YES, 0.5, 150), Leg("B", Side.YES, 0.5, 150)], "",
+                             post_only=True, ttl_seconds=60)
+        assert [o.ticker for o in self.broker.place(intent, self.now)] == ["A"]
+
+    def test_orders_expire(self):
+        from datetime import timedelta
+        self.broker.place(TradeIntent("mm", [Leg("T", Side.YES, 0.4, 5)], "", post_only=True, ttl_seconds=60),
+                          self.now)
+        assert self.broker.expire(self.now + timedelta(seconds=30)) == 0
+        assert self.broker.expire(self.now + timedelta(seconds=90)) == 1

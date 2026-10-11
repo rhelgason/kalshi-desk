@@ -18,6 +18,7 @@ import json
 import logging
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from dataclasses import replace
 from typing import Optional
 
 from desk.config import DeskConfig
@@ -28,6 +29,9 @@ from desk.kalshi.models import Event, Market
 from desk.paper.broker import ExecutionResult, PaperBroker
 from desk.paper.ledger import Ledger
 from desk.paper.scoreboard import format_scoreboard, scoreboard_rows
+from desk import hr
+from desk.paper.account import PaperAccount
+from desk.strategies import REGISTRY, strategy_params
 from desk.strategies.base import Snapshot, Strategy, TradeIntent
 
 logger = logging.getLogger(__name__)
@@ -42,7 +46,7 @@ class Desk:
         self,
         config: DeskConfig,
         client: KalshiClient,
-        strategies: list[Strategy],
+        strategies: Optional[list[Strategy]],
         ledger: Ledger,
         feed: Optional[CryptoFeed] = None,
         record_path: Optional[str] = None,
@@ -52,15 +56,25 @@ class Desk:
         self.config = config
         self.client = client
         self.feed = feed
-        self.strategies = strategies
         self.ledger = ledger
         self.record_path = record_path
         self.max_intents_per_strategy = max_intents_per_strategy
 
+        # strategies=None means "staff the desk from the HR roster" (desk.yaml +
+        # website overrides, minus fired employees). Passing a list pins it.
+        self.manage_roster = strategies is None
+        self.strategies: list[Strategy] = list(strategies or [])
+        self._strategy_params: dict[str, dict] = {}
+        self.roster: dict[str, hr.EmployeeRecord] = {}
+        self.policy: dict = hr.load_policy(ledger)
+        self.inactive: set[str] = set()
+        self.multipliers: dict[str, float] = {}
+        self.season = ledger.season
+        self.broker = PaperBroker(ledger, accounts or {}, liquidity_share=config.liquidity_share)
+        self.sync_hr()
         if accounts is None:
-            accounts = ledger.load_accounts(config.starting_cash, [s.key for s in strategies])
-        self.broker = PaperBroker(ledger, accounts, liquidity_share=config.liquidity_share)
-        self.personas = {s.key: f"{s.persona.emoji} {s.persona.name} ({s.key})" for s in strategies}
+            self.broker.accounts = ledger.load_accounts(config.starting_cash, self._all_keys())
+            self._ensure_accounts()
 
         self.crypto_event_tickers: list[str] = []
         self.broad_markets: dict[str, Market] = {}
@@ -84,6 +98,73 @@ class Desk:
     @property
     def accounts(self):
         return self.broker.accounts
+
+    @property
+    def personas(self) -> dict[str, str]:
+        return {s.key: f"{s.persona.emoji} {s.persona.name} ({s.key})" for s in self.strategies}
+
+    # ------------------------------------------------------------------
+    # HR: who's working, at what size, with which settings
+    # ------------------------------------------------------------------
+
+    def _all_keys(self) -> list[str]:
+        return sorted({s.key for s in self.strategies} | set(self.roster))
+
+    def _ensure_accounts(self) -> None:
+        for k in self._all_keys():
+            if k not in self.accounts:
+                self.ledger.ensure_account(k, self.config.starting_cash)
+                self.accounts[k] = PaperAccount(k, self.config.starting_cash)
+
+    def sync_hr(self) -> None:
+        """Apply the latest roster and settings from the database (run before each tick)."""
+        season = self.ledger.refresh_season()
+        self.policy = hr.load_policy(self.ledger)
+        if season != self.season:
+            logger.info("Season %s started: everyone begins fresh", season)
+            self.season = season
+            self.broker.accounts = self.ledger.load_accounts(self.config.starting_cash, self._all_keys())
+            self.marks = {}
+            self.drawdowns = {} if self.drawdowns is not None else None
+        if not self.policy.get("last_review"):
+            self.policy["last_review"] = _now().isoformat()  # first review one period from now
+            hr.save_policy(self.ledger, self.policy)
+
+        keys = list(REGISTRY) if self.manage_roster else [s.key for s in self.strategies]
+        self.roster = hr.load_roster(self.ledger, keys)
+        hr.reinstate_expired(self.ledger, self.roster)
+
+        if self.manage_roster:
+            wanted = hr.effective_strategy_config(self.config.strategies, self.roster)
+            current = {s.key: s for s in self.strategies}
+            staff = []
+            for key, cls in REGISTRY.items():
+                params = dict(wanted.get(key) or {})
+                if not params.pop("enabled", True):
+                    continue
+                strat = current.get(key)
+                if strat is None or self._strategy_params.get(key) != params:
+                    try:
+                        fresh = cls(**params)
+                    except TypeError as e:  # a bad override from the website shouldn't stop the desk
+                        logger.error("Bad settings for %s (%s); keeping previous settings", key, e)
+                        if strat:
+                            staff.append(strat)
+                        continue
+                    if strat is not None:
+                        state = strat.get_state()
+                        if state is not None:
+                            fresh.set_state(state)
+                        logger.info("%s now using settings %s", key, params)
+                    strat = fresh
+                    self._strategy_params[key] = params
+                staff.append(strat)
+            self.strategies = staff
+
+        self.inactive = {k for k, r in self.roster.items() if not r.is_working()}
+        self.multipliers = {k: r.multiplier for k, r in self.roster.items()}
+        if self.broker.accounts:
+            self._ensure_accounts()
 
     # ------------------------------------------------------------------
     # Universe discovery
@@ -183,6 +264,8 @@ class Desk:
     async def run_strategies(self, snap: Snapshot) -> list[ExecutionResult]:
         results = []
         for strat in self.strategies:
+            if strat.key in self.inactive:
+                continue  # suspended: positions still settle, but no new bets
             acct = self.accounts[strat.key]
             try:
                 intents = strat.evaluate(snap, acct)
@@ -191,12 +274,38 @@ class Desk:
                 continue
             intents.sort(key=lambda i: i.expected_edge, reverse=True)
             for intent in intents[: self.max_intents_per_strategy]:
+                if intent.post_only:
+                    for o in self.broker.place(self._scaled(intent), _now()):
+                        logger.debug("%s resting %s %s x%g @ %.2f", strat.key, o.ticker, o.side, o.count, o.price)
+                    continue
                 result = await self.execute(intent, snap)
                 if result:
                     results.append(result)
         return results
 
+    def _scaled(self, intent: TradeIntent) -> TradeIntent:
+        mult = self.multipliers.get(intent.strategy, 1.0)
+        if mult == 1.0:
+            return intent
+        # Level-based sizing: promotions mean bigger bets with the same strategy
+        return replace(intent, legs=[replace(leg, count=max(1.0, round(leg.count * mult, 2))) for leg in intent.legs])
+
+    async def match_resting(self) -> None:
+        """Expire stale maker orders, then fill the rest from the live trade tape."""
+        now = _now()
+        self.broker.expire(now)
+        tickers = sorted({o.ticker for o in self.broker.resting})
+        if not tickers:
+            return
+        results = await asyncio.gather(*(self.client.get_trades(t, limit=100, max_items=100) for t in tickers),
+                                       return_exceptions=True)
+        trades = {t: r for t, r in zip(tickers, results) if not isinstance(r, Exception)}
+        fees = {t: self.fees.get(t.split("-", 1)[0]) or FeeSchedule() for t in tickers}
+        for f in self.broker.match(trades, fees, now):
+            logger.info("Maker fill: %s %s %gx @ %.2f", f.ticker, f.side.upper(), f.count, f.avg_price)
+
     async def execute(self, intent: TradeIntent, snap: Snapshot) -> Optional[ExecutionResult]:
+        intent = self._scaled(intent)
         try:
             books = await self.client.get_orderbooks(intent.tickers)
             fees = await self._fees_for(intent.tickers, snap)
@@ -276,6 +385,7 @@ class Desk:
 
     async def tick(self) -> list[ExecutionResult]:
         now = _now()
+        self.sync_hr()
         if (self._last_crypto is None
                 or (now - self._last_crypto).total_seconds() >= self.config.crypto_refresh_seconds):
             await self.refresh_crypto()
@@ -283,6 +393,7 @@ class Desk:
                 or (now - self._last_universe).total_seconds() >= self.config.universe_refresh_seconds):
             await self.refresh_broad()
 
+        await self.match_resting()
         snap = await self.build_snapshot()
         self.last_snapshot = snap
         self.update_marks(snap)
@@ -294,6 +405,11 @@ class Desk:
         if self._due(self._last_equity, self.config.equity_every_seconds, now):
             self.record_equity()
             self._last_equity = now
+        if hr.review_due(self.policy, now):
+            for a in hr.run_review(self.ledger, self.roster, self.accounts, self.policy, now):
+                logger.info("HR: %s", a)
+            self.inactive = {k for k, r in self.roster.items() if not r.is_working()}
+            self.multipliers = {k: r.multiplier for k, r in self.roster.items()}
 
         self.tick_count += 1
         if self._due(self._last_status, self.config.status_every_seconds, now):
@@ -309,15 +425,27 @@ class Desk:
         return last is None or (now - last).total_seconds() >= every
 
     def publish_status(self, snap: Optional[Snapshot] = None) -> None:
-        """Small JSON summary the web dashboard reads (scoreboard, positions, prices)."""
+        """Small JSON summary the web dashboard reads (scoreboard, HR, positions, prices)."""
         rows = {r.strategy: r for r in scoreboard_rows(self.accounts, self.ledger, self.marks,
                                                        drawdowns=self.drawdowns, briers=self.briers)}
+        live = {s.key: s for s in self.strategies}
         employees = []
-        for s in self.strategies:
-            r = rows.get(s.key)
+        for key, cls in REGISTRY.items():
+            rec = self.roster.get(key)
+            if rec is None:
+                continue
+            strat = live.get(key)
+            r = rows.get(key)
             employees.append({
-                "key": s.key, "name": s.persona.name, "title": s.persona.title,
-                "emoji": s.persona.emoji, "blurb": s.persona.blurb,
+                "key": key, "name": cls.persona.name, "title": cls.persona.title,
+                "emoji": cls.persona.emoji, "blurb": cls.persona.blurb,
+                "status": rec.status if rec.status != "suspended" or not rec.is_working() else "active",
+                "suspended_until": rec.suspended_until, "level": rec.level,
+                "level_title": hr.level_title(rec.level), "multiplier": rec.multiplier,
+                "strikes": rec.strikes, "awards": rec.awards, "control": rec.control,
+                "autotune": rec.autotune, "note": rec.note, "overrides": rec.params,
+                "params": strategy_params(strat) if strat else {},
+                "backtestable": getattr(cls, "backtestable", True),
                 **({
                     "starting_cash": r.starting_cash, "equity": r.equity, "pnl": r.pnl, "roi": r.roi,
                     "realized_pnl": r.realized_pnl, "open_positions": r.open_positions, "fills": r.fills,
@@ -340,12 +468,24 @@ class Desk:
         if snap:
             quotes = {k: {"spot": q.spot, "implied_vol": q.implied_vol, "realized_vol": q.realized_vol,
                           "momentum": q.momentum} for k, q in snap.underlyings.items()}
+        last_review = self.policy.get("last_review")
+        next_review = (datetime.fromisoformat(last_review) + timedelta(days=float(self.policy["review_days"]))
+                       if last_review else None)
         self.ledger.set_status("live", {
             "updated_at": _now().isoformat(),
             "started_at": self.started_at.isoformat(),
             "tick_count": self.tick_count,
             "env": self.config.env,
             "tick_seconds": self.config.tick_seconds,
+            "season": self.ledger.season,
+            "hr": {
+                "award_name": hr.award_name(float(self.policy["review_days"])),
+                "review_days": self.policy["review_days"],
+                "last_review": last_review,
+                "next_review": next_review.isoformat() if next_review else None,
+                "reserve": self.policy["reserve"],
+                "levels": [{"title": t, "multiplier": m} for t, m in hr.LEVELS],
+            },
             "employees": employees,
             "positions": positions,
             "underlyings": quotes,
