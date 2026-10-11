@@ -68,6 +68,10 @@ class Desk:
         self._last_universe: Optional[datetime] = None
         self._last_crypto: Optional[datetime] = None
         self._last_settle: Optional[datetime] = None
+        self._last_equity: Optional[datetime] = None
+        self._last_status: Optional[datetime] = None
+        self._last_accuracy: Optional[datetime] = None
+        self.started_at = _now()
         self.tick_count = 0
 
     @property
@@ -270,13 +274,76 @@ class Desk:
         self.record_snapshot(snap)
         results = await self.run_strategies(snap)
 
-        if (self._last_settle is None
-                or (now - self._last_settle).total_seconds() >= self.config.settle_check_seconds):
+        if self._due(self._last_settle, self.config.settle_check_seconds, now):
             await self.settle_check()
+        if self._due(self._last_equity, self.config.equity_every_seconds, now):
             self.record_equity()
+            self._last_equity = now
 
         self.tick_count += 1
+        if self._due(self._last_status, self.config.status_every_seconds, now):
+            self.publish_status(snap)
+            self._last_status = now
+        if self._due(self._last_accuracy, self.config.accuracy_every_seconds, now):
+            self.publish_accuracy()
+            self._last_accuracy = now
         return results
+
+    @staticmethod
+    def _due(last: Optional[datetime], every: float, now: datetime) -> bool:
+        return last is None or (now - last).total_seconds() >= every
+
+    def publish_status(self, snap: Optional[Snapshot] = None) -> None:
+        """Small JSON summary the web dashboard reads (scoreboard, positions, prices)."""
+        rows = {r.strategy: r for r in scoreboard_rows(self.accounts, self.ledger, self.marks)}
+        employees = []
+        for s in self.strategies:
+            r = rows.get(s.key)
+            employees.append({
+                "key": s.key, "name": s.persona.name, "title": s.persona.title,
+                "emoji": s.persona.emoji, "blurb": s.persona.blurb,
+                **({
+                    "starting_cash": r.starting_cash, "equity": r.equity, "pnl": r.pnl, "roi": r.roi,
+                    "realized_pnl": r.realized_pnl, "open_positions": r.open_positions, "fills": r.fills,
+                    "wins": r.wins, "losses": r.losses, "win_rate": r.win_rate, "fees": r.fees,
+                    "max_drawdown": r.max_drawdown, "brier": r.brier,
+                } if r else {}),
+            })
+        positions = []
+        for name, acct in self.accounts.items():
+            for t, p in acct.positions.items():
+                m = snap.markets.get(t) if snap else None
+                positions.append({
+                    "strategy": name, "ticker": t, "title": m.title if m else "",
+                    "subtitle": m.yes_sub_title if m else "",
+                    "yes": round(p.yes, 2), "no": round(p.no, 2),
+                    "cost": round(p.yes_cost + p.no_cost, 4), "mark": self.marks.get(t),
+                    "closes": m.close_time.isoformat() if m and m.close_time else None,
+                })
+        quotes = {}
+        if snap:
+            quotes = {k: {"spot": q.spot, "implied_vol": q.implied_vol, "realized_vol": q.realized_vol,
+                          "momentum": q.momentum} for k, q in snap.underlyings.items()}
+        self.ledger.set_status("live", {
+            "updated_at": _now().isoformat(),
+            "started_at": self.started_at.isoformat(),
+            "tick_count": self.tick_count,
+            "env": self.config.env,
+            "tick_seconds": self.config.tick_seconds,
+            "employees": employees,
+            "positions": positions,
+            "underlyings": quotes,
+            "crypto_events": self.crypto_event_tickers,
+        })
+
+    def publish_accuracy(self) -> None:
+        from desk.paper.accuracy import accuracy_report
+
+        summaries = accuracy_report(self.ledger, [s.key for s in self.strategies])
+        self.ledger.set_status("accuracy", {
+            "updated_at": _now().isoformat(),
+            "summaries": [s.to_dict() for s in summaries],
+        })
 
     def scoreboard(self) -> str:
         return format_scoreboard(scoreboard_rows(self.accounts, self.ledger, self.marks), self.personas)

@@ -269,7 +269,8 @@ async def fetch_dvol(http: httpx.AsyncClient, symbol: str, start: int, end: int)
 
 async def load_backtest_data(client: KalshiClient, series: list[str], days: float,
                              end: Optional[datetime] = None, use_cache: bool = True) -> BacktestData:
-    end = end or datetime.now(timezone.utc).replace(second=0, microsecond=0)
+    # Round to the hour so repeated runs within the hour reuse the download cache
+    end = end or datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
     start = end - timedelta(days=days)
     tag = f"{start:%Y%m%d%H%M}-{end:%Y%m%d%H%M}"
 

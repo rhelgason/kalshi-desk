@@ -24,7 +24,7 @@ from desk.feeds.crypto import CryptoFeed
 from desk.kalshi.auth import KalshiSigner
 from desk.kalshi.client import KalshiClient
 from desk.kalshi.models import Side
-from desk.paper.ledger import Ledger
+from desk.paper.ledger import Ledger, is_postgres
 from desk.paper.scoreboard import format_scoreboard, scoreboard_rows
 from desk.runner import Desk
 from desk.strategies import REGISTRY, build_strategies
@@ -202,9 +202,37 @@ async def cmd_backtest(cfg: DeskConfig, days: float, series: list[str], fill_del
                            for r in scoreboard_rows(bt.accounts, bt.ledger)],
             "accuracy": [s.to_dict() for s in summaries],
         }
+        summary["equity"] = {
+            s.key: [(ts, round(eq, 2)) for ts, eq in bt.ledger.equity_curve(s.key)] for s in strategies
+        }
+        summary["employees"] = [{"key": s.key, "name": s.persona.name, "emoji": s.persona.emoji}
+                                for s in strategies]
         (out / f"{stamp}.json").write_text(json.dumps(summary, indent=1, default=str))
+        if is_postgres(cfg.db_path):
+            Ledger(cfg.db_path).save_backtest(stamp, summary)
+            print("Uploaded summary to the dashboard database.")
         print(f"\nSaved to data/backtests/{stamp}.db and .json "
               f"(try: python -m desk accuracy --db data/backtests/{stamp}.db --employee fair_value)")
+
+
+def cmd_migrate(cfg: DeskConfig, source: str, upload_backtests: bool) -> None:
+    import json
+    from pathlib import Path
+
+    if not is_postgres(cfg.db_path):
+        print("Set DATABASE_URL (in .env) to your Postgres connection string first.")
+        return
+    dest = Ledger(cfg.db_path)
+    if Path(source).exists():
+        if dest.fills():
+            print("Destination already has fills; skipping ledger copy to avoid duplicates.")
+        else:
+            counts = Ledger(source).copy_to(dest)
+            print(f"Copied {source} -> Postgres: {counts}")
+    if upload_backtests:
+        for f in sorted(Path("data/backtests").glob("*.json")):
+            dest.save_backtest(f.stem, json.loads(f.read_text()))
+            print(f"Uploaded backtest {f.stem}")
 
 
 def cmd_employees() -> None:
@@ -245,6 +273,9 @@ def main(argv: list[str] | None = None) -> int:
     bt.add_argument("--depth", type=float, default=100, help="contracts assumed available at the best quote")
     bt.add_argument("--only", help="comma-separated employee keys to include")
     bt.add_argument("--no-save", action="store_true")
+    mig = sub.add_parser("migrate", help="copy the local ledger and backtests into Postgres (DATABASE_URL)")
+    mig.add_argument("--from", dest="source", default="data/desk.db")
+    mig.add_argument("--skip-backtests", action="store_true")
     sub.add_parser("employees")
     sub.add_parser("whoami")
     args = parser.parse_args(argv)
@@ -264,6 +295,8 @@ def main(argv: list[str] | None = None) -> int:
         elif args.cmd == "backtest":
             asyncio.run(cmd_backtest(cfg, args.days, args.series.split(","), args.fill_delay, args.depth,
                                      args.only.split(",") if args.only else None, not args.no_save))
+        elif args.cmd == "migrate":
+            cmd_migrate(cfg, args.source, not args.skip_backtests)
         elif args.cmd == "employees":
             cmd_employees()
         elif args.cmd == "whoami":
