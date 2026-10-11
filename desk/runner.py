@@ -312,7 +312,7 @@ class Desk:
         except KalshiAPIError as e:
             logger.warning("Couldn't fetch books for %s: %s", intent.tickers, e)
             return None
-        result = self.broker.execute(intent, books, fees)
+        result = self.broker.execute(intent, books, fees, signal_time=snap.now)
         who = self.personas.get(intent.strategy, intent.strategy)
         if result.filled:
             legs = ", ".join(f"{f.side.upper()} {f.count:g}x {f.ticker} @ {f.avg_price:.3f}" for f in result.fills)
@@ -513,7 +513,16 @@ class Desk:
             "updated_at": _now().isoformat(),
             "summaries": [s.to_dict() for s in summaries],
             "evidence": self.compute_evidence(),
+            "realism": self.compute_realism(),
         })
+
+    def compute_realism(self) -> dict[str, dict]:
+        """Fill reality check per employee this season."""
+        from desk.paper.realism import realism_report, realism_report_sql
+
+        keys = list(self.roster) or [s.key for s in self.strategies]
+        report = realism_report_sql(self.ledger, keys) if self.ledger.is_postgres else realism_report(self.ledger, keys)
+        return {r.strategy: r.to_dict() for r in report}
 
     def scoreboard(self) -> str:
         return format_scoreboard(scoreboard_rows(self.accounts, self.ledger, self.marks), self.personas)

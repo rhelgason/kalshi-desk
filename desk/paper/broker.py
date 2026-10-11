@@ -102,7 +102,8 @@ class PaperBroker:
         return Orderbook(book.ticker, shrink(book.yes_bids), shrink(book.no_bids), book.fetched_at)
 
     def execute(self, intent: TradeIntent, books: dict[str, Orderbook],
-                fees: dict[str, FeeSchedule], ts: Optional[str] = None) -> ExecutionResult:
+                fees: dict[str, FeeSchedule], ts: Optional[str] = None,
+                signal_time: Optional[datetime] = None) -> ExecutionResult:
         acct = self.accounts[intent.strategy]
         shrunk = {}
         for leg in intent.legs:
@@ -144,12 +145,19 @@ class PaperBroker:
             return ExecutionResult(intent, False, reason=f"insufficient cash (${acct.cash:.2f} < ${total:.2f})")
 
         result = ExecutionResult(intent, True)
+        latency = None
+        if signal_time is not None:
+            latency = int((datetime.now(signal_time.tzinfo) - signal_time).total_seconds() * 1000)
         for leg, fill, fee in legs:
             acct.apply_fill(leg.ticker, leg.side, fill.count, fill.avg_price, fee)
             self.ledger.record_fill(
                 intent.strategy, leg.ticker, leg.side, fill.count, fill.avg_price, fee,
                 intent_id=intent.intent_id, model_prob=intent.model_prob,
                 expected_edge=intent.expected_edge, reason=intent.reason, ts=ts,
+                # Reality check: the price the employee saw, and how many contracts
+                # were really on offer at or better than it (before our share haircut)
+                seen_price=leg.limit_price, book_depth=books[leg.ticker].depth_at_or_better(leg.side, leg.limit_price),
+                latency_ms=latency,
             )
             result.fills.append(LegFill(leg.ticker, leg.side.value, fill.count, fill.avg_price, fee))
         return result
@@ -211,7 +219,9 @@ class PaperBroker:
                 acct = self.accounts[o.strategy]
                 acct.apply_fill(o.ticker, Side(o.side), qty, o.price, fee)
                 self.ledger.record_fill(o.strategy, o.ticker, Side(o.side), qty, o.price, fee,
-                                        intent_id=o.order_id, reason=f"maker fill: {o.reason}")
+                                        intent_id=o.order_id, reason=f"maker fill: {o.reason}",
+                                        seen_price=o.price, book_depth=size,
+                                        latency_ms=int((when - placed).total_seconds() * 1000))
                 o.filled = round(o.filled + qty, 2)
                 fills.append(LegFill(o.ticker, o.side, qty, o.price, fee))
         self.resting = [o for o in self.resting if o.remaining >= 0.01]

@@ -148,11 +148,13 @@ CREATE INDEX IF NOT EXISTS settlements_strategy_ticker ON settlements(strategy, 
 # below only runs when this differs from what the database records, because
 # ALTER TABLE takes a full-table lock even when there's nothing to change, and
 # running it every 2 minutes can pile up behind a slow query.
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 TABLES = ("accounts", "fills", "settlements", "equity", "events", "status", "backtests", "transfers",
           "employees", "settings", "tuning_runs", "market_history", "price_history")
 SEASONED = ("fills", "settlements", "equity")
+# Fill reality check: what the employee saw vs. what the paper fill got
+FILL_REALISM = (("seen_price", "REAL"), ("book_depth", "REAL"), ("latency_ms", "INTEGER"))
 
 
 def _now() -> str:
@@ -225,6 +227,8 @@ class Ledger:
             self.db.executescript(SCHEMA)
             for table in SEASONED:
                 self._add_column(table, "season", "INTEGER NOT NULL DEFAULT 1")
+            for col, decl in FILL_REALISM:
+                self._add_column("fills", col, decl)
             if self.is_postgres:
                 # Supabase exposes the public schema through its auto-generated REST
                 # API. Row-level security with no policies blocks that API entirely;
@@ -288,13 +292,17 @@ class Ledger:
 
     def record_fill(self, strategy: str, ticker: str, side: Side, count: float, price: float, fee: float,
                     intent_id: str = "", model_prob: Optional[float] = None,
-                    expected_edge: Optional[float] = None, reason: str = "", ts: Optional[str] = None) -> None:
+                    expected_edge: Optional[float] = None, reason: str = "", ts: Optional[str] = None,
+                    seen_price: Optional[float] = None, book_depth: Optional[float] = None,
+                    latency_ms: Optional[int] = None) -> None:
         row = dict(ts=ts or _now(), strategy=strategy, intent_id=intent_id, ticker=ticker, side=side.value,
                    count=count, price=price, fee=fee, model_prob=model_prob, expected_edge=expected_edge,
-                   reason=reason, season=self.season)
+                   reason=reason, season=self.season, seen_price=seen_price, book_depth=book_depth,
+                   latency_ms=latency_ms)
         self._write(
             "INSERT INTO fills(ts, strategy, intent_id, ticker, side, count, price, fee, model_prob, expected_edge,"
-            " reason, season) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", tuple(row.values()),
+            " reason, season, seen_price, book_depth, latency_ms) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            tuple(row.values()),
         )
         if self._fills is not None:
             self._fills.append(row)
