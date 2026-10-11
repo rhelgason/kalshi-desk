@@ -19,9 +19,10 @@ export default async function EmployeePage({ params }: { params: Promise<{ key: 
   const { key } = await params;
   let data;
   try {
-    const [live, equity, fills, accuracy, roster, news, tuning, policy, admin] = await Promise.all([
-      getLive(), getEquity(14, key), getRecentFills(50, key), getAccuracy(), getRoster(), getNews(20, key),
-      getTuningRuns(key), getPolicy(), isAdmin(),
+    const policy = await getPolicy();
+    const [live, equity, fills, accuracy, roster, news, tuning, admin] = await Promise.all([
+      getLive(), getEquity(14, policy.season, key), getRecentFills(policy.season, 50, key), getAccuracy(), getRoster(),
+      getNews(20, key), getTuningRuns(key), isAdmin(),
     ]);
     data = { live, equity, fills, accuracy, roster, news, tuning, policy, admin };
   } catch (e) {

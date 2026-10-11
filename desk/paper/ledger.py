@@ -144,6 +144,12 @@ CREATE INDEX IF NOT EXISTS settlements_strategy_ticker ON settlements(strategy, 
 """
 
 
+# Bump when SCHEMA, SEASONED columns, or RLS setup change. On Postgres the setup
+# below only runs when this differs from what the database records, because
+# ALTER TABLE takes a full-table lock even when there's nothing to change, and
+# running it every 2 minutes can pile up behind a slow query.
+SCHEMA_VERSION = 3
+
 TABLES = ("accounts", "fills", "settlements", "equity", "events", "status", "backtests", "transfers",
           "employees", "settings", "tuning_runs", "market_history", "price_history")
 SEASONED = ("fills", "settlements", "equity")
@@ -215,15 +221,21 @@ class Ledger:
                 Path(self.url).parent.mkdir(parents=True, exist_ok=True)
             self.db = sqlite3.connect(self.url)
             self.db.row_factory = sqlite3.Row
-        self.db.executescript(SCHEMA)
-        for table in SEASONED:
-            self._add_column(table, "season", "INTEGER NOT NULL DEFAULT 1")
-        if self.is_postgres:
-            # Supabase exposes the public schema through its auto-generated REST
-            # API. Row-level security with no policies blocks that API entirely;
-            # the bot and dashboard connect as the table owner, which RLS skips.
-            for table in TABLES:
-                self.db.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")
+        if not (self.is_postgres and self._schema_is_current()):
+            self.db.executescript(SCHEMA)
+            for table in SEASONED:
+                self._add_column(table, "season", "INTEGER NOT NULL DEFAULT 1")
+            if self.is_postgres:
+                # Supabase exposes the public schema through its auto-generated REST
+                # API. Row-level security with no policies blocks that API entirely;
+                # the bot and dashboard connect as the table owner, which RLS skips.
+                for table in TABLES:
+                    self.db.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")
+                self.db.execute(
+                    "INSERT INTO settings(key, updated_at, data) VALUES ('schema', ?, ?)"
+                    " ON CONFLICT(key) DO UPDATE SET updated_at = excluded.updated_at, data = excluded.data",
+                    (_now(), json.dumps({"version": SCHEMA_VERSION})),
+                )
         # In-memory copies of append-only tables, loaded on first read. The bot
         # rebuilds its scoreboard every minute; rereading every row from a
         # remote database each time would waste bandwidth.
@@ -236,6 +248,12 @@ class Ledger:
     @property
     def is_postgres(self) -> bool:
         return isinstance(self.db, _Postgres)
+
+    def _schema_is_current(self) -> bool:
+        if self.db.execute("SELECT to_regclass('public.settings') AS t").fetchone()["t"] is None:
+            return False
+        row = self.db.execute("SELECT data FROM settings WHERE key = 'schema'").fetchone()
+        return bool(row) and json.loads(row["data"]).get("version") == SCHEMA_VERSION
 
     def _add_column(self, table: str, column: str, decl: str) -> None:
         if self.is_postgres:

@@ -13,8 +13,10 @@ export const dynamic = "force-dynamic";
 export default async function Home() {
   let data;
   try {
-    const [live, equity, fills, settled, roster, news, policy] = await Promise.all([
-      getLive(), getEquity(7), getRecentFills(25), getSettledCount(), getRoster(), getNews(40), getPolicy(),
+    const policy = await getPolicy();
+    const [live, equity, fills, settled, roster, news] = await Promise.all([
+      getLive(), getEquity(7, policy.season), getRecentFills(policy.season, 25), getSettledCount(policy.season),
+      getRoster(), getNews(40),
     ]);
     data = { live, equity, fills, settled, roster, news, policy };
   } catch (e) {
