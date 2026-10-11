@@ -263,6 +263,19 @@ class KalshiClient:
                 books[item["ticker"]] = Orderbook.from_api(item["ticker"], item)
         return books
 
+    async def get_candlesticks(self, tickers: list[str], start_ts: int, end_ts: int,
+                               period_minutes: int = 1) -> dict[str, list[dict]]:
+        """Price history for up to 100 markets per request (live, non-archived markets)."""
+        out: dict[str, list[dict]] = {}
+        for i in range(0, len(tickers), 100):
+            data = await self.request("GET", "/markets/candlesticks", params={
+                "market_tickers": ",".join(tickers[i:i + 100]),
+                "start_ts": start_ts, "end_ts": end_ts, "period_interval": period_minutes,
+            })
+            for item in data.get("markets") or []:
+                out[item["market_ticker"]] = item.get("candlesticks") or []
+        return out
+
     async def get_trades(self, ticker: str, limit: int = 100, max_items: Optional[int] = None) -> list[dict]:
         params = {"ticker": ticker, "limit": limit}
         return [t async for t in self._paginate("/markets/trades", "trades", params, max_items)]

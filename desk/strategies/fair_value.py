@@ -59,6 +59,7 @@ class CryptoFairValue(Strategy):
         momentum_weight: float = 0.0,
         momentum_window: int = 15,
         min_win_prob: float = 0.0,
+        max_per_settlement: int = 1,
     ):
         self.min_edge = min_edge
         self.min_price = min_price
@@ -74,6 +75,10 @@ class CryptoFairValue(Strategy):
         self.momentum_weight = momentum_weight
         self.momentum_window = momentum_window
         self.min_win_prob = min_win_prob
+        # Bets on the same coin settling at the same moment all ride on one number,
+        # so they win or lose together. One per settlement keeps each result an
+        # independent data point (and avoids piling into a single outcome).
+        self.max_per_settlement = max_per_settlement
 
     # Hooks subclasses override ------------------------------------------
 
@@ -108,9 +113,13 @@ class CryptoFairValue(Strategy):
             return None
         return prob_yes(market, self.spot_for(quote, vol, secs), vol, effective_years(secs))
 
+    @staticmethod
+    def settlement_key(market) -> tuple:
+        return (underlying_for_series(market.series_ticker), market.close_time)
+
     def evaluate(self, snap: Snapshot, account: AccountView) -> list[TradeIntent]:
         self.prepare(snap)
-        intents = []
+        candidates = []
         held = account.open_tickers
         for m in snap.markets.values():
             if not m.is_tradeable or m.ticker in held:
@@ -140,13 +149,28 @@ class CryptoFairValue(Strategy):
             count = math.floor(stake / price)
             if count < 1:
                 continue
-            intents.append(TradeIntent(
+            candidates.append((m, TradeIntent(
                 strategy=self.key,
                 legs=[Leg(m.ticker, side, price, count)],
                 reason=f"model {q:.0%} vs price {price:.2f} ({side.value.upper()} {m.yes_sub_title})",
                 model_prob=q,
                 expected_edge=edge,
-            ))
+            )))
+
+        # Best edge first, at most max_per_settlement per (coin, settle time),
+        # counting positions already held
+        used: dict[tuple, int] = {}
+        for t in held:
+            if t in snap.markets:
+                k = self.settlement_key(snap.markets[t])
+                used[k] = used.get(k, 0) + 1
+        intents = []
+        for m, intent in sorted(candidates, key=lambda c: c[1].expected_edge, reverse=True):
+            k = self.settlement_key(m)
+            if used.get(k, 0) >= self.max_per_settlement:
+                continue
+            used[k] = used.get(k, 0) + 1
+            intents.append(intent)
         return intents
 
 

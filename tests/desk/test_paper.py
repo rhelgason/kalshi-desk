@@ -40,6 +40,14 @@ class TestAccount:
         assert a.equity({}) == pytest.approx(100)  # unmarked = at cost
         assert a.equity({"T": 0.50}) == pytest.approx(101)
 
+    def test_unmarked_equity_counts_fees_as_spent(self):
+        a = PaperAccount("s", 100)
+        a.apply_fill("T", Side.YES, 10, 0.40, 0.17)
+        assert a.equity({}) == pytest.approx(100 - 0.17)
+        # Netting half the position releases half the remaining fee
+        a.apply_fill("T", Side.NO, 5, 0.60, 0)
+        assert a.positions["T"].yes_fees == pytest.approx(0.085)
+
 
 def _book(ticker, yes_ask, size, no_ask=None):
     """Book offering YES at `yes_ask` and NO at `no_ask` (default: 2c spread)."""
@@ -125,3 +133,26 @@ def test_scoreboard_and_brier():
 def test_max_drawdown():
     assert max_drawdown([100, 120, 90, 130]) == pytest.approx(0.25)
     assert max_drawdown([100, 101, 102]) == 0
+
+
+def test_accuracy_report_skill_and_calibration():
+    from desk.paper.accuracy import accuracy_report, calibration
+
+    ledger = Ledger(":memory:")
+    accounts = ledger.load_accounts(1000, ["good", "bad"])
+    broker = PaperBroker(ledger, accounts, liquidity_share=1.0)
+    # Both pay 0.50 for YES on 4 markets; 3 resolve YES. "good" said 75%, "bad" said 25%.
+    for i, result in enumerate([1.0, 1.0, 1.0, 0.0]):
+        t = f"M{i}"
+        for name, prob in (("good", 0.75), ("bad", 0.25)):
+            broker.execute(TradeIntent(name, [Leg(t, Side.YES, 0.5, 10)], "", model_prob=prob),
+                           {t: _book(t, 0.5, 100)}, {})
+        broker.settle(t, result)
+    good, bad = accuracy_report(ledger, ["good", "bad"])
+    assert good.n == 4 and good.hit_rate == 0.75
+    assert good.skill > 0 > bad.skill
+    assert good.realized_edge == pytest.approx(0.75 - 0.5 - 0.018)  # fee 0.18 on 10 contracts
+    assert good.model_bins[0].hit_rate == 0.75
+
+    bins = calibration([(0.05, 0), (0.07, 1), (0.95, 1)])
+    assert [(b.n, b.hit_rate) for b in bins] == [(2, 0.5), (1, 1.0)]

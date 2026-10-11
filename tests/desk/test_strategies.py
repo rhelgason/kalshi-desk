@@ -182,6 +182,14 @@ class TestFairValue:
         m = self._btc_market(100_000, 0.28, 0.30, close_in=timedelta(seconds=60))
         assert CryptoFairValue().evaluate(snap_of(m, underlyings={"BTC": btc_quote}), account) == []
 
+    def test_one_bet_per_settlement(self, account, btc_quote):
+        a = self._btc_market(100_000, 0.28, 0.30)
+        b = self._btc_market(100_100, 0.20, 0.22)
+        intents = CryptoFairValue().evaluate(snap_of(a, b, underlyings={"BTC": btc_quote}), account)
+        assert len(intents) == 1
+        assert len(CryptoFairValue(max_per_settlement=2).evaluate(
+            snap_of(a, b, underlyings={"BTC": btc_quote}), account)) == 2
+
     def test_skips_markets_already_held(self, account, btc_quote):
         m = self._btc_market(100_000, 0.28, 0.30)
         account.apply_fill(m.ticker, Side.YES, 1, 0.3, 0.01)

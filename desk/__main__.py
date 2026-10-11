@@ -4,6 +4,8 @@ Command line for the desk.
     python -m desk scan          one look at the market: what would each employee do?
     python -m desk paper         run the paper-trading loop (Ctrl+C to stop)
     python -m desk report        scoreboard from the saved ledger
+    python -m desk accuracy      are each employee's probabilities any good?
+    python -m desk backtest      replay the last N days of settled markets with every employee
     python -m desk employees     who works here
     python -m desk whoami        check your Kalshi API key (read-only)
 """
@@ -106,13 +108,103 @@ async def cmd_paper(cfg: DeskConfig, record: str | None) -> None:
         ledger.close()
 
 
-def cmd_report(cfg: DeskConfig) -> None:
+async def live_marks(cfg: DeskConfig, tickers: list[str]) -> dict[str, float]:
+    """Current YES mid (or last trade) for each ticker, from Kalshi's public API."""
+    marks: dict[str, float] = {}
+    async with KalshiClient(env=cfg.env, requests_per_second=cfg.requests_per_second) as client:
+        for i in range(0, len(tickers), 50):
+            for m in await client.get_markets(tickers=tickers[i:i + 50], exclude_multivariate=False):
+                if m.result in ("yes", "no"):
+                    marks[m.ticker] = 1.0 if m.result == "yes" else 0.0
+                elif m.mid is not None:
+                    marks[m.ticker] = m.mid
+                elif m.last_price:
+                    marks[m.ticker] = m.last_price
+    return marks
+
+
+def cmd_report(cfg: DeskConfig, offline: bool) -> None:
     ledger = Ledger(cfg.db_path)
     strategies = build_strategies(cfg.strategies)
     accounts = ledger.load_accounts(cfg.starting_cash, [s.key for s in strategies])
     personas = {s.key: f"{s.persona.emoji} {s.persona.name} ({s.key})" for s in strategies}
-    print(format_scoreboard(scoreboard_rows(accounts, ledger), personas))
-    print("\n(Open positions are valued at cost here; run `paper` for live marks.)")
+    marks = {}
+    if not offline:
+        held = sorted({t for a in accounts.values() for t in a.open_tickers})
+        try:
+            marks = asyncio.run(live_marks(cfg, held)) if held else {}
+        except Exception as e:  # network trouble shouldn't kill the report
+            print(f"(Couldn't fetch live prices: {e}; valuing open bets at price paid)")
+    print(format_scoreboard(scoreboard_rows(accounts, ledger, marks), personas))
+    if offline:
+        print("\n(Open bets valued at the price paid, fees counted as spent.)")
+    else:
+        print(f"\n(Open bets valued at current Kalshi prices: {len(marks)} markets.)")
+
+
+def cmd_accuracy(cfg: DeskConfig, db: str | None, detail: str | None) -> None:
+    from desk.paper.accuracy import accuracy_report, format_accuracy
+
+    ledger = Ledger(db or cfg.db_path)
+    strategies = build_strategies(cfg.strategies)
+    personas = {s.key: f"{s.persona.emoji} {s.persona.name} ({s.key})" for s in strategies}
+    summaries = accuracy_report(ledger, [s.key for s in strategies])
+    if not summaries:
+        print("No settled bets yet. Check back after some markets settle.")
+        return
+    print(format_accuracy(summaries, personas, detail))
+
+
+async def cmd_backtest(cfg: DeskConfig, days: float, series: list[str], fill_delay: int,
+                       depth: float, only: list[str] | None, save: bool) -> None:
+    import json
+    import sqlite3
+    import time
+    from datetime import datetime, timezone
+    from pathlib import Path
+
+    from desk.backtest import Backtest, BacktestConfig, load_backtest_data
+    from desk.paper.accuracy import accuracy_report, format_accuracy
+
+    strat_cfg = {k: dict(v or {}) for k, v in cfg.strategies.items()}
+    strat_cfg.setdefault("dart_monkey", {})["seed"] = 42  # reproducible darts
+    strategies = [s for s in build_strategies(strat_cfg) if not only or s.key in only]
+    personas = {s.key: f"{s.persona.emoji} {s.persona.name} ({s.key})" for s in strategies}
+
+    async with KalshiClient(env=cfg.env, requests_per_second=cfg.requests_per_second) as client:
+        data = await load_backtest_data(client, series, days)
+        fees = {s: await client.get_fee_schedule(s) for s in series}
+
+    bt = Backtest(data, strategies, BacktestConfig(
+        starting_cash=cfg.starting_cash, depth=depth, fill_delay=fill_delay, fees=fees))
+    t0 = time.time()
+    bt.run()
+    settled = sum(1 for hm in data.markets if hm.yes_value is not None)
+    print(f"\nBacktest: {days:g} days, {settled} settled markets in {', '.join(series)}, "
+          f"fill delay {fill_delay} min, depth {depth:g} ({time.time() - t0:.1f}s)")
+    print(f"{bt.stats['fills']} fills from {bt.stats['intents']} trade ideas\n")
+    print(format_scoreboard(scoreboard_rows(bt.accounts, bt.ledger), personas))
+    summaries = accuracy_report(bt.ledger, [s.key for s in strategies])
+    print()
+    print(format_accuracy(summaries, personas))
+
+    if save:
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+        out = Path("data/backtests")
+        out.mkdir(parents=True, exist_ok=True)
+        dest = sqlite3.connect(out / f"{stamp}.db")
+        bt.ledger.db.backup(dest)
+        dest.close()
+        summary = {
+            "id": stamp, "days": days, "series": series, "fill_delay": fill_delay, "depth": depth,
+            "settled_markets": settled, "stats": bt.stats,
+            "scoreboard": [{**r.__dict__, "pnl": r.pnl, "roi": r.roi, "win_rate": r.win_rate}
+                           for r in scoreboard_rows(bt.accounts, bt.ledger)],
+            "accuracy": [s.to_dict() for s in summaries],
+        }
+        (out / f"{stamp}.json").write_text(json.dumps(summary, indent=1, default=str))
+        print(f"\nSaved to data/backtests/{stamp}.db and .json "
+              f"(try: python -m desk accuracy --db data/backtests/{stamp}.db --employee fair_value)")
 
 
 def cmd_employees() -> None:
@@ -141,7 +233,18 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("scan")
     paper = sub.add_parser("paper")
     paper.add_argument("--record", help="also save market snapshots to this .jsonl.gz file")
-    sub.add_parser("report")
+    report = sub.add_parser("report")
+    report.add_argument("--offline", action="store_true", help="don't fetch live prices for open bets")
+    acc = sub.add_parser("accuracy", help="how good are each employee's probabilities?")
+    acc.add_argument("--db", help="ledger to analyze (default: the paper ledger)")
+    acc.add_argument("--employee", help="show calibration detail for one employee key")
+    bt = sub.add_parser("backtest", help="replay settled Kalshi markets with every employee")
+    bt.add_argument("--days", type=float, default=7)
+    bt.add_argument("--series", default="KXBTC15M,KXETH15M,KXSOL15M")
+    bt.add_argument("--fill-delay", type=int, default=0, help="minutes between seeing a price and trading")
+    bt.add_argument("--depth", type=float, default=100, help="contracts assumed available at the best quote")
+    bt.add_argument("--only", help="comma-separated employee keys to include")
+    bt.add_argument("--no-save", action="store_true")
     sub.add_parser("employees")
     sub.add_parser("whoami")
     args = parser.parse_args(argv)
@@ -155,7 +258,12 @@ def main(argv: list[str] | None = None) -> int:
         elif args.cmd == "paper":
             asyncio.run(cmd_paper(cfg, args.record))
         elif args.cmd == "report":
-            cmd_report(cfg)
+            cmd_report(cfg, args.offline)
+        elif args.cmd == "accuracy":
+            cmd_accuracy(cfg, args.db, args.employee)
+        elif args.cmd == "backtest":
+            asyncio.run(cmd_backtest(cfg, args.days, args.series.split(","), args.fill_delay, args.depth,
+                                     args.only.split(",") if args.only else None, not args.no_save))
         elif args.cmd == "employees":
             cmd_employees()
         elif args.cmd == "whoami":

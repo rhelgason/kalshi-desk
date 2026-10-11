@@ -20,6 +20,8 @@ class Position:
     no: float = 0.0
     yes_cost: float = 0.0  # dollars paid for the YES contracts still held (incl. fees)
     no_cost: float = 0.0
+    yes_fees: float = 0.0  # the fee part of yes_cost (already spent, never coming back)
+    no_fees: float = 0.0
 
     @property
     def is_flat(self) -> bool:
@@ -66,17 +68,22 @@ class PaperAccount:
         if side is Side.YES:
             pos.yes += count
             pos.yes_cost += cost
+            pos.yes_fees += fee
         else:
             pos.no += count
             pos.no_cost += cost
+            pos.no_fees += fee
         self._net(pos)
 
     def _net(self, pos: Position) -> None:
         pairs = min(pos.yes, pos.no)
         if pairs <= 0:
             return
-        yes_basis = pos.yes_cost * pairs / pos.yes
-        no_basis = pos.no_cost * pairs / pos.no
+        yes_frac, no_frac = pairs / pos.yes, pairs / pos.no
+        yes_basis = pos.yes_cost * yes_frac
+        no_basis = pos.no_cost * no_frac
+        pos.yes_fees -= pos.yes_fees * yes_frac
+        pos.no_fees -= pos.no_fees * no_frac
         self.cash += pairs
         self.realized_pnl += pairs - yes_basis - no_basis
         pos.yes -= pairs
@@ -113,7 +120,8 @@ class PaperAccount:
     def equity(self, marks: dict[str, float]) -> float:
         """
         Cash plus open positions valued at `marks` (ticker -> YES value).
-        Positions without a mark are valued at what we paid.
+        Positions without a mark are valued at the price paid, so fees already
+        spent show up as a loss right away.
         """
         value = self.cash
         for t, p in self.positions.items():
@@ -121,5 +129,5 @@ class PaperAccount:
                 y = marks[t]
                 value += p.yes * y + p.no * (1 - y)
             else:
-                value += p.yes_cost + p.no_cost
+                value += p.yes_cost + p.no_cost - p.yes_fees - p.no_fees
         return value
