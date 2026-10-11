@@ -32,12 +32,12 @@ class DeskConfig:
     broad_max_markets: int = 5000
 
     # How many of the busiest markets to pull trade tapes for (whale watching)
-    trades_watch_markets: int = 25
+    trades_watch_markets: int = 12
 
     # Paper fill realism
     liquidity_share: float = 0.5
 
-    requests_per_second: float = 10.0
+    requests_per_second: float = 6.0
 
     strategies: dict[str, dict[str, Any]] = field(default_factory=dict)
 
