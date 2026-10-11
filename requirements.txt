@@ -27,3 +27,4 @@ pytest-asyncio>=0.21.0
 black>=23.0.0
 mypy>=1.7.0
 
+cryptography>=42.0.0

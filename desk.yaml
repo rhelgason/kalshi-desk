@@ -1,0 +1,53 @@
+# Desk configuration (paper trading on live Kalshi data).
+# Every key is optional; defaults live in desk/config.py.
+
+env: prod                 # prod = real market data (still paper money). demo = Kalshi's sandbox
+db_path: data/desk.db     # the ledger: every paper trade and payout
+starting_cash: 1000       # paper dollars each employee starts with
+
+tick_seconds: 15          # how often everyone looks at the market
+crypto_series: [KXBTCD, KXBTC, KXETHD, KXETH]
+crypto_symbols: [BTC, ETH]
+crypto_horizon_hours: 6
+
+broad_scan: true          # also scan non-crypto markets closing within broad_max_days
+broad_max_days: 7
+
+liquidity_share: 0.5      # assume faster bots take half of every displayed order
+
+# One block per employee. Set enabled: false to give someone the day off.
+# Run `python -m desk employees` for the full roster.
+strategies:
+  cover_arb:              # 🧮 Risk-Free Rick - guaranteed-profit strike ladders
+    min_edge: 0.01        # at least 1c profit per $1 after fees
+    max_cost_per_trade: 100
+  bucket_arb:             # 🧩 Sudoku Sue - "pick one" events whose prices don't add up
+    min_edge: 0.01
+  fair_value:             # 🎓 The Professor - bitcoin/ether pricing model
+    min_edge: 0.04        # model must beat price by 4c after fees
+    implied_weight: 0.1   # how much to trust options-market volatility vs. recent moves
+    max_bet: 25
+  vol_arb:                # 📐 Vega Vinny - reads volatility from Kalshi itself
+    min_edge: 0.04
+  sniper:                 # 🎯 The Sniper - last 10 minutes, near-certain outcomes
+    min_win_prob: 0.95
+    max_bet: 50
+  momentum:               # 🏄 Momentum Mo - trends continue
+    momentum_weight: 1.0
+    momentum_window: 15   # minutes
+  mean_revert:            # 🪀 Rubber Band Randy - moves snap back
+    momentum_weight: -0.5
+    momentum_window: 5
+  longshot_fade:          # 🧊 Buzzkill Bill - bets against long shots
+    min_yes: 0.03
+    max_yes: 0.12
+    stake: 5
+  longshot_buy:           # 🎰 Long Shot Lenny - buys the long shots Bill fades
+    stake: 2
+  nickel_picker:          # 🪙 Nickel Nick - 92-97c near-sure things closing within 12h
+    stake: 10
+  whale_follow:           # 🐋 Whale Watcher Walt - follows big trades
+    min_notional: 250
+  dart_monkey:            # 🐒 Dart Monkey Dan - random bets; the benchmark to beat
+    bets_per_tick: 0.2
+    stake: 3
