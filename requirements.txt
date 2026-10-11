@@ -1,31 +1,7 @@
-# Polymarket Arbitrage Trading Bot
-# Python 3.10+ required
-
-# Async HTTP/WebSocket
+# Runtime dependencies for the desk (also what Vercel installs for the cloud bot).
+# Dev tools and the legacy Polymarket code's dependencies: requirements-dev.txt
 httpx>=0.25.0
-websockets>=12.0
-aiohttp>=3.9.0
-
-# Configuration
 pyyaml>=6.0.1
-
-# Data validation (optional but recommended)
-pydantic>=2.5.0
-
-# Utilities
 python-dotenv>=1.0.0
-
-# Web Dashboard
-fastapi>=0.104.0
-uvicorn>=0.24.0
-
-# Testing
-pytest>=7.4.0
-pytest-asyncio>=0.21.0
-
-# Development
-black>=23.0.0
-mypy>=1.7.0
-
 cryptography>=42.0.0
 psycopg[binary]>=3.2

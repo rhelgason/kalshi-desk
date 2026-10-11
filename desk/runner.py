@@ -47,6 +47,7 @@ class Desk:
         feed: Optional[CryptoFeed] = None,
         record_path: Optional[str] = None,
         max_intents_per_strategy: int = 10,
+        accounts: Optional[dict] = None,
     ):
         self.config = config
         self.client = client
@@ -56,7 +57,8 @@ class Desk:
         self.record_path = record_path
         self.max_intents_per_strategy = max_intents_per_strategy
 
-        accounts = ledger.load_accounts(config.starting_cash, [s.key for s in strategies])
+        if accounts is None:
+            accounts = ledger.load_accounts(config.starting_cash, [s.key for s in strategies])
         self.broker = PaperBroker(ledger, accounts, liquidity_share=config.liquidity_share)
         self.personas = {s.key: f"{s.persona.emoji} {s.persona.name} ({s.key})" for s in strategies}
 
@@ -67,6 +69,11 @@ class Desk:
         self.last_snapshot: Optional[Snapshot] = None
         self._last_universe: Optional[datetime] = None
         self._last_crypto: Optional[datetime] = None
+        self._last_slow: Optional[datetime] = None
+        # Optional precomputed metrics (the cloud runner keeps these in its saved
+        # state so it doesn't reread whole tables every run)
+        self.drawdowns: Optional[dict[str, float]] = None
+        self.briers: Optional[dict[str, Optional[float]]] = None
         self._last_settle: Optional[datetime] = None
         self._last_equity: Optional[datetime] = None
         self._last_status: Optional[datetime] = None
@@ -128,12 +135,20 @@ class Desk:
     # One tick
     # ------------------------------------------------------------------
 
+    def _events_to_fetch(self) -> list[str]:
+        """Fast series every tick; slow (hourly ladder) series only when due."""
+        now = _now()
+        slow_due = self._due(self._last_slow, self.config.slow_series_every_seconds, now)
+        if slow_due:
+            self._last_slow = now
+        slow = set(self.config.slow_series)
+        return [t for t in self.crypto_event_tickers if slow_due or t.split("-", 1)[0] not in slow]
+
     async def build_snapshot(self) -> Snapshot:
         events: list[Event] = []
-        results = await asyncio.gather(
-            *(self.client.get_event(t) for t in self.crypto_event_tickers), return_exceptions=True
-        )
-        for t, r in zip(self.crypto_event_tickers, results):
+        tickers = self._events_to_fetch()
+        results = await asyncio.gather(*(self.client.get_event(t) for t in tickers), return_exceptions=True)
+        for t, r in zip(tickers, results):
             if isinstance(r, Exception):
                 logger.warning("Failed to fetch event %s: %s", t, r)
             else:
@@ -295,7 +310,8 @@ class Desk:
 
     def publish_status(self, snap: Optional[Snapshot] = None) -> None:
         """Small JSON summary the web dashboard reads (scoreboard, positions, prices)."""
-        rows = {r.strategy: r for r in scoreboard_rows(self.accounts, self.ledger, self.marks)}
+        rows = {r.strategy: r for r in scoreboard_rows(self.accounts, self.ledger, self.marks,
+                                                       drawdowns=self.drawdowns, briers=self.briers)}
         employees = []
         for s in self.strategies:
             r = rows.get(s.key)
@@ -337,9 +353,13 @@ class Desk:
         })
 
     def publish_accuracy(self) -> None:
-        from desk.paper.accuracy import accuracy_report
+        from desk.paper.accuracy import accuracy_report, accuracy_report_sql
 
-        summaries = accuracy_report(self.ledger, [s.key for s in self.strategies])
+        keys = [s.key for s in self.strategies]
+        # On Postgres, aggregate in the database instead of downloading every fill
+        summaries = accuracy_report_sql(self.ledger, keys) if self.ledger.is_postgres else accuracy_report(self.ledger, keys)
+        if self.briers is not None:
+            self.briers.update({s.strategy: s.brier_model for s in summaries})
         self.ledger.set_status("accuracy", {
             "updated_at": _now().isoformat(),
             "summaries": [s.to_dict() for s in summaries],

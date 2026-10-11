@@ -71,3 +71,8 @@ config.live.yaml
 
 # Desk ledger, recordings
 data/
+
+# Vercel
+.vercel/
+.vercel
+.env*

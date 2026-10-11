@@ -35,6 +35,10 @@ class DeskConfig:
         "KXBTCD", "KXBTC", "KXETHD", "KXETH",  # hourly ladders and ranges
     ])
     crypto_symbols: list[str] = field(default_factory=lambda: ["BTC", "ETH", "SOL"])
+    # Hourly ladders have ~190 markets each and only matter to a few employees;
+    # the cloud runner fetches them less often to save processing time.
+    slow_series: list[str] = field(default_factory=lambda: ["KXBTCD", "KXBTC", "KXETHD", "KXETH"])
+    slow_series_every_seconds: float = 0.0
     crypto_horizon_hours: float = 6.0
 
     # Broad scan (for strategies that look beyond crypto)

@@ -209,6 +209,13 @@ class WhaleWatcherWalt(Strategy):
         self.max_positions = max_positions
         self._followed: set[str] = set()
 
+    def get_state(self) -> Optional[dict]:
+        # Trades older than the lookback are ignored anyway; keep the list short
+        return {"followed": list(self._followed)[-2000:]}
+
+    def set_state(self, state: dict) -> None:
+        self._followed = set(state.get("followed", []))
+
     def evaluate(self, snap: Snapshot, account: AccountView) -> list[TradeIntent]:
         held = account.open_tickers
         intents = []

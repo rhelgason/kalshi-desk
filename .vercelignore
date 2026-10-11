@@ -1,0 +1,17 @@
+# Only the desk package, its config, and Python metadata go to the cloud bot
+web/
+tests/
+data/
+deploy/
+core/
+polymarket_client/
+kalshi_client/
+dashboard/
+utils/
+.venv/
+*.mp4
+*.png
+main.py
+run_with_dashboard.py
+test_*.py
+config.yaml

@@ -119,5 +119,12 @@ class Strategy:
     def evaluate(self, snap: Snapshot, account: AccountView) -> list[TradeIntent]:
         raise NotImplementedError
 
+    # Memory that should survive between runs of the cloud runner (JSON-safe).
+    def get_state(self) -> Optional[dict]:
+        return None
+
+    def set_state(self, state: dict) -> None:
+        pass
+
     def __repr__(self) -> str:
         return f"<{type(self).__name__} {self.key}>"

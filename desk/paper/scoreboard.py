@@ -73,11 +73,20 @@ def brier_score(ledger: Ledger, strategy: str) -> Optional[float]:
 
 
 def scoreboard_rows(accounts: dict[str, PaperAccount], ledger: Ledger,
-                    marks: Optional[dict[str, float]] = None) -> list[ScoreRow]:
+                    marks: Optional[dict[str, float]] = None,
+                    drawdowns: Optional[dict[str, float]] = None,
+                    briers: Optional[dict[str, Optional[float]]] = None) -> list[ScoreRow]:
+    """
+    drawdowns/briers, when given, are used instead of reading the equity and
+    fills tables (the cloud runner tracks them incrementally).
+    """
     rows = []
     for name, acct in accounts.items():
-        curve = [e for _, e in ledger.equity_curve(name)]
         equity = acct.equity(marks or {})
+        if drawdowns is not None:
+            dd = drawdowns.get(name, 0.0)
+        else:
+            dd = max_drawdown([e for _, e in ledger.equity_curve(name)] + [equity])
         rows.append(ScoreRow(
             strategy=name,
             starting_cash=acct.starting_cash,
@@ -88,8 +97,8 @@ def scoreboard_rows(accounts: dict[str, PaperAccount], ledger: Ledger,
             wins=acct.settled_wins,
             losses=acct.settled_losses,
             fees=acct.fees_paid,
-            max_drawdown=max_drawdown(curve + [equity]),
-            brier=brier_score(ledger, name),
+            max_drawdown=dd,
+            brier=briers.get(name) if briers is not None else brier_score(ledger, name),
         ))
     rows.sort(key=lambda r: r.pnl, reverse=True)
     return rows

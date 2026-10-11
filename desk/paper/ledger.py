@@ -19,7 +19,7 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Optional
 
@@ -225,6 +225,25 @@ class Ledger:
             " ON CONFLICT(key) DO UPDATE SET updated_at = excluded.updated_at, data = excluded.data",
             (key, _now(), json.dumps(data, default=str)),
         )
+
+    def try_lease(self, name: str, seconds: float) -> bool:
+        """
+        Take a named lock that expires on its own after `seconds`, so a crashed
+        run can't block the next one forever. Returns False if someone else holds it.
+        """
+        now = datetime.now(timezone.utc)
+        stale = (now - timedelta(seconds=seconds)).isoformat()
+        rows = self._rows(
+            "INSERT INTO status(key, updated_at, data) VALUES (?, ?, '{}')"
+            " ON CONFLICT(key) DO UPDATE SET updated_at = excluded.updated_at"
+            " WHERE status.updated_at < ? RETURNING key",
+            (f"_lease:{name}", now.isoformat(), stale),
+        )
+        self.db.commit()
+        return bool(rows)
+
+    def release_lease(self, name: str) -> None:
+        self._write("DELETE FROM status WHERE key = ?", (f"_lease:{name}",))
 
     def save_backtest(self, run_id: str, summary: dict) -> None:
         self._write(
