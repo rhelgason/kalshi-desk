@@ -48,6 +48,8 @@ DEFAULT_POLICY: dict[str, Any] = {
     "review_days": 7,
     "min_settled": 20,  # settled bets needed in a period to be reviewed
     "promote_roi": 0.02,  # +2% of bankroll in the period
+    # ...and the skill-or-luck confidence (season to date) must be at least this
+    "promote_min_confidence": 0.8,
     "demote_roi": -0.03,
     "strikes_to_suspend": 2,
     "suspend_days": 7,
@@ -239,8 +241,16 @@ def review_due(policy: dict, now: Optional[datetime] = None) -> bool:
 
 
 def run_review(ledger: Ledger, roster: dict[str, EmployeeRecord], accounts: dict[str, PaperAccount],
-               policy: dict, now: Optional[datetime] = None) -> list[dict]:
-    """Apply the review rules. Mutates roster, accounts (bonuses) and policy; returns the actions taken."""
+               policy: dict, now: Optional[datetime] = None,
+               evidence: Optional[dict[str, dict]] = None) -> list[dict]:
+    """
+    Apply the review rules. Mutates roster, accounts (bonuses) and policy; returns the actions taken.
+
+    `evidence` maps employee -> skill-or-luck evidence (desk.paper.evidence). A good
+    period only earns a promotion if the season's evidence clears
+    `promote_min_confidence`; otherwise the employee is "held back" for more data.
+    """
+    evidence = evidence or {}
     now = now or _now()
     since = datetime.fromisoformat(policy["last_review"]) if policy.get("last_review") else now - timedelta(
         days=float(policy["review_days"]))
@@ -276,9 +286,15 @@ def run_review(ledger: Ledger, roster: dict[str, EmployeeRecord], accounts: dict
             act(k, "hr", action="suspended", why=f"bankroll fell {st.worst_drawdown:.0%} this period",
                 until=rec.suspended_until)
         elif st.roi >= float(policy["promote_roi"]) and rec.level < len(LEVELS) - 1:
-            rec.level += 1
-            rec.strikes = 0
-            act(k, "hr", action="promoted", to=level_title(rec.level), roi=round(st.roi, 4))
+            conf = float((evidence.get(k) or {}).get("confidence", 0.5))
+            if conf >= float(policy.get("promote_min_confidence", 0.0)):
+                rec.level += 1
+                rec.strikes = 0
+                act(k, "hr", action="promoted", to=level_title(rec.level), roi=round(st.roi, 4),
+                    confidence=round(conf, 3))
+            else:
+                act(k, "hr", action="held back", roi=round(st.roi, 4), confidence=round(conf, 3),
+                    why=f"good period, but only {conf:.0%} sure it isn't luck")
         elif st.roi <= float(policy["demote_roi"]):
             if rec.level > 0:
                 rec.level -= 1

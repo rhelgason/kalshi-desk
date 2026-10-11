@@ -70,7 +70,7 @@ def test_review_awards_promotes_demotes_and_suspends():
     _settle(led, "bad_intern", -50, n=25, ts=when)
     _settle(led, "dart_monkey", 500, n=25, ts=when)  # control group: never rewarded
 
-    actions = hr.run_review(led, roster, accounts, policy, NOW)
+    actions = hr.run_review(led, roster, accounts, policy, NOW, evidence={"star": {"confidence": 0.9}})
     kinds = {(a["strategy"], a["kind"], a.get("action")) for a in actions}
     assert ("star", "award", None) in kinds
     assert accounts["star"].cash == 1250 and policy["reserve"] == 4750
@@ -115,3 +115,18 @@ def test_new_season_starts_fresh_but_keeps_history():
     assert led.load_accounts(1000, ["a"])["a"].cash == 1000
     assert led.fills() == []
     assert len(led._rows("SELECT * FROM fills")) == 1  # season 1 kept
+
+
+def test_good_period_without_evidence_is_held_back():
+    led = Ledger(":memory:")
+    roster = hr.load_roster(led, ["lucky"])
+    policy = hr.load_policy(led)
+    policy["last_review"] = (NOW - timedelta(days=7)).isoformat()
+    _settle(led, "lucky", 80, n=25, ts=(NOW - timedelta(days=1)).isoformat())
+    actions = hr.run_review(led, roster, {"lucky": PaperAccount("lucky", 1000)}, policy, NOW,
+                            evidence={"lucky": {"confidence": 0.62}})
+    assert roster["lucky"].level == 1
+    held = [a for a in actions if a.get("action") == "held back"]
+    assert held and "62%" in held[0]["why"]
+    # Still wins the award: that's about the period, not proof of skill
+    assert any(a["kind"] == "award" for a in actions)

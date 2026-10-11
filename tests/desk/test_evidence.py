@@ -49,3 +49,17 @@ def test_reliable_loser():
 def test_bets_needed_estimate():
     e = evidence_from_stats("s", n=MIN_BETS, mean=0.02, sd=0.4, contracts=300, pnl=6)
     assert e.bets_needed == pytest.approx((1.645 * 0.4 / 0.02) ** 2, rel=0.01)
+
+
+def test_ledger_evidence_report_matches_bets():
+    from desk.kalshi.models import Side
+    from desk.paper.accuracy import evidence_report
+    from desk.paper.ledger import Ledger
+
+    led = Ledger(":memory:")
+    for i in range(40):
+        t = f"T{i}"
+        led.record_fill("s", t, Side.YES, 10, 0.5, 0.0)
+        led.record_settlement("s", t, 1.0 if i % 5 < 3 else 0.0, 0)
+    (e,) = evidence_report(led, ["s"])
+    assert e.bets == 40 and e.edge == pytest.approx(0.10)

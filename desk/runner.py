@@ -406,7 +406,8 @@ class Desk:
             self.record_equity()
             self._last_equity = now
         if hr.review_due(self.policy, now):
-            for a in hr.run_review(self.ledger, self.roster, self.accounts, self.policy, now):
+            for a in hr.run_review(self.ledger, self.roster, self.accounts, self.policy, now,
+                                   evidence=self.compute_evidence()):
                 logger.info("HR: %s", a)
             self.inactive = {k for k, r in self.roster.items() if not r.is_working()}
             self.multipliers = {k: r.multiplier for k, r in self.roster.items()}
@@ -492,10 +493,18 @@ class Desk:
             "crypto_events": self.crypto_event_tickers,
         })
 
+    def compute_evidence(self) -> dict[str, dict]:
+        """Skill-or-luck evidence for every employee this season."""
+        from desk.paper.accuracy import evidence_report, evidence_report_sql
+
+        keys = list(self.roster) or [s.key for s in self.strategies]
+        report = evidence_report_sql(self.ledger, keys) if self.ledger.is_postgres else evidence_report(self.ledger, keys)
+        return {e.strategy: e.to_dict() for e in report}
+
     def publish_accuracy(self) -> None:
         from desk.paper.accuracy import accuracy_report, accuracy_report_sql
 
-        keys = [s.key for s in self.strategies]
+        keys = list(self.roster) or [s.key for s in self.strategies]
         # On Postgres, aggregate in the database instead of downloading every fill
         summaries = accuracy_report_sql(self.ledger, keys) if self.ledger.is_postgres else accuracy_report(self.ledger, keys)
         if self.briers is not None:
@@ -503,6 +512,7 @@ class Desk:
         self.ledger.set_status("accuracy", {
             "updated_at": _now().isoformat(),
             "summaries": [s.to_dict() for s in summaries],
+            "evidence": self.compute_evidence(),
         })
 
     def scoreboard(self) -> str:

@@ -190,7 +190,7 @@ def format_accuracy(summaries: list[AccuracySummary], personas: Optional[dict[st
 
 _BETS_CTE = """
 WITH bets AS (
-    SELECT f.strategy, f.price, f.model_prob,
+    SELECT f.strategy, f.price, f.model_prob, f.count,
            f.fee / NULLIF(f.count, 0) AS fpc,
            CASE WHEN f.side = 'yes' THEN s.yes_value ELSE 1 - s.yes_value END AS outcome
     FROM fills f
@@ -244,3 +244,26 @@ def accuracy_report_sql(ledger: Ledger, strategies: list[str]) -> list[AccuracyS
             model_bins=b["model"], market_bins=b["market"],
         ))
     return out
+
+
+def evidence_report(ledger: Ledger, strategies: list[str]) -> list:
+    """Skill-or-luck evidence per employee (current season), in Python."""
+    from desk.paper.evidence import evidence
+
+    bets = settled_bets(ledger)
+    return [evidence(bets, s) for s in strategies if any(b.strategy == s for b in bets)]
+
+
+def evidence_report_sql(ledger: Ledger, strategies: list[str]) -> list:
+    """Same as evidence_report(), aggregated inside Postgres."""
+    from desk.paper.evidence import evidence_from_stats
+
+    rows = ledger._rows((_BETS_CTE + """
+        SELECT strategy, count(*) AS n, avg(outcome - price - fpc) AS mean,
+               coalesce(stddev_samp(outcome - price - fpc), 0) AS sd,
+               sum(count) AS contracts, sum(count * (outcome - price - fpc)) AS pnl
+        FROM bets GROUP BY strategy
+    """).replace("%(season)s", str(int(ledger.season))))
+    return [evidence_from_stats(r["strategy"], int(r["n"]), float(r["mean"]), float(r["sd"]),
+                                float(r["contracts"]), float(r["pnl"]))
+            for r in rows if r["strategy"] in strategies]
