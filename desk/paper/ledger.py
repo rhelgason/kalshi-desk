@@ -188,7 +188,9 @@ class _Postgres:
         sql = sql.replace(" REAL", " DOUBLE PRECISION")
         if "INSERT OR IGNORE" in sql:
             sql = sql.replace("INSERT OR IGNORE", "INSERT") + " ON CONFLICT DO NOTHING"
-        return sql.replace("?", "%s")
+        # psycopg treats % as the start of a placeholder: escape literal ones
+        # (e.g. LIKE 'maker fill%') before turning ? into %s
+        return sql.replace("%", "%%").replace("?", "%s")
 
     def execute(self, sql: str, params: tuple = ()):
         sql = self.translate(sql)

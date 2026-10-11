@@ -5,7 +5,7 @@ import Spotlight from "@/components/Spotlight";
 import Setup from "@/components/Setup";
 import StatusPill from "@/components/StatusPill";
 import TradeFeed from "@/components/TradeFeed";
-import { getEquity, getLive, getNews, getPolicy, getRecentFills, getRoster, getSettledCount, toSeries, withRoster } from "@/lib/db";
+import { getAnalysis, getEquity, getLive, getNews, getPolicy, getRecentFills, getRoster, getSettledCount, toSeries, withRoster } from "@/lib/db";
 import { money, pct, tone, usd } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -14,15 +14,15 @@ export default async function Home() {
   let data;
   try {
     const policy = await getPolicy();
-    const [live, equity, fills, settled, roster, news] = await Promise.all([
+    const [live, equity, fills, settled, roster, news, analysis] = await Promise.all([
       getLive(), getEquity(7, policy.season), getRecentFills(policy.season, 25), getSettledCount(policy.season),
-      getRoster(), getNews(40),
+      getRoster(), getNews(40), getAnalysis(),
     ]);
-    data = { live, equity, fills, settled, roster, news, policy };
+    data = { live, equity, fills, settled, roster, news, policy, analysis };
   } catch (e) {
     return <Setup error={String(e)} />;
   }
-  const { live, equity, fills, settled, roster, news, policy } = data;
+  const { live, equity, fills, settled, roster, news, policy, analysis } = data;
   if (!live) return <Setup error="The bot hasn't published a status yet. Is it running?" />;
 
   const employees = withRoster(live.employees, roster);
@@ -68,7 +68,7 @@ export default async function Home() {
         </div>
       </div>
 
-      <Board employees={employees} series={toSeries(equity, employees)} />
+      <Board employees={employees} series={toSeries(equity, employees)} evidence={analysis.evidence} />
 
       <div className="grid two">
         <section className="card">

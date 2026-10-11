@@ -61,3 +61,9 @@ class TestAuth:
     def test_from_env_missing_returns_none(self, monkeypatch):
         monkeypatch.delenv("KALSHI_API_KEY_ID", raising=False)
         assert KalshiSigner.from_env() is None
+
+
+def test_postgres_translation_escapes_percent():
+    from desk.paper.ledger import _Postgres
+    sql = _Postgres.translate("SELECT 1 FROM fills WHERE reason LIKE 'maker fill%' AND season = ?")
+    assert sql == "SELECT 1 FROM fills WHERE reason LIKE 'maker fill%%' AND season = %s"

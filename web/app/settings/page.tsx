@@ -54,6 +54,13 @@ export default async function Handbook() {
           when due (every {at.every_hours}h{at.enabled ? "" : ", currently paused"}).
         </p>
         <dl className="kv">
+          <dt>Backtests assume</dt>
+          <dd>
+            {policy.realism.depth} contracts available at the best price
+            {policy.realism.samples
+              ? ` (measured from ${policy.realism.samples} live trades)`
+              : " (default until enough live trades are measured)"}
+          </dd>
           <dt>Last job</dt><dd>{jobs ? `${ago(jobs.finished_at)} (${jobs.seconds}s)` : "hasn't run yet"}</dd>
           <dt>Last retune</dt><dd>{at.last_run ? ago(at.last_run) : "never"}</dd>
           <dt>Retune requested</dt><dd>{at.requested_at ? `yes, ${ago(at.requested_at)}` : "no"}</dd>

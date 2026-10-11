@@ -45,6 +45,7 @@ function describe(n: NewsItem, name: React.ReactNode): { icon: string; text: Rea
         promoted: ["⬆️", <>{name} was promoted to <strong>{d.to}</strong>{d.roi != null ? ` (${(d.roi * 100).toFixed(1)}% this period)` : ""}</>],
         demoted: ["⬇️", <>{name} was demoted to {d.to}{d.roi != null ? ` (${(d.roi * 100).toFixed(1)}% this period)` : ""}</>],
         strike: ["⚠️", <>{name} got strike {d.strikes} for a bad period</>],
+        "held back": ["⏳", <>{name} had a good period but was held back from promotion: {d.why}</>],
         suspended: ["⏸", <>{name} was suspended {d.until === "indefinitely" ? "indefinitely" : `until ${fmtDate(d.until)}`}: {d.why}</>],
         reinstated: ["▶️", <>{name} is back at work{d.why ? ` (${d.why})` : ""}</>],
         fired: ["🚪", <>{name} was fired: {d.why}</>],

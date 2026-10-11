@@ -10,6 +10,7 @@ const FIELDS: Field[] = [
   { key: "review_days", label: "Review every (days)", help: "7 = Employee of the Week, 28+ = of the Month", kind: "number" },
   { key: "min_settled", label: "Bets needed to be reviewed", help: "Settled bets in the period", kind: "number" },
   { key: "promote_roi", label: "Promote at", help: "Period return on bankroll", kind: "percent" },
+  { key: "promote_min_confidence", label: "Promotion needs skill confidence", help: "Season-to-date 'skill or luck?' score", kind: "percent" },
   { key: "demote_roi", label: "Demote at", help: "Period return on bankroll", kind: "percent" },
   { key: "strikes_to_suspend", label: "Strikes before suspension", help: "Bad periods while already an Intern", kind: "number" },
   { key: "suspend_days", label: "Suspension length (days)", help: "", kind: "number" },
@@ -23,6 +24,7 @@ const FIELDS: Field[] = [
   { key: "lookback_days", label: "History to tune on (days)", help: "First 2/3 picks, last 1/3 checks", kind: "number", group: "autotune" },
   { key: "min_test_bets", label: "Minimum test bets", help: "Evidence needed before switching", kind: "number", group: "autotune" },
   { key: "min_improvement", label: "Minimum improvement ($)", help: "Test-period gain needed to switch", kind: "number", group: "autotune" },
+  { key: "min_confidence", label: "Minimum test confidence", help: "'Skill or luck?' score on unseen data", kind: "percent", group: "autotune" },
 ];
 
 /** The desk's rules. Everyone can read them; only the manager can edit. */

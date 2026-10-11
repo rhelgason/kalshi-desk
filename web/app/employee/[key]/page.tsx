@@ -5,12 +5,13 @@ import AdminPanel from "@/components/AdminPanel";
 import AutoRefresh from "@/components/AutoRefresh";
 import { LevelBadge, StatusBadge, Trophies } from "@/components/Badges";
 import NewsFeed from "@/components/NewsFeed";
+import { RealityCheck, SkillCheck } from "@/components/Evidence";
 import CalibrationChart from "@/components/CalibrationChart";
 import EquityChart from "@/components/EquityChart";
 import Setup from "@/components/Setup";
 import TradeFeed from "@/components/TradeFeed";
 import { isAdmin } from "@/lib/admin";
-import { getAccuracy, getEquity, getLive, getNews, getPolicy, getRecentFills, getRoster, getTuningRuns, toSeries, withRoster } from "@/lib/db";
+import { getAnalysis, getEquity, getLive, getNews, getPolicy, getRecentFills, getRoster, getTuningRuns, toSeries, withRoster } from "@/lib/db";
 import { cents, money, pct, tone } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -20,11 +21,12 @@ export default async function EmployeePage({ params }: { params: Promise<{ key: 
   let data;
   try {
     const policy = await getPolicy();
-    const [live, equity, fills, accuracy, roster, news, tuning, admin] = await Promise.all([
-      getLive(), getEquity(14, policy.season, key), getRecentFills(policy.season, 50, key), getAccuracy(), getRoster(),
+    const [live, equity, fills, analysis, roster, news, tuning, admin] = await Promise.all([
+      getLive(), getEquity(14, policy.season, key), getRecentFills(policy.season, 50, key), getAnalysis(), getRoster(),
       getNews(20, key), getTuningRuns(key), isAdmin(),
     ]);
-    data = { live, equity, fills, accuracy, roster, news, tuning, policy, admin };
+    data = { live, equity, fills, accuracy: analysis.accuracy, evidence: analysis.evidence, realism: analysis.realism,
+             roster, news, tuning, policy, admin };
   } catch (e) {
     return <Setup error={String(e)} />;
   }
@@ -69,6 +71,22 @@ export default async function EmployeePage({ params }: { params: Promise<{ key: 
             <div className={`value ${cls ?? ""}`}>{value}</div>
           </div>
         ))}
+      </div>
+
+      <div className="grid two">
+        <section className="card">
+          <h2>Skill check: is it skill or luck?</h2>
+          <p className="sub">
+            Based on every settled bet this season. Promotions need at least{" "}
+            {Math.round(data.policy.promote_min_confidence * 100)}% here.
+          </p>
+          <SkillCheck e={data.evidence[key]} />
+        </section>
+        <section className="card">
+          <h2>Reality check: are the paper trades believable?</h2>
+          <p className="sub">Compares each paper trade with what the real order book offered at that moment.</p>
+          <RealityCheck r={data.realism[key]} />
+        </section>
       </div>
 
       <section className="card">

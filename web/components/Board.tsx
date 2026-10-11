@@ -2,14 +2,17 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import type { Employee, Series } from "@/lib/types";
+import type { Employee, Evidence, Series } from "@/lib/types";
 import { money, pct, tone } from "@/lib/format";
 import { LevelBadge, StatusBadge, Trophies } from "./Badges";
+import { SkillBadge } from "./Evidence";
 import EquityChart from "./EquityChart";
 import Sparkline from "./Sparkline";
 
 /** The equity chart and the leaderboard, wired so hovering one highlights the other. */
-export default function Board({ employees, series }: { employees: Employee[]; series: Series[] }) {
+export default function Board({ employees, series, evidence = {} }: {
+  employees: Employee[]; series: Series[]; evidence?: Record<string, Evidence>;
+}) {
   const [hot, setHot] = useState<string | null>(null);
   const ranked = [...employees].filter((e) => e.status !== "fired").sort((a, b) => (b.pnl ?? 0) - (a.pnl ?? 0));
   const alumni = employees.filter((e) => e.status === "fired");
@@ -35,6 +38,7 @@ export default function Board({ employees, series }: { employees: Employee[]; se
                 <th className="num">P&amp;L</th>
                 <th className="num">ROI</th>
                 <th>Trend</th>
+                <th>Skill or luck?</th>
                 <th className="num">Win rate</th>
                 <th className="num">Bets</th>
                 <th className="num">Open</th>
@@ -62,6 +66,7 @@ export default function Board({ employees, series }: { employees: Employee[]; se
                   <td className={`num ${tone(e.pnl)}`}>{money(e.pnl)}</td>
                   <td className={`num ${tone(e.roi)}`}>{pct(e.roi, true)}</td>
                   <td><Sparkline points={byKey[e.key] ?? []} /></td>
+                  <td><SkillBadge e={evidence[e.key]} /></td>
                   <td className="num">{e.win_rate == null ? "–" : pct(e.win_rate, false, 0)}</td>
                   <td className="num">{e.fills ?? 0}</td>
                   <td className="num">{e.open_positions ?? 0}</td>
