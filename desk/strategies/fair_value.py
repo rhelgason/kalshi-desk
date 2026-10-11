@@ -60,6 +60,7 @@ class CryptoFairValue(Strategy):
         momentum_window: int = 15,
         min_win_prob: float = 0.0,
         max_per_settlement: int = 1,
+        market_weight: float = 0.0,
     ):
         self.min_edge = min_edge
         self.min_price = min_price
@@ -79,6 +80,11 @@ class CryptoFairValue(Strategy):
         # so they win or lose together. One per settlement keeps each result an
         # independent data point (and avoids piling into a single outcome).
         self.max_per_settlement = max_per_settlement
+        # Kalshi's prices are well calibrated, so blend toward them:
+        # final = market_weight x market mid + (1 - market_weight) x model.
+        # 0 trusts the formula completely; 0.8 means "the market is mostly right,
+        # but I'll bet when my model disagrees a lot".
+        self.market_weight = market_weight
 
     # Hooks subclasses override ------------------------------------------
 
@@ -111,7 +117,10 @@ class CryptoFairValue(Strategy):
         vol = self.vol_for(market, snap, quote)
         if not vol:
             return None
-        return prob_yes(market, self.spot_for(quote, vol, secs), vol, effective_years(secs))
+        p = prob_yes(market, self.spot_for(quote, vol, secs), vol, effective_years(secs))
+        if p is None or not self.market_weight or market.mid is None:
+            return p
+        return self.market_weight * market.mid + (1 - self.market_weight) * p
 
     @staticmethod
     def settlement_key(market) -> tuple:

@@ -6,6 +6,7 @@ Command line for the desk.
     python -m desk report        scoreboard from the saved ledger
     python -m desk accuracy      are each employee's probabilities any good?
     python -m desk backtest      replay the last N days of settled markets with every employee
+    python -m desk tune EMPLOYEE --set param=v1,v2   search settings with a train/test split
     python -m desk employees     who works here
     python -m desk whoami        check your Kalshi API key (read-only)
 """
@@ -235,6 +236,39 @@ def cmd_migrate(cfg: DeskConfig, source: str, upload_backtests: bool) -> None:
             print(f"Uploaded backtest {f.stem}")
 
 
+async def cmd_tune(cfg: DeskConfig, employee: str, sets: list[str], days: float, series: list[str],
+                   fill_delay: int, depth: float, top: int) -> None:
+    import json
+    from datetime import datetime, timezone
+    from pathlib import Path
+
+    from desk.backtest import BacktestConfig, load_backtest_data
+    from desk.backtest.tune import format_tune, parse_grid, tune
+
+    if employee not in REGISTRY:
+        print(f"Unknown employee {employee!r}. Try: {', '.join(REGISTRY)}")
+        return
+    base = {k: v for k, v in (cfg.strategies.get(employee) or {}).items() if k != "enabled"}
+    if employee == "dart_monkey":
+        base["seed"] = 42
+    grid = parse_grid(sets)
+    async with KalshiClient(env=cfg.env, requests_per_second=cfg.requests_per_second) as client:
+        data = await load_backtest_data(client, series, days)
+        fees = {s: await client.get_fee_schedule(s) for s in series}
+    bt_cfg = BacktestConfig(starting_cash=cfg.starting_cash, depth=depth, fill_delay=fill_delay, fees=fees)
+    rows = tune(employee, base, grid, data, bt_cfg)
+    persona = REGISTRY[employee].persona
+    print(f"\nTuning {persona.emoji} {persona.name} on {days:g} days of {', '.join(series)} "
+          f"(train first 2/3, test last 1/3; fill delay {fill_delay} min)")
+    print(f"Base settings from desk.yaml: {base or '(defaults)'}\n")
+    print(format_tune(rows, top))
+    out = Path("data/tuning")
+    out.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    (out / f"{employee}-{stamp}.json").write_text(json.dumps(
+        [{"params": r.params, "train": r.train.__dict__, "test": r.test.__dict__} for r in rows], indent=1))
+
+
 def cmd_employees() -> None:
     for key, cls in REGISTRY.items():
         p = cls.persona
@@ -276,6 +310,15 @@ def main(argv: list[str] | None = None) -> int:
     mig = sub.add_parser("migrate", help="copy the local ledger and backtests into Postgres (DATABASE_URL)")
     mig.add_argument("--from", dest="source", default="data/desk.db")
     mig.add_argument("--skip-backtests", action="store_true")
+    tn = sub.add_parser("tune", help="search an employee's settings on history (train/test split)")
+    tn.add_argument("employee")
+    tn.add_argument("--set", action="append", default=[], metavar="PARAM=V1,V2,...",
+                    help="values to try, e.g. --set min_edge=0.02,0.04 --set market_weight=0,0.5,0.8")
+    tn.add_argument("--days", type=float, default=30)
+    tn.add_argument("--series", default="KXBTC15M,KXETH15M,KXSOL15M")
+    tn.add_argument("--fill-delay", type=int, default=1)
+    tn.add_argument("--depth", type=float, default=100)
+    tn.add_argument("--top", type=int, default=15)
     sub.add_parser("employees")
     sub.add_parser("whoami")
     args = parser.parse_args(argv)
@@ -297,6 +340,9 @@ def main(argv: list[str] | None = None) -> int:
                                      args.only.split(",") if args.only else None, not args.no_save))
         elif args.cmd == "migrate":
             cmd_migrate(cfg, args.source, not args.skip_backtests)
+        elif args.cmd == "tune":
+            asyncio.run(cmd_tune(cfg, args.employee, args.set, args.days, args.series.split(","),
+                                 args.fill_delay, args.depth, args.top))
         elif args.cmd == "employees":
             cmd_employees()
         elif args.cmd == "whoami":

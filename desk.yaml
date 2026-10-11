@@ -18,45 +18,62 @@ liquidity_share: 0.5      # assume faster bots take half of every displayed orde
 
 # One block per employee. Set enabled: false to give someone the day off.
 # Run `python -m desk employees` for the full roster.
+#
+# Settings marked TUNED came from `python -m desk tune` (30 days of 15-minute
+# BTC/ETH/SOL markets, 1-minute fill delay) and were profitable in BOTH the
+# training period and the unseen test period. PROBATION means no tested
+# setting made money, so the employee only bets on rare, very strong signals.
 strategies:
   cover_arb:              # 🧮 Risk-Free Rick - guaranteed-profit strike ladders
     min_edge: 0.01        # at least 1c profit per $1 after fees
     max_cost_per_trade: 100
   bucket_arb:             # 🧩 Sudoku Sue - "pick one" events whose prices don't add up
     min_edge: 0.01
-  fair_value:             # 🎓 The Professor - bitcoin/ether pricing model
-    min_edge: 0.04        # model must beat price by 4c after fees
-    implied_weight: 0.1   # how much to trust options-market volatility vs. recent moves
+  fair_value:             # 🎓 The Professor - PROBATION: no edge over market prices found
+    market_weight: 0.9    # mostly trust Kalshi's price, which proved well calibrated
+    min_edge: 0.08
+    implied_weight: 0.1
     max_bet: 25
-    max_seconds: 900      # only bets that settle within 15 minutes (fast feedback)
-  vol_arb:                # 📐 Vega Vinny - reads volatility from Kalshi itself
-    min_edge: 0.04
     max_seconds: 900
-  sniper:                 # 🎯 The Sniper - final minutes, near-certain outcomes
-    min_win_prob: 0.95
+  vol_arb:                # 📐 Vega Vinny - PROBATION (not yet backtestable; lost early live bets)
+    min_edge: 0.08
+    max_seconds: 900
+  sniper:                 # 🎯 The Sniper - TUNED: only 97%+ sure, last 5 minutes
+    min_win_prob: 0.97
     max_seconds: 300
+    vol_multiplier: 1.5
     max_bet: 50
-  momentum:               # 🏄 Momentum Mo - trends continue
+  momentum:               # 🏄 Momentum Mo - PROBATION
     momentum_weight: 1.0
-    momentum_window: 15   # minutes
+    momentum_window: 15
+    market_weight: 0.9
+    min_edge: 0.08
     max_seconds: 900
-  mean_revert:            # 🪀 Rubber Band Randy - moves snap back
+  mean_revert:            # 🪀 Rubber Band Randy - PROBATION
     momentum_weight: -0.5
-    momentum_window: 5
+    momentum_window: 15
+    market_weight: 0.9
+    min_edge: 0.08
     max_seconds: 900
-  longshot_fade:          # 🧊 Buzzkill Bill - bets against long shots
-    min_yes: 0.03
-    max_yes: 0.12
+  longshot_fade:          # 🧊 Buzzkill Bill - TUNED: fade 5-15c long shots, never in the last 10 minutes
+    min_yes: 0.05
+    max_yes: 0.15
+    min_seconds: 600
     max_days: 2
     stake: 5
-  longshot_buy:           # 🎰 Long Shot Lenny - buys the long shots Bill fades
+  longshot_buy:           # 🎰 Long Shot Lenny - control group: buys the long shots Bill fades
     max_days: 2
     stake: 2
-  nickel_picker:          # 🪙 Nickel Nick - 92-97c near-sure things closing within 12h
+  nickel_picker:          # 🪙 Nickel Nick - TUNED: 88-95c favorites, never in the last 10 minutes
+    min_price: 0.88
+    max_price: 0.95
+    min_seconds: 600
     stake: 10
-  whale_follow:           # 🐋 Whale Watcher Walt - follows big trades
-    min_notional: 250
-  dart_monkey:            # 🐒 Dart Monkey Dan - random bets; the benchmark to beat
+  whale_follow:           # 🐋 Whale Watcher Walt - PROBATION (no history to test; lost early): bigger whales only
+    min_notional: 1000
+    max_chase: 0.01
+    stake: 5
+  dart_monkey:            # 🐒 Dart Monkey Dan - control group: random bets; the benchmark to beat
     bets_per_tick: 0.2
     max_hours: 24
     stake: 3

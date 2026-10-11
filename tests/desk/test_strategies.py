@@ -231,3 +231,15 @@ def test_build_strategies_respects_config():
     keys = [s.key for s in strategies]
     assert "dart_monkey" not in keys
     assert next(s for s in strategies if s.key == "cover_arb").min_edge == 0.02
+
+
+def test_market_weight_blends_toward_price(account, btc_quote):
+    m = make_market("KXBTCD-X-T100000", "greater", floor=100_000, yes_bid=0.29, yes_ask=0.31,
+                    series="KXBTCD", event="KXBTCD-X")
+    snap = snap_of(m, underlyings={"BTC": btc_quote})
+    raw = CryptoFairValue().model_prob(m, snap)
+    blended = CryptoFairValue(market_weight=0.8).model_prob(m, snap)
+    assert blended == pytest.approx(0.8 * 0.30 + 0.2 * raw)
+    # The raw model sees a ~20c edge; blended toward the market it's ~4c, under the 4c bar after fees
+    assert CryptoFairValue().evaluate(snap, account)
+    assert not CryptoFairValue(market_weight=0.8).evaluate(snap, account)

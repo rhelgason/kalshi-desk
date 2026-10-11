@@ -44,6 +44,13 @@ class BacktestConfig:
     fees: dict[str, FeeSchedule] = field(default_factory=dict)  # by series; default quadratic x1
 
 
+@dataclass
+class Frame:
+    ts: int
+    settles: list[tuple[str, float]]
+    snap: Optional[Snapshot]
+
+
 def _dt(ts: int) -> datetime:
     return datetime.fromtimestamp(ts, timezone.utc)
 
@@ -109,37 +116,50 @@ class Backtest:
     def _fees_for(self, tickers: list[str]) -> dict[str, FeeSchedule]:
         return {t: self.config.fees.get(self.by_ticker[t].market.series_ticker, FeeSchedule()) for t in tickers}
 
-    def run(self, progress_every_days: float = 7) -> None:
+    def build_frames(self) -> list[Frame]:
+        """
+        Precompute what happens each minute (settlements + the market snapshot).
+        Frames don't depend on the employees, so a tuning sweep builds them once
+        and replays them for every parameter combination.
+        """
         markets = sorted(self.data.markets, key=lambda hm: hm.market.open_time or _dt(0))
         to_settle = sorted(markets, key=lambda hm: hm.market.close_time or _dt(0))
+        if not markets:
+            return []
         start = max(self.data.start, min(_ts(hm.market.open_time) for hm in markets if hm.market.open_time))
-        end = self.data.end
-        settle_i = 0
-        open_i = 0
+        settle_i = open_i = 0
         active: list[HistoricalMarket] = []
-        next_progress = start + progress_every_days * 86400
-
-        for ts in range(start - start % 60, end + 60, 60):
-            iso = _dt(ts).isoformat()
-            # 1. settlements
+        frames: list[Frame] = []
+        for ts in range(start - start % 60, self.data.end + 60, 60):
+            settles = []
             while settle_i < len(to_settle) and _ts(to_settle[settle_i].market.close_time) <= ts:
                 hm = to_settle[settle_i]
                 settle_i += 1
                 if hm.yes_value is not None:
-                    self.broker.settle(hm.market.ticker, hm.yes_value, ts=iso)
-
-            # 2. snapshot of markets open right now
+                    settles.append((hm.market.ticker, hm.yes_value))
             while open_i < len(markets) and _ts(markets[open_i].market.open_time) <= ts:
                 active.append(markets[open_i])
                 open_i += 1
             active = [hm for hm in active if _ts(hm.market.close_time) > ts]
             live = [m for m in (self._market_at(hm, ts) for hm in active) if m]
-            if not live:
+            snap = Snapshot.build(_dt(ts), [], live, self._quotes(ts), self.config.fees) if live else None
+            if settles or snap:
+                frames.append(Frame(ts, settles, snap))
+        return frames
+
+    def run(self, frames: Optional[list[Frame]] = None, progress_every_days: float = 7) -> None:
+        frames = frames if frames is not None else self.build_frames()
+        next_progress = frames[0].ts + progress_every_days * 86400 if frames else 0
+
+        for frame in frames:
+            ts, snap = frame.ts, frame.snap
+            iso = _dt(ts).isoformat()
+            for ticker, yes_value in frame.settles:
+                self.broker.settle(ticker, yes_value, ts=iso)
+            if snap is None:
                 continue
-            snap = Snapshot.build(_dt(ts), [], live, self._quotes(ts), self.config.fees)
             self.stats["minutes"] += 1
 
-            # 3. employees trade
             fill_ts = ts + 60 * self.config.fill_delay
             for strat in self.strategies:
                 for intent in strat.evaluate(snap, self.accounts[strat.key]):
@@ -152,7 +172,7 @@ class Backtest:
                     self.stats["fills" if result.filled else "skipped"] += 1
 
             if self.stats["minutes"] % self.config.equity_every_minutes == 0:
-                marks = {m.ticker: m.mid for m in live if m.mid is not None}
+                marks = {m.ticker: m.mid for m in snap.markets.values() if m.mid is not None}
                 for name, acct in self.accounts.items():
                     self.ledger.record_equity(name, acct.cash, acct.equity(marks), ts=iso)
 
@@ -161,7 +181,7 @@ class Backtest:
                 next_progress += progress_every_days * 86400
 
         # Final equity point after everything has settled
-        iso = _dt(end).isoformat()
+        iso = _dt(self.data.end).isoformat()
         for name, acct in self.accounts.items():
             self.ledger.record_equity(name, acct.cash, acct.equity({}), ts=iso)
 

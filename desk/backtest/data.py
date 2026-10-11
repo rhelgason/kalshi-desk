@@ -151,6 +151,13 @@ class BacktestData:
     start: int
     end: int
 
+    def slice(self, start: int, end: int) -> "BacktestData":
+        """Markets that open at or after `start` and close by `end` (for train/test splits)."""
+        keep = [hm for hm in self.markets
+                if hm.market.open_time and start <= int(hm.market.open_time.timestamp())
+                and int(hm.market.close_time.timestamp()) <= end]
+        return BacktestData(markets=keep, spot=self.spot, dvol=self.dvol, start=start, end=end)
+
     def implied_vol(self, symbol: str, ts: int) -> Optional[float]:
         rows = self.dvol.get(symbol) or []
         i = bisect.bisect_right(rows, (ts, math.inf)) - 1
