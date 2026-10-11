@@ -94,10 +94,13 @@ async def backfill_archive(client: KalshiClient, ledger: Ledger, series: Iterabl
     Fill in archived markets, newest first, until `seconds` have passed.
     Archived candles must be fetched one market at a time, so this is the slow part.
     """
-    deadline = time.monotonic() + seconds
+    series = list(series)
+    end_all = time.monotonic() + seconds
     oldest_allowed = datetime.now(timezone.utc) - timedelta(days=max_age_days)
     out = {s: 0 for s in series}
-    for s in series:
+    for i, s in enumerate(series):
+        # Split the remaining time evenly so every series makes progress each run
+        deadline = time.monotonic() + (end_all - time.monotonic()) / (len(series) - i)
         have = known_tickers(ledger, s)
         cursor = None
         while time.monotonic() < deadline:
