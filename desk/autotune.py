@@ -49,7 +49,7 @@ TUNE_SERIES = ["KXBTC15M", "KXETH15M", "KXSOL15M"]
 
 def _summary(r) -> dict:
     return {"pnl": round(r.pnl, 2), "bets": r.bets, "wins": r.wins, "roi": round(r.roi, 4),
-            "skill": r.skill, "realized_edge": r.realized_edge}
+            "skill": r.skill, "realized_edge": r.realized_edge, "confidence": round(r.confidence, 3)}
 
 
 def decide(key: str, current: dict, data: BacktestData, bt_cfg: BacktestConfig, policy: dict) -> dict:
@@ -59,12 +59,15 @@ def decide(key: str, current: dict, data: BacktestData, bt_cfg: BacktestConfig, 
     rows = tune(key, current, grid, data, bt_cfg)
     baseline = tune(key, current, {}, data, bt_cfg)[0]  # current settings, same split
     at = policy["autotune"]
-    passing = [r for r in rows if r.holds_up and r.test.bets >= int(at["min_test_bets"])]
+    # Must make money in BOTH periods, with enough test bets, and the test-period
+    # result must not look like luck
+    passing = [r for r in rows if r.holds_up and r.test.bets >= int(at["min_test_bets"])
+               and r.test.confidence >= float(at.get("min_confidence", 0.0))]
     best: Optional[TuneRow] = max(passing, key=lambda r: r.train.pnl) if passing else None
     changes = {k: v for k, v in (best.params if best else {}).items() if current.get(k) != v}
     apply = bool(best and changes and best.test.pnl >= baseline.test.pnl + float(at["min_improvement"]))
     if not best:
-        why = "no setting made money in both periods with enough bets"
+        why = "no setting made money in both periods with enough bets and confidence"
     elif not changes:
         why = "current settings are already the best"
     elif not apply:
@@ -94,11 +97,12 @@ def autotune_due(policy: dict, now: Optional[datetime] = None) -> bool:
 
 
 def run_autotune(ledger: Ledger, cfg: DeskConfig, data: BacktestData,
-                 fees: Optional[dict[str, FeeSchedule]] = None, only: Optional[list[str]] = None) -> list[dict]:
+                 fees: Optional[dict[str, FeeSchedule]] = None, only: Optional[list[str]] = None,
+                 depth: float = 100) -> list[dict]:
     policy = hr.load_policy(ledger)
     roster = hr.load_roster(ledger, list(SEARCH_SPACES))
     effective = hr.effective_strategy_config(cfg.strategies, roster)
-    bt_cfg = BacktestConfig(starting_cash=cfg.starting_cash, depth=100, fill_delay=1, fees=fees or {})
+    bt_cfg = BacktestConfig(starting_cash=cfg.starting_cash, depth=depth, fill_delay=1, fees=fees or {})
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     decisions = []
     for key in SEARCH_SPACES:

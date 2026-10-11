@@ -59,12 +59,16 @@ DEFAULT_POLICY: dict[str, Any] = {
     "award_bonus": 250.0,
     "reserve": 5000.0,  # paper money the desk can hand out as bonuses
     "last_review": None,
+    # Backtests assume this many contracts at the best price; the background job
+    # replaces it with the median depth measured in live paper fills
+    "realism": {"depth": 100.0, "samples": 0, "measured_at": None},
     "autotune": {
         "enabled": True,
         "every_hours": 24,
         "lookback_days": 45,
         "min_test_bets": 30,
         "min_improvement": 10.0,  # test-period dollars a new setting must add
+        "min_confidence": 0.6,  # test-period skill-or-luck confidence a new setting needs
         "requested_at": None,
         "last_run": None,
     },

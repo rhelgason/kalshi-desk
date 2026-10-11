@@ -83,3 +83,33 @@ def test_autotune_due():
     assert not autotune_due(p)
     p["autotune"]["requested_at"] = datetime.now(timezone.utc).isoformat()
     assert autotune_due(p)
+
+
+def test_autotune_requires_test_confidence(monkeypatch):
+    from desk.backtest.tune import Result, TuneRow
+
+    def res(pnl, bets, conf):
+        return Result(pnl, pnl / 1000, bets, bets, 0, 0.0, 0.0, None, 0.01, conf)
+
+    lucky = TuneRow({"min_price": 0.85}, train=res(50, 40, 0.9), test=res(40, 40, 0.55))
+    solid = TuneRow({"min_price": 0.88}, train=res(30, 40, 0.9), test=res(25, 40, 0.85))
+    current = TuneRow({}, train=res(0, 0, 0.5), test=res(0, 0, 0.5))
+    monkeypatch.setattr("desk.autotune.tune", lambda key, cur, grid, data, cfg: [lucky, solid] if grid else [current])
+    policy = hr.load_policy(Ledger(":memory:"))
+    policy["autotune"].update(min_test_bets=30, min_improvement=10, min_confidence=0.6)
+    d = decide("nickel_picker", {"min_price": 0.80}, None, BacktestConfig(), policy)
+    # The higher-earning setting looks like luck in the test period, so the solid one wins
+    assert d["applied"] and d["changes"] == {"min_price": 0.88}
+    policy["autotune"]["min_confidence"] = 0.9
+    assert not decide("nickel_picker", {"min_price": 0.80}, None, BacktestConfig(), policy)["applied"]
+
+
+def test_depth_calibration_from_live_fills():
+    from desk.jobs import calibrate_depth
+    from desk.kalshi.models import Side
+    led = Ledger(":memory:")
+    for i in range(40):
+        led.record_fill("s", f"KXBTC15M-W{i}", Side.YES, 5, 0.5, 0.02, seen_price=0.5, book_depth=60)
+    realism = calibrate_depth(led, DeskConfig(liquidity_share=0.5))
+    assert realism["depth"] == 30 and realism["samples"] == 40
+    assert hr.load_policy(led)["realism"]["depth"] == 30

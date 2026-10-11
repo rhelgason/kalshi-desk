@@ -26,6 +26,7 @@ from desk.backtest.store import backfill_archive, coverage, load_from_store, syn
 from desk.config import DeskConfig
 from desk.kalshi.client import KalshiClient
 from desk.paper.accuracy import accuracy_report
+from desk.paper.realism import measured_depth
 from desk.paper.ledger import Ledger
 from desk.paper.scoreboard import scoreboard_rows
 from desk.strategies import REGISTRY
@@ -33,7 +34,23 @@ from desk.strategies import REGISTRY
 logger = logging.getLogger(__name__)
 
 
-def nightly_backtest(ledger: Ledger, cfg: DeskConfig, data, fees) -> str:
+def calibrate_depth(ledger: Ledger, cfg: DeskConfig, min_samples: int = 30) -> dict:
+    """
+    Measure how many contracts were really on offer at our price in live fills,
+    and use that (times the live liquidity share) as the backtests' depth.
+    """
+    depth, n = measured_depth(ledger)
+    policy = hr.load_policy(ledger)
+    realism = policy.get("realism") or {}
+    if depth and n >= min_samples:
+        realism = {"depth": round(max(5.0, depth * cfg.liquidity_share), 1), "samples": n,
+                   "measured_at": datetime.now(timezone.utc).isoformat(), "median_on_offer": depth}
+        policy["realism"] = realism
+        hr.save_policy(ledger, policy)
+    return realism
+
+
+def nightly_backtest(ledger: Ledger, cfg: DeskConfig, data, fees, depth: float = 100) -> str:
     """Backtest every working, replayable employee with today's settings; save for the dashboard."""
     roster = hr.load_roster(ledger, list(REGISTRY))
     effective = hr.effective_strategy_config(cfg.strategies, roster)
@@ -45,14 +62,14 @@ def nightly_backtest(ledger: Ledger, cfg: DeskConfig, data, fees) -> str:
         if key == "dart_monkey":
             params["seed"] = 42
         strategies.append(cls(**params))
-    bt = Backtest(data, strategies, BacktestConfig(starting_cash=cfg.starting_cash, depth=100, fill_delay=1,
+    bt = Backtest(data, strategies, BacktestConfig(starting_cash=cfg.starting_cash, depth=depth, fill_delay=1,
                                                    fees=fees))
     bt.run()
     stamp = "auto-" + datetime.now(timezone.utc).strftime("%Y%m%d-%H%M")
     rows = scoreboard_rows(bt.accounts, bt.ledger)
     summary = {
         "id": stamp, "days": round((data.end - data.start) / 86400, 1), "series": TUNE_SERIES, "fill_delay": 1,
-        "depth": 100, "settled_markets": sum(1 for hm in data.markets if hm.yes_value is not None),
+        "depth": depth, "settled_markets": sum(1 for hm in data.markets if hm.yes_value is not None),
         "stats": bt.stats, "automatic": True,
         "scoreboard": [{**r.__dict__, "pnl": r.pnl, "roi": r.roi, "win_rate": r.win_rate} for r in rows],
         "accuracy": [s.to_dict() for s in accuracy_report(bt.ledger, [s.key for s in strategies])],
@@ -76,13 +93,14 @@ async def run_jobs(cfg: DeskConfig, backfill_seconds: float = 600, force_tune: b
         report["archive"] = await backfill_archive(client, ledger, TUNE_SERIES, seconds=backfill_seconds)
         fees = {s: await client.get_fee_schedule(s) for s in TUNE_SERIES}
     report["coverage"] = coverage(ledger)
+    report["realism"] = calibrate_depth(ledger, cfg)
+    depth = float(report["realism"].get("depth") or 100)
 
     if force_tune or autotune_due(policy, now):
         data = load_from_store(ledger, TUNE_SERIES, now - timedelta(days=lookback), now)
-        # Prices for the whole stored range, so archived days have spot history too
         report["autotune"] = [{k: d[k] for k in ("employee", "applied", "why", "changes")}
-                              for d in run_autotune(ledger, cfg, data, fees)]
-        report["backtest"] = nightly_backtest(ledger, cfg, data, fees)
+                              for d in run_autotune(ledger, cfg, data, fees, depth=depth)]
+        report["backtest"] = nightly_backtest(ledger, cfg, data, fees, depth=depth)
     report["seconds"] = round(time.monotonic() - started, 1)
     ledger.set_status("jobs", {"finished_at": datetime.now(timezone.utc).isoformat(), **report})
     return report

@@ -20,7 +20,7 @@ from typing import Any, Optional
 
 from desk.backtest.data import BacktestData
 from desk.backtest.engine import Backtest, BacktestConfig
-from desk.paper.accuracy import accuracy_report
+from desk.paper.accuracy import accuracy_report, evidence_report
 from desk.paper.scoreboard import scoreboard_rows
 from desk.strategies import REGISTRY
 
@@ -59,6 +59,7 @@ class Result:
     max_drawdown: float
     skill: Optional[float]
     realized_edge: Optional[float]
+    confidence: float = 0.5  # skill-or-luck confidence (desk.paper.evidence)
 
 
 @dataclass
@@ -79,8 +80,10 @@ def _run(key: str, params: dict, frames, data: BacktestData, cfg: BacktestConfig
     row = scoreboard_rows(bt.accounts, bt.ledger)[0]
     acc = accuracy_report(bt.ledger, [key])
     a = acc[0] if acc else None
+    ev = evidence_report(bt.ledger, [key])
     return Result(row.pnl, row.roi, row.fills, row.wins, row.losses, row.fees, row.max_drawdown,
-                  a.skill if a else None, a.realized_edge if a else None)
+                  a.skill if a else None, a.realized_edge if a else None,
+                  ev[0].confidence if ev else 0.5)
 
 
 def tune(key: str, base: dict[str, Any], grid: dict[str, list[Any]], data: BacktestData,
