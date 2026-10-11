@@ -53,9 +53,11 @@ def _verdict(taker: int, maker: int, slippage: Optional[float], share: Optional[
 
 
 def realism_from_fills(strategy: str, fills: list[dict]) -> Realism:
+    # Only fills recorded since the reality check existed carry measurements
+    fills = [f for f in fills if f.get("seen_price") is not None]
     taker = [f for f in fills if not str(f.get("reason") or "").startswith("maker fill")]
     maker = len(fills) - len(taker)
-    measured = [f for f in taker if f.get("seen_price") is not None]
+    measured = taker
     slip = statistics.fmean(f["price"] - f["seen_price"] for f in measured) if measured else None
     with_depth = [f for f in measured if f.get("book_depth")]
     share = statistics.fmean(min(1.0, f["count"] / f["book_depth"]) for f in with_depth) if with_depth else None
@@ -72,15 +74,18 @@ def realism_report(ledger: Ledger, strategies: list[str]) -> list[Realism]:
 
 
 def realism_report_sql(ledger: Ledger, strategies: list[str]) -> list[Realism]:
+    # Only fills recorded since the reality check existed carry measurements
+    # (seen_price). Note LEAST() ignores NULLs in Postgres, so filter explicitly.
+    taker = "(reason NOT LIKE 'maker fill%' OR reason IS NULL)"
     rows = ledger._rows(
         "SELECT strategy,"
-        " count(*) FILTER (WHERE reason NOT LIKE 'maker fill%' OR reason IS NULL) AS taker,"
+        f" count(*) FILTER (WHERE {taker}) AS taker,"
         " count(*) FILTER (WHERE reason LIKE 'maker fill%') AS maker,"
-        " avg(price - seen_price) FILTER (WHERE seen_price IS NOT NULL AND (reason NOT LIKE 'maker fill%' OR reason IS NULL)) AS slip,"
-        " avg(LEAST(1.0, count / NULLIF(book_depth, 0))) FILTER (WHERE (reason NOT LIKE 'maker fill%' OR reason IS NULL)) AS share,"
-        " percentile_cont(0.5) WITHIN GROUP (ORDER BY book_depth) FILTER (WHERE book_depth > 0 AND (reason NOT LIKE 'maker fill%' OR reason IS NULL)) AS depth,"
-        " avg(latency_ms) FILTER (WHERE (reason NOT LIKE 'maker fill%' OR reason IS NULL)) AS lat"
-        " FROM fills WHERE season = ? GROUP BY strategy",
+        f" avg(price - seen_price) FILTER (WHERE {taker}) AS slip,"
+        f" avg(LEAST(1.0, count / book_depth)) FILTER (WHERE {taker} AND book_depth > 0) AS share,"
+        f" percentile_cont(0.5) WITHIN GROUP (ORDER BY book_depth) FILTER (WHERE {taker} AND book_depth > 0) AS depth,"
+        f" avg(latency_ms) FILTER (WHERE {taker}) AS lat"
+        " FROM fills WHERE season = ? AND seen_price IS NOT NULL GROUP BY strategy",
         (ledger.season,),
     )
     out = []

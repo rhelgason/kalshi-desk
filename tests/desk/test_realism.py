@@ -35,3 +35,9 @@ def test_verdicts():
     maker = [{"price": 0.5, "seen_price": 0.5, "count": 5, "book_depth": 10, "reason": "maker fill: x"}] * 3
     assert realism_from_fills("s", maker).verdict_key == "maker"
     assert realism_from_fills("s", []).verdict_key == "none"
+
+
+def test_unmeasured_fills_are_ignored():
+    old = [{"price": 0.5, "seen_price": None, "book_depth": None, "count": 5, "reason": ""}] * 10
+    r = realism_from_fills("s", old)
+    assert r.verdict_key == "none" and r.taker_fills == 0 and r.depth_share is None
