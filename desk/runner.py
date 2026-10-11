@@ -413,13 +413,25 @@ class Desk:
             self.multipliers = {k: r.multiplier for k, r in self.roster.items()}
 
         self.tick_count += 1
+        # Reporting is best-effort: a bug in a dashboard summary must never stop
+        # trading or settlement (the timer still advances, so it isn't retried every run)
         if self._due(self._last_status, self.config.status_every_seconds, now):
-            self.publish_status(snap)
+            self._safely("publish status", lambda: self.publish_status(snap))
             self._last_status = now
         if self._due(self._last_accuracy, self.config.accuracy_every_seconds, now):
-            self.publish_accuracy()
+            self._safely("publish accuracy", self.publish_accuracy)
             self._last_accuracy = now
         return results
+
+    def _safely(self, what: str, fn) -> None:
+        try:
+            fn()
+        except Exception:
+            logger.exception("Failed to %s; continuing", what)
+            try:
+                self.ledger.record_event("error", {"step": what})
+            except Exception:
+                pass
 
     @staticmethod
     def _due(last: Optional[datetime], every: float, now: datetime) -> bool:

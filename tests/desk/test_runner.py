@@ -108,3 +108,16 @@ async def test_level_scales_bet_size(desk_and_client, monkeypatch):
     bill = next(r for r in results if r.intent.strategy == "longshot_fade" and r.filled)
     unscaled = 5 // 0.95  # Bill's $5 stake at a 95c NO price
     assert bill.fills[0].count == pytest.approx(2 * unscaled)
+
+
+async def test_reporting_failure_does_not_stop_trading(desk_and_client, monkeypatch):
+    desk, client = desk_and_client
+    monkeypatch.setattr("desk.runner._now", lambda: NOW)
+
+    def boom():
+        raise RuntimeError("broken summary")
+
+    monkeypatch.setattr(desk, "publish_accuracy", boom)
+    results = await desk.tick()  # must not raise
+    assert any(r.filled for r in results)
+    assert any(e["kind"] == "error" for e in desk.ledger.events_since())
