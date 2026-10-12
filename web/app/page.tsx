@@ -1,7 +1,7 @@
 import AdviceAction from "@/components/AdviceAction";
 import AutoRefresh from "@/components/AutoRefresh";
 import NewsFeed from "@/components/NewsFeed";
-import PortfolioChart from "@/components/PortfolioChart";
+import MoneyChart from "@/components/MoneyChart";
 import RangeTabs from "@/components/RangeTabs";
 import Setup from "@/components/Setup";
 import Spotlight from "@/components/Spotlight";
@@ -47,6 +47,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
   const rangeProfit = first ? profit - (first.worth - first.putIn) : null;
 
   const trends = profitSeries(season);
+  const rangeProfits = range === "season" ? trends : profitSeries(history);
   const rows = employees
     .map((e) => ({
       e, light: light(e, analysis.evidence[e.key]), trend: trends[e.key] ?? [],
@@ -80,7 +81,11 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
         <div className="muted">You put in {dollars(putIn)}, split between {employees.length} employees.</div>
 
         <RangeTabs value={range} path="/" />
-        <PortfolioChart points={points} />
+        <MoneyChart points={points} period={RANGE_WORDS[range]}
+          team={employees.map((e) => ({
+            key: e.key, name: e.name, emoji: e.emoji,
+            profit: [...(rangeProfits[e.key] ?? []), { t: points[points.length - 1].t, v: e.pnl ?? 0 }],
+          }))} />
         {range !== "season" && rangeProfit != null && (
           <p className="range-change">
             {RANGE_WORDS[range]}: <strong className={rangeProfit >= 0 ? "up" : "down"}>{rangeProfit >= 0 ? "▲ up" : "▼ down"} {dollars(Math.abs(rangeProfit))}</strong>

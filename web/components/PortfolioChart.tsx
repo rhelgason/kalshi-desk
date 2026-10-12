@@ -16,7 +16,12 @@ const fmtWhen = (t: number, spanDays: number) =>
  * Drag a finger (or mouse) across to read any moment; the readout sits above
  * the chart so a finger never covers it.
  */
-export default function PortfolioChart({ points, height = 220 }: { points: PortfolioPoint[]; height?: number }) {
+export default function PortfolioChart({ points, alt, height = 220 }: {
+  points: PortfolioPoint[];
+  /** an alternative "what it would be worth" line (the what-if), same times as points */
+  alt?: number[] | null;
+  height?: number;
+}) {
   const [ref, width] = useWidth<HTMLDivElement>(360);
   const [hover, setHover] = useState<number | null>(null);
   const pad = { l: 8, r: 52, t: 8, b: 24 };
@@ -26,7 +31,7 @@ export default function PortfolioChart({ points, height = 220 }: { points: Portf
   const geo = useMemo(() => {
     if (points.length < 2) return null;
     const x0 = points[0].t, x1 = points[points.length - 1].t;
-    const vals = points.flatMap((p) => [p.worth, p.putIn]);
+    const vals = [...points.flatMap((p) => [p.worth, p.putIn]), ...(alt ?? [])];
     let lo = Math.min(...vals), hi = Math.max(...vals);
     const padY = Math.max((hi - lo) * 0.15, hi * 0.002, 1);
     lo -= padY;
@@ -35,7 +40,7 @@ export default function PortfolioChart({ points, height = 220 }: { points: Portf
     const x = (t: number) => pad.l + (x1 === x0 ? w / 2 : ((t - x0) / (x1 - x0)) * w);
     const y = (v: number) => pad.t + h - ((v - lo) / (hi - lo || 1)) * h;
     return { x0, x1, ticks, x, y };
-  }, [points, w, h, pad.l, pad.t]);
+  }, [points, alt, w, h, pad.l, pad.t]);
 
   if (!geo) {
     return <div className="empty">Not enough history yet for this range. The line fills in every few minutes.</div>;
@@ -71,6 +76,7 @@ export default function PortfolioChart({ points, height = 220 }: { points: Portf
       <div className="readout" aria-live="polite">
         <span className="muted">{hover == null ? "Now" : fmtWhen(p.t, spanDays)}</span>
         <span><strong>{dollars(p.worth)}</strong> <span className="muted">worth</span></span>
+        {alt && <span><span className="swatch" style={{ background: "var(--series-2)" }} /> what if: <strong>{dollars(alt[i])}</strong></span>}
         <span className={profit >= 0 ? "up" : "down"}>{profit >= 0 ? "▲ Up" : "▼ Down"} {dollars(Math.abs(profit))}</span>
       </div>
       <svg
@@ -103,12 +109,17 @@ export default function PortfolioChart({ points, height = 220 }: { points: Portf
         <path d={gap} fill="var(--up)" opacity={0.14} clipPath="url(#pf-above)" />
         <path d={gap} fill="var(--down)" opacity={0.14} clipPath="url(#pf-below)" />
         <path d={putInPath} fill="none" stroke="var(--text-muted)" strokeWidth={1.5} strokeDasharray="4 4" />
+        {alt && (
+          <path d={alt.map((v, j) => `${j ? "L" : "M"}${x(points[j].t).toFixed(1)},${y(v).toFixed(1)}`).join("")}
+            fill="none" stroke="var(--series-2)" strokeWidth={2} strokeDasharray="6 3" strokeLinejoin="round" />
+        )}
         <path d={worthPath} fill="none" stroke="var(--series-1)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
         {hover != null && <line x1={x(p.t)} x2={x(p.t)} y1={pad.t} y2={pad.t + h} stroke="var(--axis)" strokeWidth={1} />}
         <circle cx={x(p.t)} cy={y(p.worth)} r={4} fill="var(--series-1)" stroke="var(--surface-1)" strokeWidth={2} />
       </svg>
       <div className="legend">
         <span><span className="key" style={{ background: "var(--series-1)" }} />What it&apos;s worth</span>
+        {alt && <span><span className="key" style={{ background: "var(--series-2)" }} />What if</span>}
         <span><span className="key dashed" />Money put in: {dollars(p.putIn)}</span>
       </div>
     </div>
