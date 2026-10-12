@@ -79,3 +79,10 @@ data/
 
 node_modules/
 *.tsbuildinfo
+
+# Research data (downloaded, large)
+research/**/tape/
+research/**/binance*/
+research/**/agg/
+research/**/*.json.gz
+research/**/*.jsonl.gz
