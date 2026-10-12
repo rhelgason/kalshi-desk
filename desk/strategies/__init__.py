@@ -1,6 +1,7 @@
 from desk.strategies.base import AccountView, Leg, Persona, Snapshot, Strategy, TradeIntent
 from desk.strategies.arbitrage import CoverArb, PartitionArb
 from desk.strategies.fair_value import CryptoFairValue, MomentumMo, RubberBandRandy, Sniper, VegaVinny
+from desk.strategies.bitcoin import BreakoutBetty, EarlyBirdEdie
 from desk.strategies.behavioral import (
     DartMonkey, FrontRunnerFran, LongshotFade, LongshotLenny, NickelNick, SpreadSam, WhaleWatcherWalt,
 )
@@ -8,14 +9,16 @@ from desk.strategies.behavioral import (
 # Everyone on payroll. Since Season 3 the desk only trades 15-minute bitcoin
 # up/down markets, so the staff is the employees who can work those.
 STAFF: tuple[type[Strategy], ...] = (
-    CryptoFairValue, Sniper, MomentumMo, RubberBandRandy,
-    NickelNick, LongshotFade,
+    Sniper, NickelNick, LongshotFade, BreakoutBetty, EarlyBirdEdie,
     LongshotLenny, DartMonkey,  # yardsticks: everyone should beat these
 )
-# Retired with the bitcoin focus: they need strike ladders, sports, or the
-# trade tape. Kept so old seasons and tests still make sense.
+# Retired. Rick, Sue, Vinny, Fran, Sam, Walt need strike ladders, sports or the
+# trade tape; the Professor, Mo and Randy's pricing model showed no edge on
+# 15-minute bitcoin (Mo and Randy bet once in 45 days). Kept so old seasons
+# and tests still make sense.
 ALUMNI: tuple[type[Strategy], ...] = (
     CoverArb, PartitionArb, VegaVinny, FrontRunnerFran, SpreadSam, WhaleWatcherWalt,
+    CryptoFairValue, MomentumMo, RubberBandRandy,
 )
 REGISTRY: dict[str, type[Strategy]] = {cls.key: cls for cls in STAFF}
 EVERYONE: dict[str, type[Strategy]] = {cls.key: cls for cls in STAFF + ALUMNI}
@@ -64,6 +67,6 @@ __all__ = [
     "AccountView", "Leg", "Persona", "Snapshot", "Strategy", "TradeIntent",
     "CoverArb", "PartitionArb", "CryptoFairValue", "VegaVinny", "Sniper", "MomentumMo", "RubberBandRandy",
     "LongshotFade", "LongshotLenny", "NickelNick", "FrontRunnerFran", "SpreadSam", "WhaleWatcherWalt",
-    "DartMonkey",
+    "DartMonkey", "BreakoutBetty", "EarlyBirdEdie",
     "STAFF", "ALUMNI", "REGISTRY", "EVERYONE", "build_strategies", "strategy_params",
 ]

@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 LEVELS = [("Intern", 0.5), ("Associate", 1.0), ("Senior", 1.5), ("VP", 2.0), ("Partner", 3.0)]
 CONTROL_GROUP = {"dart_monkey", "longshot_buy"}
 # Employees that start at the bottom when first hired (unproven strategies)
-START_AS_INTERN = {"favorite_sports", "market_maker"}
+START_AS_INTERN = {"breakout", "early_favorite", "favorite_sports", "market_maker"}
 
 DEFAULT_POLICY: dict[str, Any] = {
     "season": 1,
