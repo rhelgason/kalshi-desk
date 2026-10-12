@@ -320,7 +320,7 @@ export function drawObjects(c: Ctx) {
   plant(c, 31, 17);
 }
 
-/** Chair and couch backs: drawn after the people, so whoever sits looks like they're in the chair. */
+/** Chair and couch backs: drawn in depth order with the people (see PIECES), so whoever sits looks like they're in the chair. */
 export function drawFront(c: Ctx) {
   for (const d of DESKS) {
     const x = (d.col + 1) * TILE, y = (d.row + 1) * TILE;
@@ -331,8 +331,50 @@ export function drawFront(c: Ctx) {
   block(c, 1 * TILE - 1, 14 * TILE - 3, 4 * TILE + 2, 6, "#5a2f8a", 2);
 }
 
-/** Paint all three layers into canvases at native size, with outlines and shadows. */
-export function paintRoom(sky: Sky): { base: HTMLCanvasElement; front: HTMLCanvasElement } {
+/**
+ * Furniture people can walk behind, sit in, or pass in front of. Each frame these
+ * are redrawn in depth order with the people (sorted by `base`, the y where the
+ * piece meets the floor), so whoever is nearer the bottom of the screen is drawn
+ * on top: a chair back covers the person sitting in it, but not the person
+ * walking past below it.
+ */
+export type Piece = {
+  x: number; y: number; w: number; h: number; base: number;
+  layer: "objects" | "front";
+  live?: "tv" | "arcade" | "desk" | "island";
+  desk?: number;
+};
+
+const piece = (p: Piece): Piece => {
+  const x = Math.max(0, p.x), y = Math.max(0, p.y);
+  return { ...p, x, y, w: Math.min(WIDTH, p.x + p.w) - x, h: Math.min(HEIGHT, p.y + p.h) - y };
+};
+
+export const PIECES: Piece[] = [
+  // desks with their monitors, and the chair backs in front of them
+  ...DESKS.flatMap((d, i) => {
+    const x = d.col * TILE, y = d.row * TILE, cx = (d.col + 1) * TILE, cy = (d.row + 1) * TILE;
+    return [
+      piece({ x, y: y - 4, w: 33, h: 20, base: y + 15, layer: "objects", live: "desk", desk: i }),
+      piece({ x: cx - 8, y: cy + 8, w: 16, h: 8, base: cy + 15, layer: "front" }),
+    ];
+  }),
+  // the conference table, and the chairs on its near side
+  piece({ x: 2 * TILE - 3, y: 5 * TILE, w: 4 * TILE + 6, h: 2 * TILE, base: 7 * TILE - 1, layer: "objects" }),
+  ...[2, 3, 4, 5].map((x) => piece({ x: x * TILE + 2, y: 7 * TILE + 6, w: 12, h: 8, base: 7 * TILE + 13, layer: "front" })),
+  // lounge: couch back, TV on its console, arcade cabinets
+  piece({ x: TILE - 2, y: 14 * TILE - 4, w: 4 * TILE + 4, h: 8, base: 14 * TILE + 3, layer: "front" }),
+  piece({ x: TILE - 1, y: 10 * TILE - 11, w: 4 * TILE + 2, h: 28, base: 11 * TILE, layer: "objects", live: "tv" }),
+  piece({ x: 6 * TILE, y: 10 * TILE - 9, w: 2 * TILE, h: 24, base: 11 * TILE - 1, layer: "objects", live: "arcade" }),
+  // the kitchen island, with whatever snacks are out on it
+  piece({ x: 25 * TILE - 1, y: 12 * TILE - 9, w: 3 * TILE + 2, h: 25, base: 13 * TILE - 2, layer: "objects", live: "island" }),
+  // potted plants (leaves stick up into the tile above)
+  ...([[0, 3], [0, 10], [7, 17], [8, 17], [22, 17], [31, 3], [31, 17]] as const).map(([tx, ty]) =>
+    piece({ x: tx * TILE - 1, y: ty * TILE - 4, w: 18, h: 21, base: (ty + 1) * TILE, layer: "objects" })),
+];
+
+/** Paint the room's layers into canvases at native size, with outlines and shadows. */
+export function paintRoom(sky: Sky): { base: HTMLCanvasElement; objects: HTMLCanvasElement; front: HTMLCanvasElement } {
   const make = () => {
     const cv = document.createElement("canvas");
     cv.width = WIDTH; cv.height = HEIGHT;
@@ -352,7 +394,7 @@ export function paintRoom(sky: Sky): { base: HTMLCanvasElement; front: HTMLCanva
   s.fillRect(0, 0, WIDTH, HEIGHT);
   b.drawImage(shadow, 2, 3);
   b.drawImage(objects, 0, 0);
-  return { base, front };
+  return { base, objects, front };
 }
 
 /** Give everything drawn on a canvas a 1px dark outline. */

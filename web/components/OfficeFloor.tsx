@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Point } from "@/lib/types";
 import { dollars, shortName } from "@/lib/format";
 import {
-  BOARD, drawArcade, drawBell, drawClock, drawFish, drawMonitors, drawServers, paintRoom, rect, skyFor,
+  BOARD, drawArcade, drawBell, drawClock, drawFish, drawMonitors, drawServers, paintRoom, PIECES, rect, skyFor,
   WHITEBOARD, WINDOWS, type Sky,
 } from "@/lib/office/draw";
 import { chairSpot, DESKS, findPath, HEIGHT, OPEN, PIT, SPOTS, TILE, tileSpot, WALL, WIDTH, type Spot, type Tile } from "@/lib/office/map";
@@ -145,7 +145,7 @@ type World = {
   drag: { x: number; cx: number; moved: boolean } | null;
   reduced: boolean;
   sprites: Map<string, HTMLCanvasElement>;
-  room: { base: HTMLCanvasElement; front: HTMLCanvasElement } | null;
+  room: { base: HTMLCanvasElement; objects: HTMLCanvasElement; front: HTMLCanvasElement } | null;
   sky: Sky | null;
   font: string;
   lastTotal: number;
@@ -826,20 +826,11 @@ export default function OfficeFloor({ people, total, btc, series, btcSeries }: {
       drawSky(ctx, w, sky);
       drawBoard(ctx, live.current.series, live.current.total, t);
       drawWhiteboard(ctx, w.scribble);
-      drawTV(ctx, live.current.btcSeries, t);
       drawClock(ctx, date);
       drawBell(ctx, t, w.ringing > t);
       drawFish(ctx, t);
       drawServers(ctx, t);
-      drawArcade(ctx, t);
-      for (let i = 0; i < DESKS.length; i++) {
-        const a = w.agents.find((x) => !x.npc && x.desk === i);
-        drawMonitors(ctx, i, a?.pnl ?? 0, !!a && t < a.busyUntil, t, !a);
-      }
       if (w.agents.some((a) => a.kind === "coffee" && a.arrived)) for (let i = 0; i < 3; i++) rect(ctx, 31 * TILE + 7 + i * 2, 10 * TILE - 6 - ((t * 8 + i * 3) % 7), 1, 1, "rgba(255,255,255,0.7)");
-      if (w.props.pizza > t) drawPizza(ctx);
-      if (w.props.cake > t) drawCake(ctx, t);
-      if (w.event?.kind === "espresso") drawEspresso(ctx);
       rect(ctx, 15 * TILE - 2, 16 * TILE + 13, 4, 2, w.agents.some((a) => a.npc) ? "#f5c542" : "#5f6b7a"); // elevator light
 
       // roomba
@@ -849,10 +840,28 @@ export default function OfficeFloor({ people, total, btc, series, btcSeries }: {
       rect(ctx, rb.x - 3, rb.y - 3, 6, 6, "#3a3a48");
       rect(ctx, rb.x - 1, rb.y - 1, 2, 2, Math.floor(t * 2) % 2 ? "#2ecc71" : "#145a32");
 
-      // people, back to front, then the chair backs over whoever is sitting
+      // people and furniture together, back to front: nearer the bottom of the screen is drawn on top
+      const room = w.room;
       const order = [...w.agents].filter((a) => !a.hidden).sort((a, b) => a.y - b.y);
-      for (const a of order) drawAgent(ctx, a, t, sprite);
-      ctx.drawImage(w.room.front, 0, 0);
+      const layers: { y: number; k: number; draw: () => void }[] = order.map((a) => ({ y: a.y, k: 0, draw: () => drawAgent(ctx, a, t, sprite) }));
+      for (const p of PIECES) {
+        layers.push({ y: p.base, k: 1, draw: () => {
+          ctx.drawImage(p.layer === "front" ? room.front : room.objects, p.x, p.y, p.w, p.h, p.x, p.y, p.w, p.h);
+          if (p.live === "tv") drawTV(ctx, live.current.btcSeries, t);
+          if (p.live === "arcade") drawArcade(ctx, t);
+          if (p.live === "island") {
+            if (w.props.pizza > t) drawPizza(ctx);
+            if (w.props.cake > t) drawCake(ctx, t);
+            if (w.event?.kind === "espresso") drawEspresso(ctx);
+          }
+          if (p.live === "desk" && p.desk !== undefined) {
+            const a = w.agents.find((x) => !x.npc && x.desk === p.desk);
+            drawMonitors(ctx, p.desk, a?.pnl ?? 0, !!a && t < a.busyUntil, t, !a);
+          }
+        } });
+      }
+      layers.sort((a, b) => a.y - b.y || a.k - b.k);
+      for (const l of layers) l.draw();
       const pp = w.agents.filter((a) => a.kind === "pingpong" && a.arrived);
       if (pp.length === 2) {
         const k = (t % 1.1) / 1.1, there = k < 0.5 ? k * 2 : 2 - k * 2;
