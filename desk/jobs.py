@@ -89,7 +89,7 @@ async def run_jobs(cfg: DeskConfig, backfill_seconds: float = 600, force_tune: b
     started = time.monotonic()
     async with KalshiClient(env=cfg.env, requests_per_second=6) as client:
         report["recent"] = await sync_recent(client, ledger, TUNE_SERIES, days=min(lookback, 60) + 1)
-        report["prices"] = await sync_prices(ledger, ["BTC", "ETH", "SOL"], now - timedelta(days=lookback + 2), now)
+        report["prices"] = await sync_prices(ledger, ["BTC"], now - timedelta(days=lookback + 2), now)
         report["archive"] = await backfill_archive(client, ledger, TUNE_SERIES, seconds=backfill_seconds)
         fees = {s: await client.get_fee_schedule(s) for s in TUNE_SERIES}
     report["coverage"] = coverage(ledger)

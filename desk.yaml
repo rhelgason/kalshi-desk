@@ -6,17 +6,21 @@ db_path: data/desk.db     # the ledger: every paper trade and payout
 starting_cash: 1000       # paper dollars each employee starts with
 
 tick_seconds: 15          # how often everyone looks at the market
-# 15-minute up/down series first: they settle 96x a day, the fastest feedback
-crypto_series: [KXBTC15M, KXETH15M, KXSOL15M, KXBTCD, KXBTC, KXETHD, KXETH]
-crypto_symbols: [BTC, ETH, SOL]
-crypto_horizon_hours: 6
+# Bitcoin only (since Season 3): "will BTC be up in 15 minutes?" markets settle
+# 96x a day, the only market family that made money in Seasons 1-2, and the one
+# with months of history to backtest on.
+crypto_series: [KXBTC15M]
+slow_series: []
+crypto_symbols: [BTC]
+crypto_horizon_hours: 1
 
-broad_scan: true          # also scan non-crypto markets closing within broad_max_days
-broad_max_days: 2         # short so non-crypto bets also settle fast
+broad_scan: false         # no sports, weather, or other non-bitcoin markets
 
 liquidity_share: 0.5      # assume faster bots take half of every displayed order
 
-# One block per employee. Set enabled: false to give someone the day off.
+# One block per employee (the bitcoin team). Set enabled: false to give someone the day off.
+# Retired with the bitcoin focus: Risk-Free Rick, Sudoku Sue, Vega Vinny,
+# Front-Runner Fran, Spread Sam, Whale Watcher Walt (code kept in desk/strategies).
 # Run `python -m desk employees` for the full roster.
 #
 # Settings marked TUNED came from `python -m desk tune` (30 days of 15-minute
@@ -24,19 +28,11 @@ liquidity_share: 0.5      # assume faster bots take half of every displayed orde
 # training period and the unseen test period. PROBATION means no tested
 # setting made money, so the employee only bets on rare, very strong signals.
 strategies:
-  cover_arb:              # 🧮 Risk-Free Rick - guaranteed-profit strike ladders
-    min_edge: 0.01        # at least 1c profit per $1 after fees
-    max_cost_per_trade: 100
-  bucket_arb:             # 🧩 Sudoku Sue - "pick one" events whose prices don't add up
-    min_edge: 0.01
   fair_value:             # 🎓 The Professor - PROBATION: no edge over market prices found
     market_weight: 0.9    # mostly trust Kalshi's price, which proved well calibrated
     min_edge: 0.08
     implied_weight: 0.1
     max_bet: 25
-    max_seconds: 900
-  vol_arb:                # 📐 Vega Vinny - PROBATION (not yet backtestable; lost early live bets)
-    min_edge: 0.08
     max_seconds: 900
   sniper:                 # 🎯 The Sniper - TUNED: only 97%+ sure, last 5 minutes
     min_win_prob: 0.97
@@ -69,10 +65,6 @@ strategies:
     max_price: 0.95
     min_seconds: 600
     stake: 10
-  whale_follow:           # 🐋 Whale Watcher Walt - PROBATION (no history to test; lost early): bigger whales only
-    min_notional: 1000
-    max_chase: 0.01
-    stake: 5
   dart_monkey:            # 🐒 Dart Monkey Dan - control group: random bets; the benchmark to beat
     bets_per_tick: 0.2
     max_hours: 24

@@ -227,10 +227,10 @@ class TestDartMonkey:
 
 
 def test_build_strategies_respects_config():
-    strategies = build_strategies({"dart_monkey": {"enabled": False}, "cover_arb": {"min_edge": 0.02}})
+    strategies = build_strategies({"dart_monkey": {"enabled": False}, "fair_value": {"min_edge": 0.02}})
     keys = [s.key for s in strategies]
     assert "dart_monkey" not in keys
-    assert next(s for s in strategies if s.key == "cover_arb").min_edge == 0.02
+    assert next(s for s in strategies if s.key == "fair_value").min_edge == 0.02
 
 
 def test_market_weight_blends_toward_price(account, btc_quote):

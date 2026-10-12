@@ -9,7 +9,7 @@ from desk.feeds.crypto import CryptoFeed, UnderlyingQuote
 from desk.kalshi.models import Side
 from desk.strategies import (
     LongshotFade, LongshotLenny, MomentumMo, NickelNick, RubberBandRandy, Sniper, VegaVinny,
-    WhaleWatcherWalt, build_strategies, REGISTRY,
+    WhaleWatcherWalt, build_strategies, EVERYONE, REGISTRY,
 )
 from desk.strategies.base import Snapshot
 from desk.strategies.fair_value import implied_vol
@@ -41,8 +41,9 @@ def fair_ladder(spot, vol, strikes, close_in=timedelta(hours=1), half_spread=0.0
 
 def test_all_employees_registered_with_unique_names():
     staff = build_strategies({})
-    assert len(staff) == len(REGISTRY) == 14
-    assert len({s.persona.name for s in staff}) == 14
+    assert len(staff) == len(REGISTRY) == 8
+    everyone = build_strategies({}, EVERYONE)
+    assert len({s.persona.name for s in everyone}) == len(EVERYONE) == 14
 
 
 class TestVegaVinny:

@@ -44,7 +44,7 @@ SEARCH_SPACES: dict[str, dict[str, list[Any]]] = {
     "mean_revert": {"momentum_window": [5, 15], "market_weight": [0.8, 0.9], "min_edge": [0.04, 0.08]},
 }
 
-TUNE_SERIES = ["KXBTC15M", "KXETH15M", "KXSOL15M"]
+TUNE_SERIES = ["KXBTC15M"]  # bitcoin only since Season 3
 
 
 def _summary(r) -> dict:
