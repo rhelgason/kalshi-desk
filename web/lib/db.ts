@@ -161,6 +161,36 @@ export async function getRecentFills(season: number, limit = 30, strategy?: stri
   return rows.map((r) => ({ ...r, count: Number(r.count), price: Number(r.price), fee: Number(r.fee) })) as Fill[];
 }
 
+// Days start at midnight in the manager's time zone
+const DESK_TZ = "America/Vancouver";
+
+export type SettlementStats = {
+  wins: number;
+  losses: number;
+  won: number; // dollars made on winning bets
+  lost: number; // dollars lost on losing bets (negative)
+  days: { day: string; pnl: number; bets: number }[];
+};
+
+/** Finished bets for one employee this season: wins vs losses and profit per day. */
+export async function getSettlementStats(season: number, strategy: string): Promise<SettlementStats> {
+  const [totals, days] = await Promise.all([
+    db()`
+      SELECT count(*) FILTER (WHERE pnl > 0)::int AS wins, count(*) FILTER (WHERE pnl <= 0)::int AS losses,
+             coalesce(sum(pnl) FILTER (WHERE pnl > 0), 0) AS won, coalesce(sum(pnl) FILTER (WHERE pnl <= 0), 0) AS lost
+      FROM settlements WHERE season = ${season} AND strategy = ${strategy}`,
+    db()`
+      SELECT to_char(ts::timestamptz AT TIME ZONE ${DESK_TZ}, 'YYYY-MM-DD') AS day, sum(pnl) AS pnl, count(*)::int AS bets
+      FROM settlements WHERE season = ${season} AND strategy = ${strategy}
+      GROUP BY 1 ORDER BY 1`,
+  ]);
+  const t = totals[0];
+  return {
+    wins: t.wins, losses: t.losses, won: Number(t.won), lost: Number(t.lost),
+    days: days.map((r) => ({ day: r.day, pnl: Number(r.pnl), bets: r.bets })),
+  };
+}
+
 export async function getSettledCount(season: number): Promise<number> {
   const rows = await db()`SELECT count(*)::int AS n FROM settlements WHERE season = ${season}`;
   return rows[0].n;
