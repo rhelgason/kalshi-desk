@@ -103,7 +103,7 @@ export default function EquityChart({
           <g key={v}>
             <line x1={pad.l} x2={pad.l + w} y1={y(v)} y2={y(v)} stroke={v === 0 ? "var(--axis)" : "var(--grid)"} strokeWidth={1} />
             <text x={pad.l - 8} y={y(v)} dy="0.32em" textAnchor="end" fontSize={11} fill="var(--text-muted)" style={{ fontVariantNumeric: "tabular-nums" }}>
-              {axisMoney(v)}
+              {axisMoney(v, yTicks[1] - yTicks[0])}
             </text>
           </g>
         ))}

@@ -118,7 +118,7 @@ export async function getHistory(season: number, range: RangeKey): Promise<Histo
   }
   const since = new Date(sinceMs).toISOString();
   const bin = binFor(Date.now() - sinceMs);
-  const [rows, seeds, accounts, transfers] = await Promise.all([
+  const [rows, seeds, accounts, transfers, staffRows] = await Promise.all([
     db()`
       SELECT DISTINCT ON (strategy, b) strategy, b, ts, equity FROM (
         SELECT strategy, ts, equity,
@@ -135,18 +135,23 @@ export async function getHistory(season: number, range: RangeKey): Promise<Histo
       ) e`,
     db()`SELECT strategy, starting_cash FROM accounts`,
     db()`SELECT ts, strategy, amount FROM transfers WHERE season = ${season} ORDER BY ts`,
+    // Who's on staff now: retired employees' old rows shouldn't count toward the totals
+    db()`SELECT e->>'key' AS key FROM status, jsonb_array_elements(data::jsonb -> 'employees') e WHERE status.key = 'live'`,
   ]);
+  const staff = new Set(staffRows.map((r) => r.key as string));
+  const onStaff = (k: string) => !staff.size || staff.has(k);
   const points: History["points"] = {};
   for (const r of rows) {
+    if (!onStaff(r.strategy)) continue;
     (points[r.strategy] ??= []).push({ b: new Date(r.b).getTime(), t: Date.parse(r.ts), equity: Number(r.equity) });
   }
   for (const k of Object.keys(points)) points[k].sort((a, b) => a.b - b.b);
   return {
     since: sinceMs,
     points,
-    seeds: Object.fromEntries(seeds.map((r) => [r.strategy, Number(r.equity)])),
-    starting: Object.fromEntries(accounts.map((r) => [r.strategy, Number(r.starting_cash)])),
-    transfers: transfers.map((r) => ({ t: Date.parse(r.ts), strategy: r.strategy, amount: Number(r.amount) })),
+    seeds: Object.fromEntries(seeds.filter((r) => onStaff(r.strategy)).map((r) => [r.strategy, Number(r.equity)])),
+    starting: Object.fromEntries(accounts.filter((r) => onStaff(r.strategy)).map((r) => [r.strategy, Number(r.starting_cash)])),
+    transfers: transfers.filter((r) => onStaff(r.strategy)).map((r) => ({ t: Date.parse(r.ts), strategy: r.strategy, amount: Number(r.amount) })),
   };
 }
 

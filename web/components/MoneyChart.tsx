@@ -12,10 +12,11 @@ type Member = { key: string; name: string; emoji: string; profit: Point[]; light
 
 /** Would benching them for real be smart? Judged on the long run, never on one stretch. */
 function verdict(m: Member, change: number): string {
-  const first = m.name.split(" ")[0] === "The" ? m.name : m.name.split(" ")[0];
+  const first = m.name.startsWith("The ") ? m.name : m.name.split(" ").slice(-1)[0];
   if (m.light === "yardstick") return `${first} is a yardstick: a simple rule kept around so you can see if the others beat it. Benching would hide that.`;
   if (m.light === "bad") return `${first} has lost over ${m.bets} finished bets, and the numbers say it's probably not bad luck. Benching is reasonable; the button is on their page.`;
   if (m.light === "good") return `${first} is ahead over the long run${change < 0 ? ", so this dip is likely noise" : ""}. Keep them working.`;
+  if (m.bets === 0) return `${first} hasn't finished a bet yet, so there's nothing to judge. Too early to bench.`;
   if (m.bets < 30) return `${first} has only ${m.bets} finished bet${m.bets === 1 ? "" : "s"}, so this could easily be luck. Too early to bench.`;
   return `${first}'s results could still be luck either way. Not enough to act on.`;
 }

@@ -34,9 +34,12 @@ export const cents = (x: number | null | undefined) => {
 };
 
 /** Compact axis labels: $0, $500, $1K, −$2.5K. */
-export const axisMoney = (x: number) => {
+export const axisMoney = (x: number, step?: number) => {
   const a = Math.abs(x);
-  const body = a >= 1000 ? `$${+(a / 1000).toFixed(1)}K` : `$${+a.toFixed(a < 10 ? 2 : 0)}`;
+  // Thousands get a K, unless the ticks are close together ($7,996 / $7,998, not $8K / $8K)
+  const close = step != null && step < 100;
+  const body = a >= 1000 && !close ? `$${+(a / 1000).toFixed(1)}K`
+    : `$${a.toLocaleString("en-US", { maximumFractionDigits: step != null && step < 1 ? 2 : a < 10 ? 2 : 0 })}`;
   return x < 0 ? `−${body}` : body;
 };
 
