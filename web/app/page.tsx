@@ -17,7 +17,7 @@ import { parseRange, portfolioSeries, profitSeries } from "@/lib/portfolio";
 
 export const dynamic = "force-dynamic";
 
-const RANGE_WORDS = { day: "Today", week: "This week", month: "This month", quarter: "Last 3 months", season: "This season" };
+const RANGE_WORDS = { day: "Today", week: "This week", month: "This month", quarter: "Last 3 months", season: "Since the start" };
 
 export default async function Home({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const range = parseRange((await searchParams).range);
@@ -72,7 +72,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
 
       <section className="card money-hero">
         <div className="row-btns" style={{ justifyContent: "space-between" }}>
-          <span className="label">Your money · Season {policy.season}</span>
+          <span className="label">Your money</span>
           <span className="badge" title="The employees trade with pretend money against real Kalshi prices">🧪 Pretend money</span>
         </div>
         <div className="big-number">{dollars(worth)}</div>
@@ -83,8 +83,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
 
         <RangeTabs value={range} path="/" />
         <MoneyChart points={points} period={RANGE_WORDS[range]}
-          team={employees.map((e) => ({
-            key: e.key, name: e.name, emoji: e.emoji,
+          team={rows.map(({ e, light: l }) => ({
+            key: e.key, name: e.name, emoji: e.emoji, light: l.key, bets: analysis.evidence[e.key]?.bets ?? 0,
             profit: [...(rangeProfits[e.key] ?? []), { t: points[points.length - 1].t, v: e.pnl ?? 0 }],
           }))} />
         {range !== "season" && rangeProfit != null && (

@@ -35,7 +35,6 @@ export default function Spotlight({ award, employees, policy }: { award: NewsIte
       <div className="spot-side">
         <div><span className="muted">Next review</span><br /><strong>{next ? next.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "soon"}</strong></div>
         <div><span className="muted">Bonus reserve</span><br /><strong>{money(policy.reserve, false)}</strong></div>
-        <div><span className="muted">Season</span><br /><strong>{policy.season}</strong></div>
       </div>
     </section>
   );

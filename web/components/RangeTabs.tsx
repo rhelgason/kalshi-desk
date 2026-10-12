@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { type RangeKey } from "@/lib/portfolio";
 
-const SHORT: Record<RangeKey, string> = { day: "Day", week: "Week", month: "Month", quarter: "3 Mo", season: "Season" };
+const SHORT: Record<RangeKey, string> = { day: "Day", week: "Week", month: "Month", quarter: "3 Mo", season: "All" };
 
-/** Day / Week / Month / 3 months / Season. Links, so the choice survives refreshes and can be shared. */
+/** Day / Week / Month / 3 months / All (since the fresh start). Links, so the choice survives refreshes and can be shared. */
 export default function RangeTabs({ value, path, params = {} }: { value: RangeKey; path: string; params?: Record<string, string> }) {
   return (
     <nav className="seg" aria-label="Time range">

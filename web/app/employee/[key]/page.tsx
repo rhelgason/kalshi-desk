@@ -127,7 +127,7 @@ export default async function EmployeePage({ params, searchParams }: {
       <section className="card">
         <h2>Skill or luck?</h2>
         <p className="sub">
-          Based on every finished bet this season. Promotions need at least{" "}
+          Based on every finished bet since the fresh start. Promotions need at least{" "}
           {Math.round(data.policy.promote_min_confidence * 100)}% here.
         </p>
         <SkillCheck e={ev} />

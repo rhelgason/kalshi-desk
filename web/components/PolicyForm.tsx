@@ -89,9 +89,9 @@ export default function PolicyForm({ policy, admin }: { policy: Policy; admin: b
             <button className="btn" disabled={pending} onClick={() => start(async () => { await requestRetune(); setMsg("✓ Retune requested. The background job picks it up within ~3 hours."); })}>🔧 Retune everyone now</button>
             <button className="btn danger" disabled={pending}
               onClick={() => {
-                const r = prompt(`Start Season ${policy.season + 1}? Every employee restarts at their starting bankroll (Season ${policy.season} stays in the records). Bonus reserve for the new season:`, String(policy.reserve));
-                if (r !== null) start(async () => { await startNewSeason(Number(r)); setMsg(`✓ Season ${policy.season + 1} starts on the desk's next run.`); });
-              }}>🎉 Start Season {policy.season + 1}</button>
+                const r = prompt(`Start fresh? Every employee restarts at their starting money (old results stay in the records). Bonus reserve from now on:`, String(policy.reserve));
+                if (r !== null) start(async () => { await startNewSeason(Number(r)); setMsg("✓ Fresh start on the desk's next run."); });
+              }}>🎉 Fresh start (reset everyone)</button>
           </div>
         </>
       )}

@@ -33,7 +33,7 @@ function describe(n: NewsItem, name: React.ReactNode): { icon: string; text: Rea
     case "review":
       return { icon: "📋", text: <>Performance review finished for {d.standings?.length ?? 0} employees</> };
     case "season":
-      return { icon: "🎉", text: <>Season {d.season} has begun. Everyone starts fresh.</> };
+      return { icon: "🎉", text: <>Fresh start: everyone's money was reset.{d.note ? ` ${d.note}.` : ""}</> };
     case "tune":
       return d.applied
         ? { icon: "🔧", text: <>{name} retuned after testing {d.tried} settings: {Object.entries(d.changes ?? {}).map(([k, v]) => `${k} → ${v}`).join(", ")} ({d.why})</> }

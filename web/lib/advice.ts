@@ -72,7 +72,7 @@ export function advise(e: Employee, ev: Evidence | undefined, r: Realism | undef
   if (!ev || ev.bets === 0) {
     return {
       tone: "relax", headline: "Nothing to do yet.",
-      why: "No finished bets this season. Some employees wait a long time for the right opportunity.",
+      why: "No finished bets yet. Some employees wait a long time for the right opportunity.",
     };
   }
   if (e.control) {

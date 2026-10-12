@@ -25,7 +25,7 @@ function ConfidenceBar({ value }: { value: number }) {
 
 export function SkillCheck({ e }: { e?: Evidence }) {
   if (!e) {
-    return <div className="empty">No settled bets this season yet. Check back once some markets settle.</div>;
+    return <div className="empty">No settled bets yet. Check back once some markets settle.</div>;
   }
   const t = TONE[e.verdict_key];
   return (
@@ -60,7 +60,7 @@ const REAL_ICON: Record<Realism["verdict_key"], string> = {
 };
 
 export function RealityCheck({ r }: { r?: Realism }) {
-  if (!r || r.verdict_key === "none") return <div className="empty">No trades measured yet this season.</div>;
+  if (!r || r.verdict_key === "none") return <div className="empty">No trades measured yet.</div>;
   return (
     <div>
       <p className="verdict"><span aria-hidden>{REAL_ICON[r.verdict_key]}</span> <strong>{r.verdict}</strong></p>

@@ -20,7 +20,7 @@ type Row = { s: Series; v: number; rank: number; change: number };
 /**
  * One employee's profit over time (blue) against the whole team (gray).
  * Point at (or tap) any line to light it up in orange and see how that
- * teammate was doing at that moment. Pick a name to keep one lit.
+ * teammate was doing at that moment.
  */
 export default function CompareChart({ series, focus, given, height = 240 }: {
   series: Series[];
@@ -31,7 +31,6 @@ export default function CompareChart({ series, focus, given, height = 240 }: {
 }) {
   const [ref, width] = useWidth<HTMLDivElement>(360);
   const [hover, setHover] = useState<{ t: number; key: string | null } | null>(null);
-  const [pinned, setPinned] = useState<string>("");
   const me = series.find((s) => s.key === focus);
 
   const pad = { l: 8, r: 52, t: 8, b: 24 };
@@ -67,7 +66,7 @@ export default function CompareChart({ series, focus, given, height = 240 }: {
     .sort((a, b) => b.v - a.v)
     .map((r, i) => ({ s: r.s, v: r.v, rank: i + 1, change: r.v - r.start }));
   const row = (k: string | null) => (k ? rows.find((r) => r.s.key === k) ?? null : null);
-  const hotKey = pinned || (hover?.key !== focus ? hover?.key ?? null : null);
+  const hotKey = hover?.key !== focus ? hover?.key ?? null : null;
   const mine = row(focus);
   const hot = row(hotKey);
 
@@ -96,15 +95,6 @@ export default function CompareChart({ series, focus, given, height = 240 }: {
 
   return (
     <div className="chart" ref={ref}>
-      <label className="picker">
-        <span className="muted">Highlight</span>
-        <select value={pinned} onChange={(e) => setPinned(e.target.value)}>
-          <option value="">Whoever I point at</option>
-          {series.filter((s) => s.key !== focus).map((s) => (
-            <option key={s.key} value={s.key}>{s.emoji} {s.label}</option>
-          ))}
-        </select>
-      </label>
       <div className="info" aria-live="polite">
         <div className="muted small">{hover == null ? "Now" : when(t)}</div>
         {mine && <Info r={mine} color="var(--series-1)" />}
