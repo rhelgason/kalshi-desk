@@ -160,14 +160,15 @@ class EmployeeRecord:
 
 
 def load_roster(ledger: Ledger, keys: list[str]) -> dict[str, EmployeeRecord]:
-    """Every employee's HR record, creating defaults for new hires."""
+    """HR records for these employees, creating defaults for new hires."""
     rows = {r["key"]: EmployeeRecord.from_row(r) for r in ledger.employee_rows()}
     for k in keys:
         if k not in rows:
             rows[k] = EmployeeRecord.new(k)
             ledger.upsert_employee(rows[k].to_row())
             ledger.record_event("hr", {"action": "hired", "level": level_title(rows[k].level)}, strategy=k)
-    return rows
+    # Only the requested staff: retired employees keep their row but aren't on the floor
+    return {k: rows[k] for k in keys}
 
 
 def reinstate_expired(ledger: Ledger, roster: dict[str, EmployeeRecord], now: Optional[datetime] = None) -> list[str]:
