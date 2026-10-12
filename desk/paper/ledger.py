@@ -148,7 +148,7 @@ CREATE INDEX IF NOT EXISTS settlements_strategy_ticker ON settlements(strategy, 
 # below only runs when this differs from what the database records, because
 # ALTER TABLE takes a full-table lock even when there's nothing to change, and
 # running it every 2 minutes can pile up behind a slow query.
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 TABLES = ("accounts", "fills", "settlements", "equity", "events", "status", "backtests", "transfers",
           "employees", "settings", "tuning_runs", "market_history", "price_history")
@@ -231,6 +231,8 @@ class Ledger:
                 self._add_column(table, "season", "INTEGER NOT NULL DEFAULT 1")
             for col, decl in FILL_REALISM:
                 self._add_column("fills", col, decl)
+            # Portfolio charts read one season's equity over a time range
+            self.db.execute("CREATE INDEX IF NOT EXISTS equity_season_ts ON equity(season, ts)")
             if self.is_postgres:
                 # Supabase exposes the public schema through its auto-generated REST
                 # API. Row-level security with no policies blocks that API entirely;
