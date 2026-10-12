@@ -103,7 +103,7 @@ class PaperBroker:
 
     def execute(self, intent: TradeIntent, books: dict[str, Orderbook],
                 fees: dict[str, FeeSchedule], ts: Optional[str] = None,
-                signal_time: Optional[datetime] = None) -> ExecutionResult:
+                signal_time: Optional[datetime] = None, context: Optional[dict] = None) -> ExecutionResult:
         acct = self.accounts[intent.strategy]
         shrunk = {}
         for leg in intent.legs:
@@ -157,7 +157,7 @@ class PaperBroker:
                 # Reality check: the price the employee saw, and how many contracts
                 # were really on offer at or better than it (before our share haircut)
                 seen_price=leg.limit_price, book_depth=books[leg.ticker].depth_at_or_better(leg.side, leg.limit_price),
-                latency_ms=latency,
+                latency_ms=latency, context=context,
             )
             result.fills.append(LegFill(leg.ticker, leg.side.value, fill.count, fill.avg_price, fee))
         return result

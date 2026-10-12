@@ -8,6 +8,7 @@ Command line for the desk.
     python -m desk backtest      replay the last N days of settled markets with every employee
     python -m desk tune EMPLOYEE --set param=v1,v2   search settings with a train/test split
     python -m desk jobs          background jobs: history sync, archive backfill, autotuning
+    python -m desk review --days 30   performance review of every employee (Markdown)
     python -m desk employees     who works here
     python -m desk whoami        check your Kalshi API key (read-only)
 """
@@ -283,6 +284,20 @@ async def cmd_jobs(cfg: DeskConfig, backfill_minutes: float, force_tune: bool) -
     print(json.dumps(report, indent=1, default=str))
 
 
+def cmd_review(cfg: DeskConfig, days: float, out: str | None) -> None:
+    from pathlib import Path
+
+    from desk.review import build_review
+
+    text = build_review(Ledger(cfg.db_path), days)
+    if out:
+        Path(out).parent.mkdir(parents=True, exist_ok=True)
+        Path(out).write_text(text)
+        print(f"Saved to {out}")
+    else:
+        print(text)
+
+
 def cmd_employees() -> None:
     for key, cls in REGISTRY.items():
         p = cls.persona
@@ -316,7 +331,7 @@ def main(argv: list[str] | None = None) -> int:
     acc.add_argument("--employee", help="show calibration detail for one employee key")
     bt = sub.add_parser("backtest", help="replay settled Kalshi markets with every employee")
     bt.add_argument("--days", type=float, default=7)
-    bt.add_argument("--series", default="KXBTC15M,KXETH15M,KXSOL15M")
+    bt.add_argument("--series", default="KXBTC15M")
     bt.add_argument("--fill-delay", type=int, default=0, help="minutes between seeing a price and trading")
     bt.add_argument("--depth", type=float, default=100, help="contracts assumed available at the best quote")
     bt.add_argument("--only", help="comma-separated employee keys to include")
@@ -329,13 +344,16 @@ def main(argv: list[str] | None = None) -> int:
     tn.add_argument("--set", action="append", default=[], metavar="PARAM=V1,V2,...",
                     help="values to try, e.g. --set min_edge=0.02,0.04 --set market_weight=0,0.5,0.8")
     tn.add_argument("--days", type=float, default=30)
-    tn.add_argument("--series", default="KXBTC15M,KXETH15M,KXSOL15M")
+    tn.add_argument("--series", default="KXBTC15M")
     tn.add_argument("--fill-delay", type=int, default=1)
     tn.add_argument("--depth", type=float, default=100)
     tn.add_argument("--top", type=int, default=15)
     jb = sub.add_parser("jobs", help="sync history, backfill the archive, autotune when due")
     jb.add_argument("--backfill-minutes", type=float, default=10)
     jb.add_argument("--force-tune", action="store_true")
+    rv = sub.add_parser("review", help="performance review of every employee over the last N days")
+    rv.add_argument("--days", type=float, default=30)
+    rv.add_argument("--out", help="save the Markdown report here instead of printing it")
     sub.add_parser("employees")
     sub.add_parser("whoami")
     args = parser.parse_args(argv)
@@ -362,6 +380,8 @@ def main(argv: list[str] | None = None) -> int:
                                  args.fill_delay, args.depth, args.top))
         elif args.cmd == "jobs":
             asyncio.run(cmd_jobs(cfg, args.backfill_minutes, args.force_tune))
+        elif args.cmd == "review":
+            cmd_review(cfg, args.days, args.out)
         elif args.cmd == "employees":
             cmd_employees()
         elif args.cmd == "whoami":

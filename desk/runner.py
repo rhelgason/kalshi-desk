@@ -317,7 +317,9 @@ class Desk:
         except KalshiAPIError as e:
             logger.warning("Couldn't fetch books for %s: %s", intent.tickers, e)
             return None
-        result = self.broker.execute(intent, books, fees, signal_time=snap.now)
+        context = self._safely_value(lambda: self.decision_context(intent, snap, books))
+        result = self.broker.execute(intent, books, fees, signal_time=snap.now, context=context)
+        self._safely("log decision", lambda: self.log_decision(intent, result, context))
         who = self.personas.get(intent.strategy, intent.strategy)
         if result.filled:
             legs = ", ".join(f"{f.side.upper()} {f.count:g}x {f.ticker} @ {f.avg_price:.3f}" for f in result.fills)
@@ -325,6 +327,68 @@ class Desk:
         else:
             logger.debug("%s skipped: %s (%s)", who, result.reason, intent.reason)
         return result
+
+    # ------------------------------------------------------------------
+    # Review logging: enough detail to judge every employee a month later
+    # ------------------------------------------------------------------
+
+    def decision_context(self, intent: TradeIntent, snap: Snapshot, books: dict) -> dict:
+        """What the employee saw when deciding: the market, bitcoin, time left, their settings and size."""
+        legs = []
+        for leg in intent.legs:
+            m = snap.markets.get(leg.ticker)
+            book = books.get(leg.ticker)
+            q = snap.underlying_for(m) if m else None
+            legs.append({
+                "ticker": leg.ticker, "side": leg.side.value, "limit": leg.limit_price, "count": leg.count,
+                "yes_bid": m.yes_bid if m else None, "yes_ask": m.yes_ask if m else None,
+                "yes_bid_size": m.yes_bid_size if m else None, "yes_ask_size": m.yes_ask_size if m else None,
+                "volume": m.volume if m else None, "volume_24h": m.volume_24h if m else None,
+                "strike": m.floor_strike if m else None, "strike_type": m.strike_type if m else None,
+                "close_time": m.close_time.isoformat() if m and m.close_time else None,
+                "secs_left": round(m.seconds_to_close(snap.now) or 0, 1) if m else None,
+                "depth_at_limit": book.depth_at_or_better(leg.side, leg.limit_price) if book else None,
+                "spot": q.spot if q else None, "realized_vol": q.realized_vol if q else None,
+                "implied_vol": q.implied_vol if q else None, "momentum": q.momentum if q else None,
+            })
+        strat = next((s for s in self.strategies if s.key == intent.strategy), None)
+        rec = self.roster.get(intent.strategy)
+        return {
+            "legs": legs, "model_prob": intent.model_prob, "expected_edge": intent.expected_edge,
+            "level": rec.level if rec else None, "multiplier": self.multipliers.get(intent.strategy, 1.0),
+            "params": strategy_params(strat) if strat else None,
+            "cash": round(self.accounts[intent.strategy].cash, 2) if intent.strategy in self.accounts else None,
+            "open_positions": len(self.accounts[intent.strategy].open_tickers) if intent.strategy in self.accounts else None,
+            "hour_utc": snap.now.hour, "weekday": snap.now.weekday(),
+        }
+
+    def log_decision(self, intent: TradeIntent, result, context: Optional[dict]) -> None:
+        filled = {f.ticker: f.count for f in result.fills}
+        for leg in intent.legs:
+            self.ledger.record_decision(
+                intent.strategy, leg.ticker, leg.side.value, leg.limit_price, leg.count,
+                filled.get(leg.ticker, 0.0), "filled" if result.filled else (result.reason or "not filled"),
+                intent.reason, context,
+            )
+
+    def record_tape(self, snap: Snapshot) -> None:
+        """Every watched market's quote this run, with bitcoin's price (crypto series only)."""
+        ts = snap.now.isoformat()
+        rows = []
+        for m in snap.markets.values():
+            if m.event_ticker.split("-", 1)[0] not in self.config.crypto_series:
+                continue
+            q = snap.underlying_for(m)
+            rows.append((ts, m.ticker, round(m.seconds_to_close(snap.now) or 0, 1), m.yes_bid, m.yes_ask,
+                         m.yes_bid_size, m.yes_ask_size, m.volume, m.floor_strike, q.spot if q else None))
+        self.ledger.record_tape(rows)
+
+    def _safely_value(self, fn):
+        try:
+            return fn()
+        except Exception:
+            logger.exception("Couldn't build review context; continuing")
+            return None
 
     def update_marks(self, snap: Snapshot) -> None:
         for t, m in snap.markets.items():
@@ -403,6 +467,7 @@ class Desk:
         self.last_snapshot = snap
         self.update_marks(snap)
         self.record_snapshot(snap)
+        self._safely("record market tape", lambda: self.record_tape(snap))
         results = await self.run_strategies(snap)
 
         if self._due(self._last_settle, self.config.settle_check_seconds, now):

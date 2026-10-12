@@ -136,6 +136,36 @@ CREATE TABLE IF NOT EXISTS price_history (
     data TEXT NOT NULL,
     PRIMARY KEY (symbol, day)
 );
+-- Every bet an employee tried, filled or not, with what they saw (for reviews)
+CREATE TABLE IF NOT EXISTS decisions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts TEXT NOT NULL,
+    season INTEGER NOT NULL DEFAULT 1,
+    strategy TEXT NOT NULL,
+    ticker TEXT NOT NULL,
+    side TEXT NOT NULL,
+    limit_price REAL NOT NULL,
+    count REAL NOT NULL,
+    filled REAL NOT NULL,
+    outcome TEXT NOT NULL,
+    reason TEXT,
+    context TEXT
+);
+-- Each run's quote for every open market the desk watches, plus bitcoin's price
+CREATE TABLE IF NOT EXISTS market_tape (
+    ts TEXT NOT NULL,
+    ticker TEXT NOT NULL,
+    secs_left REAL,
+    yes_bid REAL,
+    yes_ask REAL,
+    yes_bid_size REAL,
+    yes_ask_size REAL,
+    volume REAL,
+    strike REAL,
+    spot REAL
+);
+CREATE INDEX IF NOT EXISTS decisions_strategy_ts ON decisions(strategy, ts);
+CREATE INDEX IF NOT EXISTS market_tape_ticker_ts ON market_tape(ticker, ts);
 CREATE INDEX IF NOT EXISTS market_history_series_close ON market_history(series, close_ts);
 CREATE INDEX IF NOT EXISTS fills_strategy ON fills(strategy);
 CREATE INDEX IF NOT EXISTS settlements_strategy ON settlements(strategy);
@@ -148,13 +178,15 @@ CREATE INDEX IF NOT EXISTS settlements_strategy_ticker ON settlements(strategy, 
 # below only runs when this differs from what the database records, because
 # ALTER TABLE takes a full-table lock even when there's nothing to change, and
 # running it every 2 minutes can pile up behind a slow query.
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 TABLES = ("accounts", "fills", "settlements", "equity", "events", "status", "backtests", "transfers",
-          "employees", "settings", "tuning_runs", "market_history", "price_history")
+          "employees", "settings", "tuning_runs", "market_history", "price_history", "decisions", "market_tape")
 SEASONED = ("fills", "settlements", "equity")
 # Fill reality check: what the employee saw vs. what the paper fill got
-FILL_REALISM = (("seen_price", "REAL"), ("book_depth", "REAL"), ("latency_ms", "INTEGER"))
+FILL_REALISM = (("seen_price", "REAL"), ("book_depth", "REAL"), ("latency_ms", "INTEGER"),
+                # JSON: what the employee saw when deciding (prices, bitcoin, time left, settings)
+                ("context", "TEXT"))
 
 
 def _now() -> str:
@@ -298,15 +330,16 @@ class Ledger:
                     intent_id: str = "", model_prob: Optional[float] = None,
                     expected_edge: Optional[float] = None, reason: str = "", ts: Optional[str] = None,
                     seen_price: Optional[float] = None, book_depth: Optional[float] = None,
-                    latency_ms: Optional[int] = None) -> None:
+                    latency_ms: Optional[int] = None, context: Optional[dict] = None) -> None:
         row = dict(ts=ts or _now(), strategy=strategy, intent_id=intent_id, ticker=ticker, side=side.value,
                    count=count, price=price, fee=fee, model_prob=model_prob, expected_edge=expected_edge,
                    reason=reason, season=self.season, seen_price=seen_price, book_depth=book_depth,
                    latency_ms=latency_ms)
         self._write(
             "INSERT INTO fills(ts, strategy, intent_id, ticker, side, count, price, fee, model_prob, expected_edge,"
-            " reason, season, seen_price, book_depth, latency_ms) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            tuple(row.values()),
+            " reason, season, seen_price, book_depth, latency_ms, context)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (*row.values(), json.dumps(context, default=str) if context else None),
         )
         if self._fills is not None:
             self._fills.append(row)
@@ -331,6 +364,23 @@ class Ledger:
         """Paper cash given to (+) or taken from (-) an employee. Not profit or loss."""
         self._write("INSERT INTO transfers(ts, season, strategy, amount, reason) VALUES (?, ?, ?, ?, ?)",
                     (ts or _now(), self.season, strategy, amount, reason))
+
+    def record_decision(self, strategy: str, ticker: str, side: str, limit_price: float, count: float,
+                        filled: float, outcome: str, reason: str = "", context: Optional[dict] = None,
+                        ts: Optional[str] = None) -> None:
+        """One attempted bet, filled or not ("filled", "no liquidity at limit price", ...)."""
+        self._write(
+            "INSERT INTO decisions(ts, season, strategy, ticker, side, limit_price, count, filled, outcome, reason,"
+            " context) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (ts or _now(), self.season, strategy, ticker, side, limit_price, count, filled, outcome, reason,
+             json.dumps(context, default=str) if context else None),
+        )
+
+    def record_tape(self, rows: list[tuple]) -> None:
+        """(ts, ticker, secs_left, yes_bid, yes_ask, bid_size, ask_size, volume, strike, spot) per market."""
+        for r in rows:
+            self._write("INSERT INTO market_tape(ts, ticker, secs_left, yes_bid, yes_ask, yes_bid_size,"
+                        " yes_ask_size, volume, strike, spot) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", r)
 
     def record_event(self, kind: str, detail: dict | str, strategy: Optional[str] = None) -> None:
         text = detail if isinstance(detail, str) else json.dumps(detail, default=str)

@@ -50,6 +50,17 @@ def calibrate_depth(ledger: Ledger, cfg: DeskConfig, min_samples: int = 30) -> d
     return realism
 
 
+def snapshot_roster(ledger: Ledger, cfg: DeskConfig) -> int:
+    """Record everyone's status, level and exact settings, so reviews know what was in force when."""
+    roster = hr.load_roster(ledger, list(REGISTRY))
+    effective = hr.effective_strategy_config(cfg.strategies, roster)
+    snap = {k: {"status": r.status, "level": r.level, "multiplier": r.multiplier, "autotune": r.autotune,
+                "settings": {p: v for p, v in (effective.get(k) or {}).items() if p != "enabled"}}
+            for k, r in roster.items()}
+    ledger.record_event("roster", snap)
+    return len(snap)
+
+
 def nightly_backtest(ledger: Ledger, cfg: DeskConfig, data, fees, depth: float = 100) -> str:
     """Backtest every working, replayable employee with today's settings; save for the dashboard."""
     roster = hr.load_roster(ledger, list(REGISTRY))
@@ -101,6 +112,7 @@ async def run_jobs(cfg: DeskConfig, backfill_seconds: float = 600, force_tune: b
         report["autotune"] = [{k: d[k] for k in ("employee", "applied", "why", "changes")}
                               for d in run_autotune(ledger, cfg, data, fees, depth=depth)]
         report["backtest"] = nightly_backtest(ledger, cfg, data, fees, depth=depth)
+    report["roster"] = snapshot_roster(ledger, cfg)
     report["seconds"] = round(time.monotonic() - started, 1)
     ledger.set_status("jobs", {"finished_at": datetime.now(timezone.utc).isoformat(), **report})
     return report
