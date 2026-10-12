@@ -43,7 +43,7 @@ export function MoneySplit({ won, lost, fees }: { won: number; lost: number; fee
       <div className="split-row"><span>Lost on losing bets</span><strong className="down">{dollars(lost, true)}</strong></div>
       {bar(lost, "var(--down)")}
       <div className="split-row" style={{ marginTop: 6 }}><span>Overall</span><strong className={won + lost >= 0 ? "up" : "down"}>{dollars(won + lost, true)}</strong></div>
-      <p className="muted small" style={{ margin: "6px 0 0" }}>Includes {dollars(fees)} paid to Kalshi in fees. Only finished bets count.</p>
+      <p className="muted small" style={{ margin: "6px 0 0" }}>Kalshi took {dollars(fees)} of that in fees.</p>
     </div>
   );
 }

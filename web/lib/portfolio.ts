@@ -50,6 +50,11 @@ function givenBy(h: History, strategy: string, t: number): number {
  */
 export function portfolioSeries(h: History): PortfolioPoint[] {
   const last: Record<string, number> = { ...h.seeds };
+  // Someone hired partway through counts as sitting on their starting money until
+  // their first snapshot, so the total doesn't jump up when they arrive
+  for (const [k, pts] of Object.entries(h.points)) {
+    if (!(k in last) && pts.length) last[k] = h.starting[k] ?? pts[0].equity;
+  }
   const buckets = new Map<number, { t: number; rows: [string, number][] }>();
   for (const [k, pts] of Object.entries(h.points)) {
     for (const p of pts) {

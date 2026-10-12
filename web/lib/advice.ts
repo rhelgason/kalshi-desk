@@ -1,5 +1,5 @@
 import type { Employee, Evidence, Policy, Realism } from "./types";
-import { money, pct } from "./format";
+import { money, shortName } from "./format";
 
 // Mirrors desk/paper/evidence.py: below this many settled bets it's always "too early"
 const MIN_BETS = 30;
@@ -33,13 +33,12 @@ export type Advice = {
   action?: { kind: "suspend"; days: number } | { kind: "reinstate" };
 };
 
-const sure = (x: number) => `${Math.round(x * 100)}%`;
 const shortDate = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
 function paceText(more: number, betsPerDay: number | null): string {
   if (!betsPerDay || betsPerDay <= 0) return "";
   const days = more / betsPerDay;
-  return days < 1 ? " (less than a day at their pace)" : days < 60 ? ` (about ${Math.ceil(days)} days at their pace)` : " (months at their pace)";
+  return days < 1 ? ", probably today" : days < 60 ? `, about ${Math.ceil(days)} day${Math.ceil(days) === 1 ? "" : "s"} at this pace` : ", which could take months";
 }
 
 function fillWarning(r?: Realism): string | null {
@@ -54,31 +53,28 @@ function fillWarning(r?: Realism): string | null {
 export function advise(e: Employee, ev: Evidence | undefined, r: Realism | undefined, policy: Policy,
                        betsPerDay: number | null = null): Advice {
   const pnl = e.pnl ?? 0;
-  const given = e.starting_cash ?? 0;
-  const lostOrMade = `${pnl >= 0 ? "made" : "lost"} ${money(Math.abs(pnl), false)} (${pct(Math.abs(e.roi ?? 0))} of their money)`;
+  const who = shortName(e.name);
+  const upDown = `${pnl >= 0 ? "Up" : "Down"} ${money(Math.abs(pnl), false)}`;
 
   if (e.status === "fired") {
-    return { tone: "relax", headline: "Fired. Nothing to do.", why: "They no longer trade. You can rehire them from their page." };
+    return { tone: "relax", headline: "Fired.", why: `${who} cleaned out the desk. You can rehire them below.` };
   }
   if (e.status === "suspended") {
     const until = e.suspended_until && !e.suspended_until.startsWith("9999") ? shortDate(e.suspended_until) : null;
     return {
       tone: "relax",
-      headline: until ? `Benched until ${until}. Nothing to do.` : "Benched until you bring them back.",
-      why: until ? "They come back automatically. You can bring them back early." : "They won't trade until you reinstate them.",
+      headline: until ? `Benched until ${until}.` : "Benched.",
+      why: until ? `${who} comes back on their own.` : `${who} sits until you say so.`,
       action: { kind: "reinstate" },
     };
   }
   if (!ev || ev.bets === 0) {
-    return {
-      tone: "relax", headline: "Nothing to do yet.",
-      why: "No finished bets yet. Some employees wait a long time for the right opportunity.",
-    };
+    return { tone: "relax", headline: "Nothing yet.", why: `${who} hasn't found a bet worth making. That's allowed.` };
   }
   if (e.control) {
     return {
-      tone: "relax", headline: "Nothing to do: this is a yardstick.",
-      why: `Yardsticks follow a simple fixed rule so we can tell whether the others are actually clever. They're never promoted or benched. So far this rule has ${lostOrMade}; the real employees should beat it.`,
+      tone: "relax", headline: `${who} is the yardstick.`,
+      why: `${upDown} with a dead-simple rule. Everyone else should beat that.`,
     };
   }
 
@@ -90,8 +86,8 @@ export function advise(e: Employee, ev: Evidence | undefined, r: Realism | undef
     case "losing":
       if (pnl < 0) {
         return {
-          tone: "act", headline: `Bench ${e.name}.`,
-          why: `They've ${lostOrMade} over ${ev.bets} bets, and we're ${sure(1 - ev.confidence)} sure it isn't just bad luck.`,
+          tone: "act", headline: `Bench ${who}.`,
+          why: `${upDown} over ${ev.bets} bets. That's not bad luck anymore.`,
           action: { kind: "suspend", days: policy.suspend_days },
         };
       }
@@ -99,50 +95,33 @@ export function advise(e: Employee, ev: Evidence | undefined, r: Realism | undef
     case "probably_not":
       if (pnl < 0 && (e.roi ?? 0) <= -0.1) {
         return {
-          tone: "act", headline: `Consider benching ${e.name}.`,
-          why: `They've ${lostOrMade}, and there's only a ${sure(ev.confidence)} chance they have real skill.`,
+          tone: "act", headline: `Think about benching ${who}.`,
+          why: `${upDown}, and it's looking more like a bad idea than bad luck.`,
           action: { kind: "suspend", days: policy.suspend_days },
         };
       }
-      return {
-        tone: "watch", headline: "Keep an eye on them.",
-        why: `They've ${lostOrMade}, and there's only a ${sure(ev.confidence)} chance they have real skill. The weekly review demotes them automatically if this continues.`,
-      };
+      return { tone: "watch", headline: `Keep an eye on ${who}.`, why: `${upDown}, and it doesn't look like skill so far.` };
     case "too_early": {
       const left = MIN_BETS - ev.bets;
-      return {
-        tone: "relax", headline: "Nothing to do yet: too early to tell.",
-        why: `${ev.bets} finished bets so far; we need at least ${MIN_BETS} before judging. ${left} to go${paceText(left, betsPerDay)}.`,
-      };
+      return { tone: "relax", headline: "Too early to tell.", why: `${ev.bets} bets in. Ask again in ${left} more${paceText(left, betsPerDay)}.` };
     }
     case "luck":
-      return {
-        tone: "relax", headline: "Wait and see.",
-        why: `They've ${lostOrMade}, but that could easily be luck (${sure(ev.confidence)} sure it's skill).${moreText}`,
-      };
+      return { tone: "relax", headline: "Wait and see.", why: `${upDown}, but a coin flip could do that.${moreText}` };
     case "promising":
       return {
-        tone: warn ? "watch" : "relax", headline: "Keep going: looking good.",
-        why: `They've ${lostOrMade}, and we're ${sure(ev.confidence)} sure it's skill.${moreText}${warn ? ` One worry: ${warn}` : ""}`,
+        tone: warn ? "watch" : "relax", headline: "Looking good.",
+        why: `${upDown}, and it's starting to look like real skill.${warn ? ` One worry: ${warn}` : ""}`,
       };
     case "fragile":
       return {
-        tone: "watch", headline: "Doing well, but the margin is thin.",
-        why: `Real skill (${sure(ev.confidence)} sure), but if every trade cost just 1¢ more, their ${money(ev.pnl)} would be ${money(ev.pnl_1c)}.${warn ? ` Also: ${warn}` : ""}`,
+        tone: "watch", headline: "Winning, barely.",
+        why: `${upDown}, but a penny worse per bet and it'd be ${money(ev.pnl_1c)}.${warn ? ` Also: ${warn}` : ""}`,
       };
     case "strong":
-      if (warn) {
-        return { tone: "watch", headline: "Looks great on paper, but double-check.", why: `${sure(ev.confidence)} sure it's skill. However: ${warn}` };
-      }
-      return {
-        tone: "relax", headline: "Doing great. Nothing to do.",
-        why: `They've ${lostOrMade} over ${ev.bets} bets, and we're ${sure(ev.confidence)} sure it's real skill. The weekly review will reward them.`,
-      };
+      if (warn) return { tone: "watch", headline: "Great on paper. Double-check.", why: warn };
+      return { tone: "relax", headline: "Doing great.", why: `${upDown} over ${ev.bets} bets. That's skill, not luck.` };
   }
-  return {
-    tone: "relax", headline: "Nothing to do.",
-    why: `They've ${lostOrMade} on ${money(given, false)}.`,
-  };
+  return { tone: "relax", headline: "Nothing to do.", why: `${upDown}.` };
 }
 
 /** Bets per day so far this season, for "about N days" estimates. */

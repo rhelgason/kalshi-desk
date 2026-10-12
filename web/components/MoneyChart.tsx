@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import type { PortfolioPoint } from "@/lib/portfolio";
 import type { Point } from "@/lib/types";
-import { dollars } from "@/lib/format";
+import { dollars, shortName } from "@/lib/format";
 import Avatar from "./Avatar";
 import PortfolioChart from "./PortfolioChart";
 
@@ -12,13 +12,12 @@ type Member = { key: string; name: string; emoji: string; profit: Point[]; light
 
 /** Would benching them for real be smart? Judged on the long run, never on one stretch. */
 function verdict(m: Member, change: number): string {
-  const first = m.name.startsWith("The ") ? m.name : m.name.split(" ").slice(-1)[0];
-  if (m.light === "yardstick") return `${first} is a yardstick: a simple rule kept around so you can see if the others beat it. Benching would hide that.`;
-  if (m.light === "bad") return `${first} has lost over ${m.bets} finished bets, and the numbers say it's probably not bad luck. Benching is reasonable; the button is on their page.`;
-  if (m.light === "good") return `${first} is ahead over the long run${change < 0 ? ", so this dip is likely noise" : ""}. Keep them working.`;
-  if (m.bets === 0) return `${first} hasn't finished a bet yet, so there's nothing to judge. Too early to bench.`;
-  if (m.bets < 30) return `${first} has only ${m.bets} finished bet${m.bets === 1 ? "" : "s"}, so this could easily be luck. Too early to bench.`;
-  return `${first}'s results could still be luck either way. Not enough to act on.`;
+  const he = shortName(m.name);
+  if (m.light === "yardstick") return `But ${he} is the yardstick, so he stays.`;
+  if (m.light === "bad") return `Honestly? ${he} has earned the bench.`;
+  if (m.light === "good") return change < 0 ? `Just a dip, though. ${he} is fine.` : `${he} is pulling their weight.`;
+  if (m.bets < 30) return `Too early to blame ${he}, though.`;
+  return `Could still be luck either way.`;
 }
 
 const valueAt = (pts: Point[], t: number) => {
@@ -31,7 +30,7 @@ const valueAt = (pts: Point[], t: number) => {
 };
 
 const names = (ms: Member[]) =>
-  ms.length <= 2 ? ms.map((m) => m.name).join(" and ") : `${ms.length} employees`;
+  ms.length <= 2 ? ms.map((m) => shortName(m.name)).join(" and ") : `those ${ms.length}`;
 
 /**
  * The portfolio chart plus "What if?": tap employees to see how the same period
@@ -58,29 +57,20 @@ export default function MoneyChart({ points, team, period }: { points: Portfolio
   const altResult = actual - benched.reduce((s, k) => s + (change[k] ?? 0), 0);
 
   const toggle = (k: string) => setBenched((b) => (b.includes(k) ? b.filter((x) => x !== k) : [...b, k]));
-  const word = (v: number) => <strong className={v >= 0 ? "up" : "down"}>{v >= 0 ? "▲ up" : "▼ down"} {dollars(Math.abs(v))}</strong>;
+  const word = (v: number) => <strong className={v >= 0 ? "up" : "down"}>{v >= 0 ? "up" : "down"} {dollars(Math.abs(v))}</strong>;
 
   return (
     <>
       <PortfolioChart points={points} alt={alt} />
       <div className="whatif">
-        <div className="whatif-head">
-          <strong>🔮 What if?</strong>
-          <span className="muted small">Tap someone to see {period.toLowerCase()} without them. Just pretend: nobody actually gets benched.</span>
-        </div>
+        <div className="whatif-head"><strong>🔮 What if…</strong></div>
         {benched.length ? (
-          <>
-            <p className="whatif-result">
-              Without {names(team.filter((m) => benched.includes(m.key)))}, {period.toLowerCase()} would be {word(altResult)} instead of {word(actual)}.
-            </p>
-            <ul className="whatif-verdicts">
-              {team.filter((m) => benched.includes(m.key)).map((m) => (
-                <li key={m.key}><Avatar k={m.key} emoji={m.emoji} size={18} /> <span>{verdict(m, change[m.key] ?? 0)}</span></li>
-              ))}
-            </ul>
-          </>
+          <p className="whatif-result">
+            Without {names(team.filter((m) => benched.includes(m.key)))}, you&apos;d be {word(altResult)}, not {word(actual)}.{" "}
+            {benched.length === 1 && <span className="muted">{verdict(team.find((m) => m.key === benched[0])!, change[benched[0]] ?? 0)}</span>}
+          </p>
         ) : (
-          <p className="whatif-result muted">Pick someone to see how much they helped or hurt.</p>
+          <p className="whatif-result muted">…someone had stayed home? Tap a name.</p>
         )}
         <div className="chips">
           {ordered.map((m) => (
@@ -92,9 +82,6 @@ export default function MoneyChart({ points, team, period }: { points: Portfolio
         <div className="row-btns" style={{ marginTop: 8 }}>
           {benched.length > 0 && <button className="btn small" onClick={() => setBenched([])}>Reset</button>}
         </div>
-        <p className="muted small" style={{ margin: "8px 0 0" }}>
-          Hindsight is easy: a bad week can be plain bad luck. This shows who helped or hurt, not who will win next. Real benching decisions look at every bet since the start (that&apos;s what the 🟢🟡🔴 lights do), and only once there are enough bets to tell skill from luck.
-        </p>
       </div>
     </>
   );

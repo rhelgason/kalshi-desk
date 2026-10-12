@@ -167,6 +167,8 @@ export const LOOKS: Record<string, Look | "monkey"> = {
   favorite_sports: { skin: SKIN.brown, hair: "#f2d16b", hairStyle: "ponytail", shirt: "#c0392b", tie: null, mouth: "grin" },
   market_maker: { skin: SKIN.tan, hair: "#4a2c17", hairStyle: "short", headset: true, shirt: "#ecf0f1", tie: "#1f3a68" },
   whale_follow: { skin: SKIN.light, hair: "#eeeeee", hairStyle: "captain", hat: "#1f3a68", beard: true, shirt: "#1f3a68", tie: null },
+  breakout: { skin: SKIN.light, hair: "#e8a33d", hairStyle: "ponytail", eyes: "shades", shirt: "#1abc9c", tie: null, mouth: "grin", pants: "#2d5a87" },
+  early_favorite: { skin: SKIN.brown, hair: "#3b2412", hairStyle: "long", eyes: "glasses", shirt: "#f5c542", tie: null, mouth: "smile", pants: "#5d4037" },
   dart_monkey: "monkey",
 };
 

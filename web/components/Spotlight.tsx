@@ -27,7 +27,7 @@ export default function Spotlight({ award, employees, policy }: { award: NewsIte
             <div>
               <div className="label">{title}</div>
               <div className="spot-name">To be decided</div>
-              <div className="muted">The first review crowns the best earner (with at least {policy.min_settled} settled bets).</div>
+              <div className="muted">Best earner wins. No pressure.</div>
             </div>
           </>
         )}

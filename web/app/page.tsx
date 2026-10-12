@@ -60,7 +60,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
       return away(a) - away(b) || (b.e.pnl ?? 0) - (a.e.pnl ?? 0);
     });
   const todo = rows.filter((r) => r.advice.tone === "act");
-  const working = rows.filter((r) => r.light.key !== "benched" && r.light.key !== "fired");
+  // Yardsticks are supposed to lose, so they don't count as "carrying" or "dragging"
+  const working = rows.filter((r) => r.light.key !== "benched" && r.light.key !== "fired" && !r.e.control);
   const best = working[0];
   const worst = working[working.length - 1];
   const award = news.find((n) => n.kind === "award") ?? null;
@@ -79,7 +80,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
         <div className={`change ${profit >= 0 ? "up" : "down"}`}>
           {profit >= 0 ? "▲" : "▼"} {dollars(Math.abs(profit))} ({pct(Math.abs(profit / (putIn || 1)), false, 1)}) {profit >= 0 ? "profit" : "loss"} since {since}
         </div>
-        <div className="muted">You put in {dollars(putIn)}, split between {employees.length} employees.</div>
+        <div className="muted">{employees.length} employees, {dollars(putIn / Math.max(1, employees.length)).replace(".00", "")} each.</div>
 
         <RangeTabs value={range} path="/" />
         <MoneyChart points={points} period={RANGE_WORDS[range]}
@@ -96,8 +97,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
           <p className="summary">
             {(best.e.pnl ?? 0) > 0
               ? <><strong>{best.e.name}</strong> is carrying the team ({dollars(best.e.pnl, true)})</>
-              : <>Nobody is making money yet</>}
-            {worst !== best && (worst.e.pnl ?? 0) < 0 && <>; <strong>{worst.e.name}</strong> is dragging it down ({dollars(worst.e.pnl, true)})</>}.
+              : <>Nobody&apos;s making money yet</>}
+            {worst !== best && (worst.e.pnl ?? 0) < 0 && <>, and <strong>{worst.e.name}</strong> is having the worst day ({dollars(worst.e.pnl, true)})</>}.
           </p>
         )}
       </section>
@@ -121,17 +122,13 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
             ))}
           </ul>
         ) : (
-          <p className="all-good">✅ Nothing needs you right now. The desk runs itself.</p>
+          <p className="all-good">✅ Nothing needs you. Go outside.</p>
         )}
       </section>
 
       <section className="card">
         <h2>Your team</h2>
-        <p className="sub">Each employee gets their own money to bet with. Tap anyone for details. Sorted by profit.</p>
         <TeamList rows={rows} />
-        <p className="muted small" style={{ margin: "10px 0 0" }}>
-          🟢 doing well · 🟡 too early or could be luck · 🔴 losing · 📏 yardstick (a simple rule the others should beat)
-        </p>
       </section>
 
       <Spotlight award={award} employees={employees} policy={policy} />

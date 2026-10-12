@@ -17,6 +17,7 @@ import { DailyBars, MoneySplit, WinDonut } from "@/components/MiniCharts";
 import TradeFeed from "@/components/TradeFeed";
 import { isAdmin } from "@/lib/admin";
 import { advise, betsPerDay, light } from "@/lib/advice";
+import { quip } from "@/lib/voice";
 import { getAnalysis, getHistory, getLive, getNews, getPolicy, getRecentFills, getRoster, getSeasonStart, getSettlementStats, getTuningRuns, withRoster } from "@/lib/db";
 import { cents, dollars, money, pct, tone } from "@/lib/format";
 import { parseRange, profitSeries } from "@/lib/portfolio";
@@ -78,7 +79,8 @@ export default async function EmployeePage({ params, searchParams }: {
             <LevelBadge level={e.level} title={e.level_title} />
             <StatusBadge e={e} />
           </div>
-          <div style={{ marginTop: 6 }}>{e.blurb}</div>
+          <div className="hero-quote">“{quip(e)}”</div>
+          <div className="muted small" style={{ marginTop: 4 }}>{e.blurb}</div>
           {e.note && <div className="notice" style={{ marginTop: 8 }}>📝 {e.note}</div>}
         </div>
       </div>
@@ -104,7 +106,6 @@ export default async function EmployeePage({ params, searchParams }: {
 
       <section className="card">
         <h2>Profit over time</h2>
-        <p className="sub">Above $0 means {e.name} has made money; below means lost.</p>
         <RangeTabs value={range} path={`/employee/${key}`} />
         <CompareChart series={series} focus={key} given={Object.fromEntries(everyone.map((x) => [x.key, x.starting_cash ?? 1000]))} />
       </section>
@@ -126,17 +127,12 @@ export default async function EmployeePage({ params, searchParams }: {
 
       <section className="card">
         <h2>Skill or luck?</h2>
-        <p className="sub">
-          Based on every finished bet since the fresh start. Promotions need at least{" "}
-          {Math.round(data.policy.promote_min_confidence * 100)}% here.
-        </p>
         <SkillCheck e={ev} />
       </section>
 
       <div className="grid two">
         <section className="card">
           <h2>Bets still open ({positions.length})</h2>
-          <p className="sub">Waiting for the market to finish. &quot;Now&quot; is what they&apos;d sell for today.</p>
           {positions.length ? (
             <div className="table-wrap">
               <table>

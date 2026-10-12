@@ -1,5 +1,9 @@
 import type { Employee, Fill } from "@/lib/types";
-import { ago, money } from "@/lib/format";
+import { ago, money, shortName } from "@/lib/format";
+
+/** "bitcoin goes up" for the 15-minute bitcoin markets; plain YES/NO otherwise. */
+const what = (f: Fill) =>
+  f.ticker.startsWith("KXBTC15M") ? `bitcoin goes ${f.side === "yes" ? "up" : "down"}` : `on ${f.side.toUpperCase()}`;
 import Avatar from "./Avatar";
 
 /** Recent paper trades, newest first, with how each one turned out. */
@@ -17,14 +21,15 @@ export default function TradeFeed({ fills, employees }: { fills: Fill[]; employe
             <Avatar k={f.strategy} emoji={e?.emoji ?? "•"} size={28} />
             <div className="what">
               <div>
-                <strong>{e?.name ?? f.strategy}</strong> bought {f.count.toFixed(f.count % 1 ? 2 : 0)}{" "}
-                {f.side.toUpperCase()} @ {f.price.toFixed(2)}{" "}
+                <strong>{e ? shortName(e.name) : f.strategy}</strong> bet {money(f.count * f.price, false)} {what(f)}{" "}
                 <span className="muted">· {ago(f.ts)}</span>
               </div>
-              <div className="reason" title={f.reason ?? ""}>{f.reason || f.ticker}</div>
+              <div className="reason" title={f.reason ?? ""}>
+                {Math.round(f.price * 100)}¢ odds, so a win pays {money(f.count, false)}
+              </div>
             </div>
             <span className={`badge ${settled ? (won ? "up" : "down") : "muted"}`}>
-              {settled ? `${won ? "✓ won" : "✗ lost"} ${money(f.pnl)}` : "open"}
+              {settled ? `${won ? "won" : "lost"} ${money(f.pnl)}` : "waiting"}
             </span>
           </li>
         );

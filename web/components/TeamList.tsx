@@ -4,6 +4,7 @@ import type { Employee, Point } from "@/lib/types";
 import { dollars, pct } from "@/lib/format";
 import Avatar from "./Avatar";
 import Sparkline from "./Sparkline";
+import { quip } from "@/lib/voice";
 
 export type TeamRow = { e: Employee; light: Light; trend: Point[] };
 
@@ -19,7 +20,7 @@ export default function TeamList({ rows }: { rows: TeamRow[] }) {
               <Avatar k={e.key} emoji={e.emoji} size={36} />
               <span className="who-main">
                 <span className="name">{e.name}</span>
-                <span className={`light ${light.key}`}>{light.icon} {light.label}</span>
+                <span className="quip"><span title={light.label} aria-label={light.label}>{light.icon}</span> “{quip(e)}”</span>
               </span>
               <span className="trend"><Sparkline points={trend} width={72} height={26} /></span>
               <span className="money-col">
