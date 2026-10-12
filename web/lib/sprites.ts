@@ -169,6 +169,10 @@ export const LOOKS: Record<string, Look | "monkey"> = {
   whale_follow: { skin: SKIN.light, hair: "#eeeeee", hairStyle: "captain", hat: "#1f3a68", beard: true, shirt: "#1f3a68", tie: null },
   breakout: { skin: SKIN.light, hair: "#e8a33d", hairStyle: "ponytail", eyes: "shades", shirt: "#1abc9c", tie: null, mouth: "grin", pants: "#2d5a87" },
   early_favorite: { skin: SKIN.brown, hair: "#3b2412", hairStyle: "long", eyes: "glasses", shirt: "#f5c542", tie: null, mouth: "smile", pants: "#5d4037" },
+  // the patient twins look like their siblings
+  nickel_maker: { skin: SKIN.light, hair: "#9e9e9e", hairStyle: "long", shirt: "#a0a7b4", tie: null, mouth: "smile" },
+  early_maker: { skin: SKIN.brown, hair: "#3b2412", hairStyle: "ponytail", eyes: "glasses", shirt: "#f5c542", tie: null, mouth: "flat", pants: "#5d4037" },
+  breakout_maker: { skin: SKIN.light, hair: "#e8a33d", hairStyle: "long", eyes: "shades", shirt: "#16a085", tie: null, mouth: "smile", pants: "#2d5a87" },
   dart_monkey: "monkey",
 };
 

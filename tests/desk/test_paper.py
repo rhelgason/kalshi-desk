@@ -200,6 +200,13 @@ class TestRestingOrders:
                              post_only=True, ttl_seconds=60)
         assert [o.ticker for o in self.broker.place(intent, self.now)] == ["A"]
 
+    def test_trades_after_an_order_expired_dont_fill_it(self):
+        from datetime import timedelta
+        self.broker.place(TradeIntent("mm", [Leg("T", Side.YES, 0.4, 5)], "", post_only=True, ttl_seconds=60),
+                          self.now)
+        trades = {"T": [self._trade(2, "no", 0.30, 50)]}  # 2 minutes later: the order was gone
+        assert self.broker.match(trades, {}, self.now + timedelta(minutes=3)) == []
+
     def test_orders_expire(self):
         from datetime import timedelta
         self.broker.place(TradeIntent("mm", [Leg("T", Side.YES, 0.4, 5)], "", post_only=True, ttl_seconds=60),

@@ -1,7 +1,7 @@
 from desk.strategies.base import AccountView, Leg, Persona, Snapshot, Strategy, TradeIntent
 from desk.strategies.arbitrage import CoverArb, PartitionArb
 from desk.strategies.fair_value import CryptoFairValue, MomentumMo, RubberBandRandy, Sniper, VegaVinny
-from desk.strategies.bitcoin import BreakoutBetty, EarlyBirdEdie
+from desk.strategies.bitcoin import BreakoutBetty, BreakoutBonnie, EarlyBirdEdie, EarlyBirdEllie, NickelNora
 from desk.strategies.behavioral import (
     DartMonkey, FrontRunnerFran, LongshotFade, LongshotLenny, NickelNick, SpreadSam, WhaleWatcherWalt,
 )
@@ -10,6 +10,7 @@ from desk.strategies.behavioral import (
 # up/down markets, so the staff is the employees who can work those.
 STAFF: tuple[type[Strategy], ...] = (
     Sniper, NickelNick, LongshotFade, BreakoutBetty, EarlyBirdEdie,
+    NickelNora, EarlyBirdEllie, BreakoutBonnie,  # patient twins: same picks, resting bids instead of paying the ask
     LongshotLenny, DartMonkey,  # yardsticks: everyone should beat these
 )
 # Retired. Rick, Sue, Vinny, Fran, Sam, Walt need strike ladders, sports or the
@@ -67,6 +68,6 @@ __all__ = [
     "AccountView", "Leg", "Persona", "Snapshot", "Strategy", "TradeIntent",
     "CoverArb", "PartitionArb", "CryptoFairValue", "VegaVinny", "Sniper", "MomentumMo", "RubberBandRandy",
     "LongshotFade", "LongshotLenny", "NickelNick", "FrontRunnerFran", "SpreadSam", "WhaleWatcherWalt",
-    "DartMonkey", "BreakoutBetty", "EarlyBirdEdie",
+    "DartMonkey", "BreakoutBetty", "EarlyBirdEdie", "NickelNora", "EarlyBirdEllie", "BreakoutBonnie",
     "STAFF", "ALUMNI", "REGISTRY", "EVERYONE", "build_strategies", "strategy_params",
 ]

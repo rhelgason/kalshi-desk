@@ -22,11 +22,12 @@ EarlyBirdEdie ("early_favorite")
 from __future__ import annotations
 
 import math
+from dataclasses import replace
 from typing import Optional
 
 from desk.kalshi.models import Market, Side
 from desk.strategies.base import AccountView, Leg, Persona, Snapshot, Strategy, TradeIntent
-from desk.strategies.behavioral import BandBettor
+from desk.strategies.behavioral import BandBettor, NickelNick
 
 
 class BreakoutBetty(Strategy):
@@ -108,3 +109,80 @@ class EarlyBirdEdie(BandBettor):
 
     def describe(self, m, side, price):
         return f"early favorite: {side.value.upper()} @ {price:.2f} on '{m.title[:60]}'"
+
+
+def patient_price(m: Market, side: Side, ticks: int = 1) -> Optional[float]:
+    """A bid `ticks` steps above the best bid for `side`, but never at or above the ask."""
+    bid, ask = m.bid(side), m.ask(side)
+    if not (0 < bid < ask < 1):
+        return None
+
+    def step(p: float) -> float:  # ladders are set on the YES price
+        return m.tick_at(p if side is Side.YES else 1 - p)
+
+    price = min(bid + ticks * step(bid), ask - step(ask - 1e-6))
+    return round(max(price, bid), 4)
+
+
+class PatientTwin:
+    """Turns an employee's buy-at-the-ask bets into resting bids (maker orders)."""
+
+    improve_ticks: int = 1
+    wait_seconds: float = 110  # gone before the next look, 2 minutes later
+
+    def patient(self, intents: list[TradeIntent], snap: Snapshot, account: AccountView) -> list[TradeIntent]:
+        waiting = {o.ticker for o in getattr(account, "resting", [])}
+        out = []
+        for intent in intents:
+            leg = intent.legs[0]
+            m = snap.markets.get(leg.ticker)
+            if not m or leg.ticker in waiting:
+                continue
+            price = patient_price(m, leg.side, self.improve_ticks)
+            if not price:
+                continue
+            count = math.floor(leg.count * leg.limit_price / price)
+            if count < 1:
+                continue
+            out.append(replace(
+                intent, legs=[Leg(leg.ticker, leg.side, price, count)], post_only=True,
+                ttl_seconds=self.wait_seconds,
+                reason=f"bid {price:.3f} instead of paying {leg.limit_price:.3f}: {intent.reason}",
+            ))
+        return out
+
+
+class NickelNora(PatientTwin, NickelNick):
+    key = "nickel_maker"
+    persona = Persona(
+        "Nickel Nora", "Patient Twin", "🐢",
+        "Nick's twin sister. Same picks, but she names her price and waits.",
+    )
+    backtestable = False  # fills depend on other traders
+
+    def evaluate(self, snap: Snapshot, account: AccountView) -> list[TradeIntent]:
+        return self.patient(super().evaluate(snap, account), snap, account)
+
+
+class EarlyBirdEllie(PatientTwin, EarlyBirdEdie):
+    key = "early_maker"
+    persona = Persona(
+        "Early Bird Ellie", "Patient Twin", "🐣",
+        "Edie's twin. Spots the same favorites, then makes the market come to her.",
+    )
+    backtestable = False
+
+    def evaluate(self, snap: Snapshot, account: AccountView) -> list[TradeIntent]:
+        return self.patient(super().evaluate(snap, account), snap, account)
+
+
+class BreakoutBonnie(PatientTwin, BreakoutBetty):
+    key = "breakout_maker"
+    persona = Persona(
+        "Breakout Bonnie", "Patient Twin", "🛶",
+        "Betty's twin. Sees the same waves but waits for one to come to her.",
+    )
+    backtestable = False
+
+    def evaluate(self, snap: Snapshot, account: AccountView) -> list[TradeIntent]:
+        return self.patient(super().evaluate(snap, account), snap, account)

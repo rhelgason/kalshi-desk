@@ -197,12 +197,13 @@ class PaperBroker:
         fills = []
         for o in self.resting:
             placed = datetime.fromisoformat(o.placed_at)
-            for t in trades.get(o.ticker, []):
+            until = min(now, datetime.fromisoformat(o.expires_at))
+            for t in sorted(trades.get(o.ticker, []), key=lambda t: str(t.get("created_time", ""))):
                 if o.remaining < 0.01:
                     break
                 when = _trade_time(t)
                 taker = t.get("taker_outcome_side") or t.get("taker_side")
-                if not when or when <= placed or when > now or taker == o.side:
+                if not when or when <= placed or when > until or taker == o.side:
                     continue
                 price = float(t.get(f"{o.side}_price_dollars") or 1)
                 size = float(t.get("count_fp") or 0)

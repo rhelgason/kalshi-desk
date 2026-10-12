@@ -99,6 +99,8 @@ class Market:
     expiration_value: str = ""
     rules_primary: str = ""
     tick_size: float = 0.01
+    # Price ladder as (start, end, step), e.g. 0.1c steps under 10c and over 90c
+    price_ranges: tuple = ()
 
     # Filled in from the parent event / series when known
     series_ticker: str = ""
@@ -109,6 +111,7 @@ class Market:
         ranges = d.get("price_ranges") or []
         if ranges:
             tick = _f(ranges[0].get("step"), 0.01) or 0.01
+        ladder = tuple((_f(r.get("start")), _f(r.get("end")), _f(r.get("step"), 0.01)) for r in ranges)
 
         settlement = d.get("settlement_value_dollars")
         return cls(
@@ -138,6 +141,7 @@ class Market:
             expiration_value=d.get("expiration_value") or "",
             rules_primary=d.get("rules_primary", ""),
             tick_size=tick,
+            price_ranges=ladder,
             series_ticker=series_ticker or d.get("series_ticker") or _series_from_event(d.get("event_ticker", "")),
         )
 
@@ -165,6 +169,13 @@ class Market:
 
     def bid(self, side: Side) -> float:
         return self.yes_bid if side is Side.YES else self.no_bid
+
+    def tick_at(self, price: float) -> float:
+        """Smallest price step for an order at `price` (Kalshi's ladders can taper)."""
+        for start, end, step in self.price_ranges:
+            if start - 1e-9 <= price < end - 1e-9 and step > 0:
+                return step
+        return self.tick_size if not self.price_ranges else 0.01
 
     def seconds_to_close(self, now: Optional[datetime] = None) -> Optional[float]:
         if not self.close_time:

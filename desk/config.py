@@ -48,6 +48,7 @@ class DeskConfig:
 
     # How many of the busiest markets to pull trade tapes for (whale watching)
     trades_watch_markets: int = 12
+    max_tape_trades: int = 20000  # cap on trades fetched per market when checking resting bids
 
     # Paper fill realism
     liquidity_share: float = 0.5

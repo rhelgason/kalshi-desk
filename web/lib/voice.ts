@@ -9,6 +9,9 @@ const LINES: Record<string, Lines> = {
   longshot_fade: { up: "Long shots never hit. Told you.", down: "One actually hit. Ugh.", idle: "Nothing silly to bet against." },
   breakout: { up: "Ride the wave!", down: "Wiped out. Paddling back.", idle: "Waiting for bitcoin to make a move." },
   early_favorite: { up: "Early bird gets the worm.", down: "Picked the wrong horse.", idle: "Waiting for the next window to open." },
+  nickel_maker: { up: "Never paid full price in my life.", down: "Got filled right before it turned.", idle: "My bid's out there. I can wait." },
+  early_maker: { up: "Let them come to me.", down: "They only sold when it was going wrong.", idle: "Bid's posted. Kettle's on." },
+  breakout_maker: { up: "Caught the wave without paddling.", down: "The wave broke on me.", idle: "Floating. Waiting for a swell." },
   longshot_buy: { up: "It only has to hit once!", down: "The next one's the one.", idle: "Looking for lottery tickets." },
   dart_monkey: { up: "Ook! 🍌", down: "Ook…", idle: "Ook?" },
 };
@@ -31,6 +34,9 @@ export const HOW_THEY_BET: Record<string, string> = {
   longshot_fade: "Bets against long shots: when one side costs only 5–15¢, Bill buys the other side. Like Nick, he wins small and often, and loses big on the occasional surprise.",
   breakout: "When bitcoin has jumped or dropped sharply in the last 15 minutes, Betty bets it keeps going, but only if Kalshi's price hasn't caught up yet (still under 60¢).",
   early_favorite: "Right after a new 15-minute window opens, Edie buys the side that's a clear but not certain favorite (75–85¢), betting the early price is a little too cautious.",
+  nickel_maker: "Nick's twin sister. She picks the same heavy favorites, but instead of paying the asking price she offers a little less and waits up to two minutes for someone to sell. Cheaper, and no fee, but she misses some bets and tends to get filled when the price is slipping.",
+  early_maker: "Edie's twin. Same early favorites, but she names a slightly lower price and waits for a seller instead of paying up. Kalshi charges no fee on a bid that someone else fills, so every win is worth a bit more, if she gets filled at all.",
+  breakout_maker: "Betty's twin. When bitcoin makes a big move, she bets it keeps going like Betty does, but she posts a lower price and waits instead of paying up. Betty's bets are near 50¢, where Kalshi's fee is biggest, so Bonnie saves the most by not paying it.",
   longshot_buy: "Buys the cheap long shots Bill bets against. He's a yardstick: if Bill can't beat Lenny, Bill's idea doesn't work.",
   dart_monkey: "Bets at random. He's the yardstick everyone has to beat: if a strategy can't do better than a monkey with darts, it isn't really a strategy.",
 };

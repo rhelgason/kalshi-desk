@@ -3,7 +3,7 @@
  *
  *   top wall     whiteboard · windows · the big board · bell · windows
  *   left         conference room (glass), lounge (TV, couch, arcade, aquarium)
- *   middle       the trading floor: eight desks in two rows, a rug, the bench,
+ *   middle       the trading floor: ten desks in two rows, a rug, the bench,
  *                the elevator
  *   right        the manager's glass office (that's you), the kitchen and
  *                ping pong
@@ -25,8 +25,8 @@ export const tileSpot = (tx: number, ty: number, face: Face = "down", dx = 0, dy
   x: tx * TILE + 8 + dx, y: ty * TILE + 13 + dy, face, tile: { x: tx, y: ty }, sit,
 });
 
-// Desk pairs (left tile column) and their rows: two rows of four
-export const DESKS: { col: number; row: number }[] = [5, 10].flatMap((row) => [9, 12, 15, 18].map((col) => ({ col, row })));
+// Desk pairs (left tile column) and their rows: two rows of five
+export const DESKS: { col: number; row: number }[] = [5, 10].flatMap((row) => [9, 12, 15, 18, 21].map((col) => ({ col, row })));
 
 /** Where an employee sits at desk i: on the chair just south of it, facing their monitors. */
 export const chairSpot = (i: number): Spot => {

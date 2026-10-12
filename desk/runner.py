@@ -296,18 +296,23 @@ class Desk:
         return replace(intent, legs=[replace(leg, count=max(1.0, round(leg.count * mult, 2))) for leg in intent.legs])
 
     async def match_resting(self) -> None:
-        """Expire stale maker orders, then fill the rest from the live trade tape."""
+        """Fill maker orders from the live trade tape since they were placed, then expire stale ones."""
         now = _now()
+        since: dict[str, datetime] = {}
+        for o in self.broker.resting:
+            placed = datetime.fromisoformat(o.placed_at)
+            since[o.ticker] = min(since.get(o.ticker, placed), placed)
+        if since:
+            # Busy bitcoin markets trade ~50 times a second, so fetch every page since the order went up
+            results = await asyncio.gather(
+                *(self.client.get_trades(t, limit=1000, max_items=self.config.max_tape_trades,
+                                         min_ts=int(s.timestamp())) for t, s in since.items()),
+                return_exceptions=True)
+            trades = {t: r for t, r in zip(since, results) if not isinstance(r, Exception)}
+            fees = {t: self.fees.get(t.split("-", 1)[0]) or FeeSchedule() for t in since}
+            for f in self.broker.match(trades, fees, now):
+                logger.info("Maker fill: %s %s %gx @ %.2f", f.ticker, f.side.upper(), f.count, f.avg_price)
         self.broker.expire(now)
-        tickers = sorted({o.ticker for o in self.broker.resting})
-        if not tickers:
-            return
-        results = await asyncio.gather(*(self.client.get_trades(t, limit=100, max_items=100) for t in tickers),
-                                       return_exceptions=True)
-        trades = {t: r for t, r in zip(tickers, results) if not isinstance(r, Exception)}
-        fees = {t: self.fees.get(t.split("-", 1)[0]) or FeeSchedule() for t in tickers}
-        for f in self.broker.match(trades, fees, now):
-            logger.info("Maker fill: %s %s %gx @ %.2f", f.ticker, f.side.upper(), f.count, f.avg_price)
 
     async def execute(self, intent: TradeIntent, snap: Snapshot) -> Optional[ExecutionResult]:
         intent = self._scaled(intent)

@@ -276,8 +276,10 @@ class KalshiClient:
                 out[item["market_ticker"]] = item.get("candlesticks") or []
         return out
 
-    async def get_trades(self, ticker: str, limit: int = 100, max_items: Optional[int] = None) -> list[dict]:
-        params = {"ticker": ticker, "limit": limit}
+    async def get_trades(self, ticker: str, limit: int = 100, max_items: Optional[int] = None,
+                         min_ts: Optional[int] = None) -> list[dict]:
+        """Recent trades, newest first; with min_ts, only trades at or after that unix time."""
+        params = {"ticker": ticker, "limit": limit, "min_ts": min_ts}
         return [t async for t in self._paginate("/markets/trades", "trades", params, max_items)]
 
     # ------------------------------------------------------------------
