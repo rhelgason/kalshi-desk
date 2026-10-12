@@ -246,3 +246,30 @@ input[type="text"], input[type="number"], input[type="password"], textarea, sele
 td.market { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 td.market div { overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 420px) { .money-row .value { font-size: 17px; } }
+
+/* What if? */
+.whatif { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--grid); }
+.whatif-head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.whatif-result { margin: 6px 0 10px; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { font: inherit; font-size: 12.5px; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text-primary); cursor: pointer; white-space: nowrap; }
+.chip.on { background: var(--surface-1); border-color: var(--series-2); text-decoration: line-through; text-decoration-color: var(--text-muted); }
+.chip.on span { text-decoration: line-through; }
+.btn.small { font-size: 12.5px; padding: 6px 10px; }
+.info { min-height: 76px; margin-bottom: 6px; display: grid; gap: 2px; }
+.info-row { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; font-variant-numeric: tabular-nums; }
+.info-name { font-weight: 600; }
+
+/* Employee page graphs & manager bar */
+.three { grid-template-columns: 1fr; }
+@media (min-width: 700px) { .three { grid-template-columns: repeat(3, 1fr); } }
+.donut-wrap { display: flex; align-items: center; gap: 16px; }
+.donut-legend { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 13px; }
+.split { display: grid; gap: 4px; font-size: 13px; }
+.split-row { display: flex; justify-content: space-between; gap: 8px; font-variant-numeric: tabular-nums; }
+.split-track { height: 10px; background: var(--surface-2); border-radius: 5px; overflow: hidden; margin-bottom: 6px; }
+.split-bar { height: 100%; border-radius: 5px; }
+.manager-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 14px; }
+.manager-bar select { width: auto; padding: 6px 8px; }
+.manager-msg { flex-basis: 100%; }
+@media (max-width: 420px) { td.market { max-width: 130px; } }

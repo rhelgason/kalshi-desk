@@ -11,10 +11,12 @@ import AdviceCard from "@/components/AdviceCard";
 import CompareChart from "@/components/CompareChart";
 import RangeTabs from "@/components/RangeTabs";
 import Setup from "@/components/Setup";
+import ManagerBar from "@/components/ManagerBar";
+import { DailyBars, MoneySplit, WinDonut } from "@/components/MiniCharts";
 import TradeFeed from "@/components/TradeFeed";
 import { isAdmin } from "@/lib/admin";
 import { advise, betsPerDay, light } from "@/lib/advice";
-import { getAnalysis, getHistory, getLive, getNews, getPolicy, getRecentFills, getRoster, getSeasonStart, getTuningRuns, withRoster } from "@/lib/db";
+import { getAnalysis, getHistory, getLive, getNews, getPolicy, getRecentFills, getRoster, getSeasonStart, getSettlementStats, getTuningRuns, withRoster } from "@/lib/db";
 import { cents, dollars, money, pct, tone } from "@/lib/format";
 import { parseRange, profitSeries } from "@/lib/portfolio";
 
@@ -29,12 +31,13 @@ export default async function EmployeePage({ params, searchParams }: {
   let data;
   try {
     const policy = await getPolicy();
-    const [live, history, seasonStart, fills, analysis, roster, news, tuning, admin] = await Promise.all([
-      getLive(), getHistory(policy.season, range), getSeasonStart(policy.season), getRecentFills(policy.season, 50, key),
+    const [live, history, seasonStart, fills, analysis, roster, news, tuning, admin, stats] = await Promise.all([
+      getLive(), getHistory(policy.season, range), getSeasonStart(policy.season), getRecentFills(policy.season, 8, key),
       getAnalysis(), getRoster(), getNews(20, key), getTuningRuns(key), isAdmin(),
+      getSettlementStats(policy.season, key),
     ]);
     data = { live, history, seasonStart, fills, accuracy: analysis.accuracy, evidence: analysis.evidence, realism: analysis.realism,
-             roster, news, tuning, policy, admin };
+             roster, news, tuning, policy, admin, stats };
   } catch (e) {
     return <Setup error={String(e)} />;
   }
@@ -96,38 +99,38 @@ export default async function EmployeePage({ params, searchParams }: {
       </div>
 
       <AdviceCard k={key} name={e.name} advice={advice} admin={data.admin} />
+      {data.admin && <ManagerBar e={e} />}
 
       <section className="card">
         <h2>Profit over time</h2>
         <p className="sub">Above $0 means {e.name} has made money; below means lost.</p>
         <RangeTabs value={range} path={`/employee/${key}`} />
-        <CompareChart series={series} focus={key} />
+        <CompareChart series={series} focus={key} given={Object.fromEntries(everyone.map((x) => [x.key, x.starting_cash ?? 1000]))} />
       </section>
 
-      <div className="stat-row">
-        <div><span className="label">Bets made</span><strong>{(e.fills ?? 0).toLocaleString()}</strong></div>
-        <div><span className="label">Bets won</span><strong>{settled ? `${e.wins} of ${settled}` : "–"}</strong></div>
-        <div><span className="label">Still open</span><strong>{positions.length}</strong></div>
-        <div><span className="label">Fees paid</span><strong>{dollars(e.fees)}</strong></div>
-        <div><span className="label">Worst slump</span><strong>{e.max_drawdown ? `−${pct(e.max_drawdown)}` : "none"}</strong></div>
-        <div><span className="label">Bet size</span><strong>{e.multiplier ?? 1}× ({e.level_title})</strong></div>
+      <div className="grid three">
+        <section className="card">
+          <h2>Bets won</h2>
+          <WinDonut wins={data.stats.wins} losses={data.stats.losses} open={positions.length} />
+        </section>
+        <section className="card">
+          <h2>Where the money went</h2>
+          <MoneySplit won={data.stats.won} lost={data.stats.lost} fees={e.fees ?? 0} />
+        </section>
+        <section className="card">
+          <h2>Profit by day</h2>
+          <DailyBars days={data.stats.days} />
+        </section>
       </div>
 
-      <div className="grid two">
-        <section className="card">
-          <h2>Skill or luck?</h2>
-          <p className="sub">
-            Based on every finished bet this season. Promotions need at least{" "}
-            {Math.round(data.policy.promote_min_confidence * 100)}% here.
-          </p>
-          <SkillCheck e={ev} />
-        </section>
-        <section className="card">
-          <h2>Would this work with real money?</h2>
-          <p className="sub">Compares each pretend trade with what was really for sale at that moment.</p>
-          <RealityCheck r={data.realism[key]} />
-        </section>
-      </div>
+      <section className="card">
+        <h2>Skill or luck?</h2>
+        <p className="sub">
+          Based on every finished bet this season. Promotions need at least{" "}
+          {Math.round(data.policy.promote_min_confidence * 100)}% here.
+        </p>
+        <SkillCheck e={ev} />
+      </section>
 
       <div className="grid two">
         <section className="card">
@@ -138,7 +141,7 @@ export default async function EmployeePage({ params, searchParams }: {
               <table>
                 <thead><tr><th>Market</th><th className="num">Bet on</th><th className="num">Paid</th><th className="num">Now</th></tr></thead>
                 <tbody>
-                  {positions.map((p) => {
+                  {positions.slice(0, 5).map((p) => {
                     const yes = p.yes >= p.no;
                     const now = p.mark == null ? null : (yes ? p.yes * p.mark : p.no * (1 - p.mark));
                     return (
@@ -153,7 +156,9 @@ export default async function EmployeePage({ params, searchParams }: {
                 </tbody>
               </table>
             </div>
-          ) : (
+          ) : null}
+          {positions.length > 5 && <p className="muted small" style={{ margin: "8px 0 0" }}>…and {positions.length - 5} more.</p>}
+          {positions.length ? null : (
             <div className="empty">Nothing open right now.</div>
           )}
         </section>
@@ -164,7 +169,12 @@ export default async function EmployeePage({ params, searchParams }: {
       </div>
 
       <details className="card fold">
-        <summary><h2>Behind the scenes</h2><span className="muted small">accuracy, settings, HR file</span></summary>
+        <summary><h2>Behind the scenes</h2><span className="muted small">fill check, accuracy, settings, HR file</span></summary>
+        <section className="card" style={{ marginTop: 12 }}>
+          <h2>Would this work with real money?</h2>
+          <p className="sub">Compares each pretend trade with what was really for sale at that moment.</p>
+          <RealityCheck r={data.realism[key]} />
+        </section>
         <div className="grid two" style={{ marginTop: 12 }}>
           <section className="card">
             <h2>Accuracy</h2>
@@ -250,7 +260,11 @@ export default async function EmployeePage({ params, searchParams }: {
         </div>
       </details>
 
-      {data.admin && <AdminPanel e={e} roster={data.roster[key] ?? null} reserve={data.policy.reserve} />}
+      {data.admin && (
+        <div id="manager">
+          <AdminPanel e={e} roster={data.roster[key] ?? null} reserve={data.policy.reserve} />
+        </div>
+      )}
     </div>
   );
 }
