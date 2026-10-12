@@ -11,7 +11,7 @@ export function LevelBadge({ level, title }: { level?: number; title?: string })
   );
 }
 
-export function StatusBadge({ e }: { e: Pick<Employee, "status" | "suspended_until" | "control"> }) {
+export function StatusBadge({ e }: { e: Pick<Employee, "status" | "suspended_until"> }) {
   if (e.status === "fired") return <span className="badge down">✗ Fired</span>;
   if (e.status === "suspended") {
     const until = e.suspended_until && !e.suspended_until.startsWith("9999")
@@ -19,7 +19,6 @@ export function StatusBadge({ e }: { e: Pick<Employee, "status" | "suspended_unt
       : null;
     return <span className="badge warn">⏸ Suspended{until ? ` until ${until}` : ""}</span>;
   }
-  if (e.control) return <span className="badge muted" title="Control group: measured, never promoted">⚖ Control</span>;
   return null;
 }
 

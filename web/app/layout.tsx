@@ -19,9 +19,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <span aria-hidden>🏢</span> Kalshi Desk <small>paper trading</small>
             </Link>
             <nav className="nav">
-              <Link href="/">Floor</Link>
-              <Link href="/settings">Handbook</Link>
-              <Link href="/backtests">Backtests</Link>
+              <Link href="/">Home</Link>
+              <Link href="/settings">Rules</Link>
+              <Link href="/backtests">Practice runs</Link>
               <Link href="/admin">{admin ? "👔 Manager" : "Log in"}</Link>
             </nav>
           </header>
