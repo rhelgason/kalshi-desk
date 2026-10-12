@@ -421,9 +421,10 @@ class Ledger:
         """Rebuild every account by replaying its fills and settlements in order."""
         for s in strategies:
             self.ensure_account(s, default_cash)
+        wanted = set(strategies)
         accounts = {
             r["strategy"]: PaperAccount(r["strategy"], r["starting_cash"])
-            for r in self._rows("SELECT * FROM accounts")
+            for r in self._rows("SELECT * FROM accounts") if r["strategy"] in wanted
         }
         rows = self._rows(
             "SELECT ts, 'fill' AS kind, id, strategy, ticker, side, count, price, fee, NULL AS yes_value FROM fills"

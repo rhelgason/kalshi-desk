@@ -206,3 +206,9 @@ class TestRestingOrders:
                           self.now)
         assert self.broker.expire(self.now + timedelta(seconds=30)) == 0
         assert self.broker.expire(self.now + timedelta(seconds=90)) == 1
+
+
+def test_load_accounts_only_returns_the_requested_employees(tmp_path):
+    ledger = Ledger(tmp_path / "x.db")
+    ledger.load_accounts(100, ["a", "b", "retired"])
+    assert set(ledger.load_accounts(100, ["a", "b"])) == {"a", "b"}

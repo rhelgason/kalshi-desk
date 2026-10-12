@@ -163,6 +163,11 @@ class Desk:
 
         self.inactive = {k for k, r in self.roster.items() if not r.is_working()}
         self.multipliers = {k: r.multiplier for k, r in self.roster.items()}
+        if self.manage_roster and self.broker.accounts:
+            # Retired employees (no longer on staff) stop being tracked once they hold nothing
+            keep = set(self._all_keys())
+            for k in [k for k, a in self.broker.accounts.items() if k not in keep and not a.open_tickers]:
+                del self.broker.accounts[k]
         if self.broker.accounts:
             self._ensure_accounts()
 
