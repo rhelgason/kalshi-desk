@@ -1,0 +1,228 @@
+export type Employee = {
+  key: string;
+  name: string;
+  title: string;
+  emoji: string;
+  blurb: string;
+  status?: "active" | "suspended" | "fired";
+  suspended_until?: string | null;
+  level?: number;
+  level_title?: string;
+  multiplier?: number;
+  strikes?: number;
+  awards?: number;
+  control?: boolean;
+  autotune?: boolean;
+  note?: string | null;
+  overrides?: Record<string, unknown>;
+  params?: Record<string, number | string | boolean | null | number[]>;
+  backtestable?: boolean;
+  starting_cash?: number;
+  equity?: number;
+  pnl?: number;
+  roi?: number;
+  realized_pnl?: number;
+  open_positions?: number;
+  fills?: number;
+  wins?: number;
+  losses?: number;
+  win_rate?: number | null;
+  fees?: number;
+  max_drawdown?: number;
+  brier?: number | null;
+};
+
+export type Position = {
+  strategy: string;
+  ticker: string;
+  title: string;
+  subtitle: string;
+  yes: number;
+  no: number;
+  cost: number;
+  mark: number | null;
+  closes: string | null;
+};
+
+export type Underlying = {
+  spot: number;
+  implied_vol: number | null;
+  realized_vol: number | null;
+  momentum: Record<string, number>;
+};
+
+export type HRInfo = {
+  award_name: string;
+  review_days: number;
+  last_review: string | null;
+  next_review: string | null;
+  reserve: number;
+  levels: { title: string; multiplier: number }[];
+};
+
+export type RosterRow = {
+  key: string;
+  status: "active" | "suspended" | "fired";
+  suspended_until: string | null;
+  level: number;
+  strikes: number;
+  params: Record<string, unknown>;
+  autotune: boolean;
+  control: boolean;
+  awards: number;
+  note: string | null;
+  updated_at: string;
+};
+
+export type Policy = {
+  season: number;
+  review_days: number;
+  min_settled: number;
+  promote_roi: number;
+  demote_roi: number;
+  strikes_to_suspend: number;
+  suspend_days: number;
+  max_drawdown_suspend: number;
+  auto_fire: boolean;
+  strikes_to_fire: number;
+  award_bonus: number;
+  reserve: number;
+  last_review: string | null;
+  promote_min_confidence: number;
+  realism: { depth: number; samples: number; measured_at: string | null; median_on_offer?: number };
+  autotune: {
+    enabled: boolean;
+    every_hours: number;
+    lookback_days: number;
+    min_test_bets: number;
+    min_improvement: number;
+    min_confidence: number;
+    requested_at: string | null;
+    last_run: string | null;
+  };
+};
+
+export type NewsItem = { id: number; ts: string; strategy: string | null; kind: string; detail: Record<string, any> };
+
+export type TuningRun = {
+  id: string;
+  created_at: string;
+  strategy: string;
+  summary: {
+    applied: boolean;
+    why: string;
+    changes: Record<string, unknown>;
+    tried: number;
+    current: { params: Record<string, unknown>; train: TuneResult; test: TuneResult };
+    best: { params: Record<string, unknown>; train: TuneResult; test: TuneResult } | null;
+    top: { params: Record<string, unknown>; train: TuneResult; test: TuneResult; holds_up: boolean }[];
+  };
+};
+
+export type TuneResult = { pnl: number; bets: number; wins: number; roi: number; skill: number | null; realized_edge: number | null };
+
+export type LiveStatus = {
+  updated_at: string;
+  started_at: string;
+  tick_count: number;
+  env: string;
+  tick_seconds: number;
+  season?: number;
+  hr?: HRInfo;
+  employees: Employee[];
+  positions: Position[];
+  underlyings: Record<string, Underlying>;
+  crypto_events: string[];
+};
+
+export type CalibrationBin = { lo: number; hi: number; n: number; avg_forecast: number; hit_rate: number };
+
+export type Accuracy = {
+  strategy: string;
+  n: number;
+  hit_rate: number;
+  avg_price: number;
+  brier_market: number;
+  brier_model: number | null;
+  skill: number | null;
+  expected_edge: number | null;
+  realized_edge: number;
+  model_bins: CalibrationBin[];
+  market_bins: CalibrationBin[];
+};
+
+export type Fill = {
+  id: number;
+  ts: string;
+  strategy: string;
+  ticker: string;
+  side: "yes" | "no";
+  count: number;
+  price: number;
+  fee: number;
+  model_prob: number | null;
+  reason: string | null;
+  yes_value: number | null;
+  pnl: number | null;
+};
+
+export type Point = { t: number; v: number };
+export type Series = { key: string; label: string; emoji: string; points: Point[] };
+
+export type BacktestRow = {
+  strategy: string;
+  starting_cash: number;
+  equity: number;
+  pnl: number;
+  roi: number;
+  realized_pnl: number;
+  fills: number;
+  wins: number;
+  losses: number;
+  win_rate: number | null;
+  fees: number;
+  max_drawdown: number;
+  brier: number | null;
+};
+
+export type BacktestSummary = {
+  id: string;
+  days: number;
+  series: string[];
+  fill_delay: number;
+  depth: number;
+  settled_markets: number;
+  stats: { minutes: number; intents: number; fills: number; skipped: number };
+  scoreboard: BacktestRow[];
+  accuracy: Accuracy[];
+  equity?: Record<string, [string, number][]>;
+  employees?: { key: string; name: string; emoji: string }[];
+};
+
+export type Evidence = {
+  strategy: string;
+  bets: number;
+  contracts: number;
+  edge: number;
+  sd: number;
+  pnl: number;
+  pnl_1c: number;
+  pnl_2c: number;
+  confidence: number;
+  confidence_1c: number;
+  bets_needed: number | null;
+  verdict: string;
+  verdict_key: "too_early" | "strong" | "fragile" | "promising" | "losing" | "probably_not" | "luck";
+};
+
+export type Realism = {
+  strategy: string;
+  taker_fills: number;
+  maker_fills: number;
+  slippage: number | null;
+  depth_share: number | null;
+  median_depth: number | null;
+  latency_s: number | null;
+  verdict: string;
+  verdict_key: "none" | "maker" | "too_big" | "slippy" | "realistic";
+};
