@@ -1,0 +1,185 @@
+/**
+ * 8-bit employee portraits: 16x16 pixel grids built from a few parts (hair,
+ * face, eyewear, outfit) so each employee gets a distinct look without
+ * hand-drawing fourteen sprites. One letter per pixel, "." is transparent.
+ */
+
+export type Sprite = { rows: string[]; palette: Record<string, string> };
+
+type Look = {
+  skin: string;
+  hair: string;
+  hairStyle: "short" | "long" | "bald" | "cap" | "afro" | "slick" | "ponytail" | "captain" | "visor";
+  hat?: string; // cap / captain hat / visor colour
+  eyes?: "plain" | "glasses" | "shades";
+  mouth?: "smile" | "flat" | "frown" | "grin";
+  beard?: boolean;
+  shirt: string;
+  tie?: string | null; // null = open collar
+  headset?: boolean;
+};
+
+const HEADS: Record<Look["hairStyle"], string[]> = {
+  short: [
+    "................",
+    ".....HHHHHH.....",
+    "....HHHHHHHH....",
+    "....HSSSSSSH....",
+  ],
+  slick: [
+    "................",
+    "....HHHHHHHH....",
+    "....HHHHHHHHH...",
+    "....HSSSSSSH....",
+  ],
+  long: [
+    "................",
+    ".....HHHHHH.....",
+    "....HHHHHHHH....",
+    "...HHSSSSSSHH...",
+  ],
+  ponytail: [
+    "................",
+    ".....HHHHHH..HH.",
+    "....HHHHHHHHHH..",
+    "....HSSSSSSH....",
+  ],
+  bald: [
+    "................",
+    "................",
+    ".....SSSSSS.....",
+    "....HSSSSSSH....",
+  ],
+  afro: [
+    "....HHHHHHHH....",
+    "...HHHHHHHHHH...",
+    "...HHHHHHHHHH...",
+    "...HHSSSSSSHH...",
+  ],
+  cap: [
+    ".....AAAAAA.....",
+    "....AAAAAAAA....",
+    "....AAAAAAAAAA..",
+    "....HSSSSSSH....",
+  ],
+  captain: [
+    "....AAAAAAAA....",
+    "...AAAAWWAAAA...",
+    "...KKKKKKKKKK...",
+    "....HSSSSSSH....",
+  ],
+  visor: [
+    "................",
+    ".....HHHHHH.....",
+    "...AAAAAAAAAA...",
+    "....HSSSSSSH....",
+  ],
+};
+
+const EYES = {
+  plain: "....SKSSSSKS....",
+  glasses: "....GKGGGGKG....",
+  shades: "....KKKSSKKK....",
+};
+
+const MOUTHS = {
+  smile: ["....SSMSSMSS....", ".....SSMMSS....."],
+  grin: ["....SSMMMMSS....", ".....SSSSSS....."],
+  flat: ["....SSSSSSSS....", ".....SSMMSS....."],
+  frown: ["....SSSMMSSS....", ".....SMSSMS....."],
+};
+
+function person(l: Look): Sprite {
+  const open = l.tie === null;
+  const rows = [
+    ...HEADS[l.hairStyle],
+    l.hairStyle === "long" ? "...HSSSSSSSSH..." : "....SSSSSSSS....",
+    EYES[l.eyes ?? "plain"],
+    l.hairStyle === "long" ? "...HSSSSSSSSH..." : "....SSSSSSSS....",
+    ...MOUTHS[l.mouth ?? "smile"],
+    "......SSSS......",
+    "...CCCWSSWCCC...",
+    open ? "..CCCCCSSCCCCC.." : "..CCCCWTTWCCCC..",
+    open ? "..CCCCCCCCCCCC.." : "..CCCCCTTCCCCC..",
+    open ? "..CCCCCCCCCCCC.." : "..CCCCCCTCCCCC..",
+    "..CCCCCCCCCCCC..",
+    "..CCCCCCCCCCCC..",
+  ];
+  if (l.beard) {
+    rows[7] = "....HSSSSSSH....";
+    rows[8] = "....HHMMMMHH....";
+    rows[9] = ".....HHHHHH.....";
+  }
+  const put = (r: number, c: number, v: string) => (rows[r] = rows[r].slice(0, c) + v + rows[r].slice(c + v.length));
+  if (l.headset) {
+    put(4, 3, "D");
+    put(5, 3, "D");
+    put(6, 3, "D");
+    put(7, 4, "DD");
+  }
+  const fixed = rows.slice(0, 16).map((r) => r.slice(0, 16).padEnd(16, "."));
+  return {
+    rows: fixed,
+    palette: {
+      H: l.hair, S: l.skin, K: "#1a1a1a", G: "#cfd8dc", M: "#7a2e2e", W: "#ffffff",
+      C: l.shirt, T: l.tie ?? l.shirt, A: l.hat ?? l.hair, D: "#2b2b2b",
+    },
+  };
+}
+
+const MONKEY: Sprite = {
+  rows: [
+    "..............rr",
+    "....BBBBBBBB.gr.",
+    "...BbbbbbbbgB...",
+    "..BbbbbbbbbbbB..",
+    "..BbbbbbbbbbbB..",
+    ".BBbttbbbbttbBB.",
+    "BtBbtwkbbwktbBtB",
+    "BtBbtkkttkktbBtB",
+    ".BBbttttttttbBB.",
+    "..BtttkttktttB..",
+    "..BttkttttkttB..",
+    "...BtttkkkkttB..",
+    "....BBBttBBB....",
+    "...CCCCWWCCCC...",
+    "..CCCCCTTCCCCC..",
+    "..CCCCCTTCCCCC..",
+  ],
+  palette: { B: "#3b2412", b: "#8b5a2b", t: "#e8c39e", k: "#1a1a1a", w: "#ffffff", r: "#e03c3c", g: "#9a9a9a", C: "#4a5568", W: "#ffffff", T: "#e03c3c" },
+};
+
+const SKIN = { light: "#f2d0b1", tan: "#d9a77c", brown: "#a86b45", dark: "#6b4226" };
+
+export const SPRITES: Record<string, Sprite> = {
+  cover_arb: person({ skin: SKIN.light, hair: "#5a3a1e", hairStyle: "short", eyes: "glasses", shirt: "#2f5aa8", tie: "#c0392b" }),
+  bucket_arb: person({ skin: SKIN.light, hair: "#c0471f", hairStyle: "long", shirt: "#7b3fa0", tie: null, mouth: "grin" }),
+  fair_value: person({ skin: SKIN.tan, hair: "#b8b8b8", hairStyle: "bald", eyes: "glasses", shirt: "#7a5230", tie: "#2e7d32", mouth: "flat" }),
+  vol_arb: person({ skin: SKIN.light, hair: "#111111", hairStyle: "slick", eyes: "shades", shirt: "#222631", tie: "#f5c542" }),
+  sniper: person({ skin: SKIN.brown, hair: "#222222", hairStyle: "visor", hat: "#2e7d32", eyes: "shades", shirt: "#556b2f", tie: null, mouth: "flat" }),
+  momentum: person({ skin: SKIN.tan, hair: "#f2c94c", hairStyle: "long", shirt: "#f2994a", tie: null, mouth: "grin" }),
+  mean_revert: person({ skin: SKIN.dark, hair: "#2b1a10", hairStyle: "afro", shirt: "#1abc9c", tie: null }),
+  longshot_fade: person({ skin: SKIN.light, hair: "#8a8a8a", hairStyle: "bald", shirt: "#7f8c8d", tie: "#7fd3ff", mouth: "frown" }),
+  longshot_buy: person({ skin: SKIN.tan, hair: "#3b2412", hairStyle: "cap", hat: "#d63031", shirt: "#6c3fa0", tie: "#f5c542", mouth: "grin" }),
+  nickel_picker: person({ skin: SKIN.light, hair: "#9e9e9e", hairStyle: "short", shirt: "#a0a7b4", tie: "#27ae60", mouth: "flat" }),
+  favorite_sports: person({ skin: SKIN.brown, hair: "#f2d16b", hairStyle: "ponytail", shirt: "#c0392b", tie: null, mouth: "grin" }),
+  market_maker: person({ skin: SKIN.tan, hair: "#4a2c17", hairStyle: "short", headset: true, shirt: "#ecf0f1", tie: "#1f3a68" }),
+  whale_follow: person({ skin: SKIN.light, hair: "#eeeeee", hairStyle: "captain", hat: "#1f3a68", beard: true, shirt: "#1f3a68", tie: null }),
+  dart_monkey: MONKEY,
+};
+
+/** Runs of same-coloured pixels per row: far fewer SVG rects than one per pixel. */
+export function spriteRects(s: Sprite): { x: number; y: number; w: number; fill: string }[] {
+  const out: { x: number; y: number; w: number; fill: string }[] = [];
+  s.rows.forEach((row, y) => {
+    let x = 0;
+    while (x < row.length) {
+      const c = row[x];
+      let end = x + 1;
+      while (end < row.length && row[end] === c) end++;
+      if (c !== "." && s.palette[c]) out.push({ x, y, w: end - x, fill: s.palette[c] });
+      x = end;
+    }
+  });
+  return out;
+}
