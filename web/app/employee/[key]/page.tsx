@@ -17,7 +17,7 @@ import { DailyBars, MoneySplit, WinDonut } from "@/components/MiniCharts";
 import TradeFeed from "@/components/TradeFeed";
 import { isAdmin } from "@/lib/admin";
 import { advise, betsPerDay, light } from "@/lib/advice";
-import { quip } from "@/lib/voice";
+import { HOW_THEY_BET, quip } from "@/lib/voice";
 import { getAnalysis, getHistory, getLive, getNews, getPolicy, getRecentFills, getRoster, getSeasonStart, getSettlementStats, getTuningRuns, withRoster } from "@/lib/db";
 import { cents, dollars, money, pct, tone } from "@/lib/format";
 import { parseRange, profitSeries } from "@/lib/portfolio";
@@ -80,7 +80,7 @@ export default async function EmployeePage({ params, searchParams }: {
             <StatusBadge e={e} />
           </div>
           <div className="hero-quote">“{quip(e)}”</div>
-          <div className="muted small" style={{ marginTop: 4 }}>{e.blurb}</div>
+          <p className="how-they-bet">{HOW_THEY_BET[e.key] ?? e.blurb}</p>
           {e.note && <div className="notice" style={{ marginTop: 8 }}>📝 {e.note}</div>}
         </div>
       </div>

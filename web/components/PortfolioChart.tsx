@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import type { PortfolioPoint } from "@/lib/portfolio";
 import { axisMoney, dollars } from "@/lib/format";
 import { niceTicks, useWidth } from "./useWidth";
+import { lerpAt } from "@/lib/interp";
 
 const fmtWhen = (t: number, spanDays: number) =>
   new Date(t).toLocaleString("en-US", spanDays > 2
@@ -60,15 +61,17 @@ export default function PortfolioChart({ points, alt, height = 220 }: {
   const top = `${putInPath}V${pad.t}H${pad.l}Z`;
   const bottom = `${putInPath}V${pad.t + h}H${pad.l}Z`;
 
-  const i = hover ?? points.length - 1;
-  const p = points[i];
+  // The exact moment under the pointer, read off the lines as drawn (not snapped to a data point)
+  const ht = hover ?? x1;
+  const at = (f: (q: PortfolioPoint) => number, step = false) => lerpAt(points, ht, (q) => q.t, f, step) ?? f(points[0]);
+  const p = { t: ht, worth: at((q) => q.worth), putIn: at((q) => q.putIn, true) };
+  const altNow = alt ? lerpAt(points.map((q, j) => ({ t: q.t, v: alt[j] })), ht, (q) => q.t, (q) => q.v) : null;
   const profit = p.worth - p.putIn;
+  const altProfit = altNow != null ? altNow - p.putIn : null;
 
   const pick = (clientX: number, box: DOMRect) => {
-    const t = x0 + ((clientX - box.left - pad.l) / w) * (x1 - x0);
-    let best = 0;
-    for (let j = 1; j < points.length; j++) if (Math.abs(points[j].t - t) < Math.abs(points[best].t - t)) best = j;
-    setHover(best);
+    const frac = Math.max(0, Math.min(1, (clientX - box.left - pad.l) / w));
+    setHover(x0 + frac * (x1 - x0));
   };
 
   return (
@@ -76,8 +79,11 @@ export default function PortfolioChart({ points, alt, height = 220 }: {
       <div className="readout" aria-live="polite">
         <span className="muted">{hover == null ? "Now" : fmtWhen(p.t, spanDays)}</span>
         <span><strong>{dollars(p.worth)}</strong> <span className="muted">worth</span></span>
-        {alt && <span><span className="swatch" style={{ background: "var(--series-2)" }} /> what if: <strong>{dollars(alt[i])}</strong></span>}
         <span className={profit >= 0 ? "up" : "down"}>{profit >= 0 ? "▲ Up" : "▼ Down"} {dollars(Math.abs(profit))}</span>
+        {altNow != null && altProfit != null && (
+          <span><span className="swatch" style={{ background: "var(--series-2)" }} /> what if: <strong>{dollars(altNow)}</strong>{" "}
+            <span className="muted">({altProfit >= 0 ? "up" : "down"} {dollars(Math.abs(altProfit))})</span></span>
+        )}
       </div>
       <svg
         height={height}
@@ -86,8 +92,8 @@ export default function PortfolioChart({ points, alt, height = 220 }: {
         style={{ touchAction: "pan-y" }}
         onPointerMove={(e) => pick(e.clientX, e.currentTarget.getBoundingClientRect())}
         onPointerDown={(e) => pick(e.clientX, e.currentTarget.getBoundingClientRect())}
-        onPointerLeave={() => setHover(null)}
-        onPointerCancel={() => setHover(null)}
+        // On a phone the reading stays after lifting the finger; with a mouse it clears on leaving
+        onPointerLeave={(e) => { if (e.pointerType === "mouse") setHover(null); }}
       >
         <defs>
           <clipPath id="pf-above"><path d={top} /></clipPath>
@@ -115,6 +121,8 @@ export default function PortfolioChart({ points, alt, height = 220 }: {
         )}
         <path d={worthPath} fill="none" stroke="var(--series-1)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
         {hover != null && <line x1={x(p.t)} x2={x(p.t)} y1={pad.t} y2={pad.t + h} stroke="var(--axis)" strokeWidth={1} />}
+        {hover != null && <circle cx={x(p.t)} cy={y(p.putIn)} r={3} fill="var(--surface-1)" stroke="var(--text-muted)" strokeWidth={1.5} />}
+        {altNow != null && <circle cx={x(p.t)} cy={y(altNow)} r={4} fill="var(--series-2)" stroke="var(--surface-1)" strokeWidth={2} />}
         <circle cx={x(p.t)} cy={y(p.worth)} r={4} fill="var(--series-1)" stroke="var(--surface-1)" strokeWidth={2} />
       </svg>
       <div className="legend">

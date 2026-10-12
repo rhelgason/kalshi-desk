@@ -5,15 +5,10 @@ import type { Point, Series } from "@/lib/types";
 import { axisMoney, dollars, pct } from "@/lib/format";
 import Avatar from "./Avatar";
 import { niceTicks, useWidth } from "./useWidth";
+import { lerpAt } from "@/lib/interp";
 
-const valueAt = (pts: Point[], t: number) => {
-  let v: number | null = null;
-  for (const p of pts) {
-    if (p.t > t) break;
-    v = p.v;
-  }
-  return v;
-};
+// Read each line exactly as drawn: straight between points, so the dot sits on the line
+const valueAt = (pts: Point[], t: number) => lerpAt(pts, t, (p) => p.t, (p) => p.v);
 
 type Row = { s: Series; v: number; rank: number; change: number };
 

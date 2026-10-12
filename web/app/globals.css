@@ -314,3 +314,4 @@ body { background: radial-gradient(ellipse at top, #1d1840 0%, var(--page) 60%) 
 .quip { font-size: 13px; color: var(--text-muted); font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .quip > span { font-style: normal; margin-right: 2px; }
 .hero-quote { margin-top: 8px; font-size: 16px; font-style: italic; }
+.how-they-bet { margin: 8px 0 0; color: var(--text-secondary, var(--text-muted)); max-width: 60ch; line-height: 1.5; }
