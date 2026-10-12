@@ -1,16 +1,18 @@
 import Link from "next/link";
 import type { Activity } from "@/lib/db";
 import type { Employee, Point } from "@/lib/types";
+import OfficeFloor, { type FloorPerson, type Mood } from "./OfficeFloor";
 import { dollars } from "@/lib/format";
 import Avatar from "./Avatar";
 
-export type Mood = "celebrating" | "stressed" | "trading" | "watching" | "coffee" | "sleeping" | "benched" | "fired";
 
 const minutes = (iso: string) => (Date.now() - Date.parse(iso)) / 60_000;
 const ago = (iso: string) => {
   const m = minutes(iso);
   return m < 60 ? `${Math.max(1, Math.round(m))}m ago` : m < 2880 ? `${Math.round(m / 60)}h ago` : `${Math.round(m / 1440)}d ago`;
 };
+
+export type { Mood };
 
 /** What an employee is doing right now, from their real activity, and what their speech bubble says. */
 export function mood(e: Employee, a: Activity | undefined): { mood: Mood; line: string } {
@@ -32,97 +34,55 @@ export function mood(e: Employee, a: Activity | undefined): { mood: Mood; line: 
   return { mood: "sleeping", line: last ? `Zzz… no good bets since ${ago(last.ts)}.` : "Zzz… hasn't found a bet yet." };
 }
 
-// Busiest desks first, so the action is at the top on a phone
+// Busiest first, so the action is at the top of the list
 const ORDER: Mood[] = ["celebrating", "stressed", "trading", "watching", "coffee", "sleeping", "benched", "fired"];
 
 const MOOD_WORD: Record<Mood, string> = {
   celebrating: "🎉 winning", stressed: "😰 losing", trading: "⌨️ betting", watching: "👀 watching",
-  coffee: "☕ break", sleeping: "💤 asleep", benched: "⏸️ benched", fired: "📦 fired",
+  coffee: "☕ on a break", sleeping: "💤 napping", benched: "⏸️ benched", fired: "📦 fired",
 };
 
-/** A tiny pixel chart for the desk monitor. */
-function Screen({ points, up }: { points: Point[]; up: boolean }) {
-  if (points.length < 2) return <div className="screen idle" />;
-  const xs = points.map((p) => p.t), vs = points.map((p) => p.v);
-  const x0 = Math.min(...xs), x1 = Math.max(...xs), lo = Math.min(...vs), hi = Math.max(...vs);
-  const pts = points.map((p) => `${(((p.t - x0) / (x1 - x0 || 1)) * 30 + 1).toFixed(1)},${(17 - ((p.v - lo) / (hi - lo || 1)) * 14).toFixed(1)}`).join(" ");
-  return (
-    <div className={`screen ${up ? "up" : "down"}`}>
-      <svg viewBox="0 0 32 20" preserveAspectRatio="none" shapeRendering="crispEdges">
-        <polyline points={pts} fill="none" stroke="currentColor" strokeWidth={1.5} />
-      </svg>
-    </div>
-  );
-}
-
-function Desk({ e, a, trend }: { e: Employee; a?: Activity; trend: Point[] }) {
-  const { mood: m, line } = mood(e, a);
-  const pnl = e.pnl ?? 0;
-  const away = m === "benched" || m === "fired";
-  return (
-    <Link href={`/employee/${e.key}`} className={`desk-cell ${m}`} aria-label={`${e.name}: ${MOOD_WORD[m]}. ${line}`}>
-      <div className="bubble">{line}</div>
-      <div className="station">
-        <div className="chair" />
-        {!away && (
-          <div className="sitter">
-            <Avatar k={e.key} emoji={e.emoji} size={64} />
-            {m === "sleeping" && <div className="zzz"><span>Z</span><span>Z</span><span>Z</span></div>}
-            {m === "celebrating" && <div className="coins"><span>$</span><span>$</span><span>$</span></div>}
-            {m === "stressed" && <div className="sweat" />}
-            {m === "watching" && <div className="phone" />}
-          </div>
-        )}
-        <Screen points={trend} up={pnl >= 0} />
-        {m === "coffee" && <div className="mug" />}
-        {m === "trading" && <div className="keyboard" />}
-        {m === "benched" && <div className="sign">BENCHED</div>}
-        {m === "fired" && <div className="box" />}
-        <div className="desk-top" />
-      </div>
-      <div className="plate">
-        <span className="plate-name">{e.name}</span>
-        <span className={pnl > 0.004 ? "up" : pnl < -0.004 ? "down" : "muted"}>{dollars(pnl, true)}</span>
-        <span className="plate-mood">{MOOD_WORD[m]}</span>
-      </div>
-    </Link>
-  );
-}
-
-/** The trading floor: every employee at their desk, acting out what they're really doing. */
-export default function Office({ employees, activity, trends, total, season, btc }: {
+/** The trading floor: a live top-down office where everyone acts out what they're really doing. */
+export default function Office({ employees, activity, total, btc, series }: {
   employees: Employee[];
   activity: Record<string, Activity>;
-  trends: Record<string, Point[]>;
   total: number;
-  season: number;
   btc: number | null;
+  series: Point[];
 }) {
-  const moods = employees.map((e) => mood(e, activity[e.key]).mood);
-  const count = (...ms: Mood[]) => moods.filter((m) => ms.includes(m)).length;
+  const people: FloorPerson[] = employees.map((e) => {
+    const a = activity[e.key];
+    const m = mood(e, a);
+    const f = a?.lastFill;
+    return {
+      key: e.key, name: e.name, pnl: e.pnl ?? 0, mood: m.mood, line: m.line, pnlLastHour: a?.pnlLastHour ?? 0,
+      lastFillTs: f?.ts ?? null,
+      lastBet: f ? `bet ${dollars(f.count * f.price)} on ${f.side.toUpperCase()} at ${Math.round(f.price * 100)}¢` : null,
+    };
+  });
   const tape = [...employees].sort((a, b) => (b.pnl ?? 0) - (a.pnl ?? 0))
     .map((e) => `${e.name.toUpperCase()} ${dollars(e.pnl ?? 0, true)}`);
   const tapeText = [`DESK ${dollars(total, true)}`, ...(btc ? [`BTC ${dollars(btc).replace(/\.\d+$/, "")}`] : []), ...tape].join("   ★   ");
+  const sorted = [...people].sort((a, b) => ORDER.indexOf(a.mood) - ORDER.indexOf(b.mood) || b.pnl - a.pnl);
   return (
     <div className="office">
-      <div className="wall">
-        <div className="windows" aria-hidden />
-        <div className="office-sign">
-          <span className="pixel">Season {season} trading floor</span>
-          <span className="small muted">
-            {count("trading", "celebrating", "stressed")} betting · {count("watching")} watching · {count("coffee")} on break · {count("sleeping")} asleep{count("benched") ? ` · ${count("benched")} benched` : ""}
-          </span>
-        </div>
-      </div>
       <div className="tape" aria-hidden><div className="tape-inner"><span>{tapeText}</span><span>{tapeText}</span></div></div>
-      <div className="desks">
-        {[...employees]
-          .sort((a, b) => ORDER.indexOf(mood(a, activity[a.key]).mood) - ORDER.indexOf(mood(b, activity[b.key]).mood) || (b.pnl ?? 0) - (a.pnl ?? 0))
-          .map((e) => <Desk key={e.key} e={e} a={activity[e.key]} trend={trends[e.key] ?? []} />)}
-      </div>
+      <OfficeFloor people={people} total={total} btc={btc} series={series} />
+      <ul className="whos-here">
+        {sorted.map((p) => (
+          <li key={p.key}>
+            <Link href={`/employee/${p.key}`}>
+              <Avatar k={p.key} size={28} />
+              <span className="who">{p.name}<span className="muted small">{MOOD_WORD[p.mood]} · {p.line}</span></span>
+              <span className={p.pnl > 0.004 ? "up" : p.pnl < -0.004 ? "down" : "muted"}>{dollars(p.pnl, true)}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
       <p className="muted small office-legend">
-        Everyone acts out what they&apos;re really doing: ⌨️ just placed a bet · 👀 bet within the hour · ☕ quiet for a while · 💤 no bets for 6+ hours ·
-        🎉/😰 won or lost $5+ in the last hour. The little screen is their profit this season. Tap a desk for details.
+        Everyone acts out what they&apos;re really doing on Kalshi: at their desk when they just bet, wandering when it&apos;s quiet,
+        napping after hours without a good bet, ringing the bell when they win. Monitors glow green when someone&apos;s up, red when down.
+        The big board shows the whole desk&apos;s profit. The parties are just for fun.
       </p>
     </div>
   );

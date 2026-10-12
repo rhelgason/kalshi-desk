@@ -6,7 +6,7 @@
 
 export type Sprite = { rows: string[]; palette: Record<string, string> };
 
-type Look = {
+export type Look = {
   skin: string;
   hair: string;
   hairStyle: "short" | "long" | "bald" | "cap" | "afro" | "slick" | "ponytail" | "captain" | "visor";
@@ -17,6 +17,7 @@ type Look = {
   shirt: string;
   tie?: string | null; // null = open collar
   headset?: boolean;
+  pants?: string; // for the walking sprites in the office
 };
 
 const HEADS: Record<Look["hairStyle"], string[]> = {
@@ -151,22 +152,27 @@ const MONKEY: Sprite = {
 
 const SKIN = { light: "#f2d0b1", tan: "#d9a77c", brown: "#a86b45", dark: "#6b4226" };
 
-export const SPRITES: Record<string, Sprite> = {
-  cover_arb: person({ skin: SKIN.light, hair: "#5a3a1e", hairStyle: "short", eyes: "glasses", shirt: "#2f5aa8", tie: "#c0392b" }),
-  bucket_arb: person({ skin: SKIN.light, hair: "#c0471f", hairStyle: "long", shirt: "#7b3fa0", tie: null, mouth: "grin" }),
-  fair_value: person({ skin: SKIN.tan, hair: "#b8b8b8", hairStyle: "bald", eyes: "glasses", shirt: "#7a5230", tie: "#2e7d32", mouth: "flat" }),
-  vol_arb: person({ skin: SKIN.light, hair: "#111111", hairStyle: "slick", eyes: "shades", shirt: "#222631", tie: "#f5c542" }),
-  sniper: person({ skin: SKIN.brown, hair: "#222222", hairStyle: "visor", hat: "#2e7d32", eyes: "shades", shirt: "#556b2f", tie: null, mouth: "flat" }),
-  momentum: person({ skin: SKIN.tan, hair: "#f2c94c", hairStyle: "long", shirt: "#f2994a", tie: null, mouth: "grin" }),
-  mean_revert: person({ skin: SKIN.dark, hair: "#2b1a10", hairStyle: "afro", shirt: "#1abc9c", tie: null }),
-  longshot_fade: person({ skin: SKIN.light, hair: "#8a8a8a", hairStyle: "bald", shirt: "#7f8c8d", tie: "#7fd3ff", mouth: "frown" }),
-  longshot_buy: person({ skin: SKIN.tan, hair: "#3b2412", hairStyle: "cap", hat: "#d63031", shirt: "#6c3fa0", tie: "#f5c542", mouth: "grin" }),
-  nickel_picker: person({ skin: SKIN.light, hair: "#9e9e9e", hairStyle: "short", shirt: "#a0a7b4", tie: "#27ae60", mouth: "flat" }),
-  favorite_sports: person({ skin: SKIN.brown, hair: "#f2d16b", hairStyle: "ponytail", shirt: "#c0392b", tie: null, mouth: "grin" }),
-  market_maker: person({ skin: SKIN.tan, hair: "#4a2c17", hairStyle: "short", headset: true, shirt: "#ecf0f1", tie: "#1f3a68" }),
-  whale_follow: person({ skin: SKIN.light, hair: "#eeeeee", hairStyle: "captain", hat: "#1f3a68", beard: true, shirt: "#1f3a68", tie: null }),
-  dart_monkey: MONKEY,
+/** Each employee's look, shared by the portraits and the office's walking sprites. */
+export const LOOKS: Record<string, Look | "monkey"> = {
+  cover_arb: { skin: SKIN.light, hair: "#5a3a1e", hairStyle: "short", eyes: "glasses", shirt: "#2f5aa8", tie: "#c0392b" },
+  bucket_arb: { skin: SKIN.light, hair: "#c0471f", hairStyle: "long", shirt: "#7b3fa0", tie: null, mouth: "grin" },
+  fair_value: { skin: SKIN.tan, hair: "#b8b8b8", hairStyle: "bald", eyes: "glasses", shirt: "#7a5230", tie: "#2e7d32", mouth: "flat" },
+  vol_arb: { skin: SKIN.light, hair: "#111111", hairStyle: "slick", eyes: "shades", shirt: "#222631", tie: "#f5c542" },
+  sniper: { skin: SKIN.brown, hair: "#222222", hairStyle: "visor", hat: "#2e7d32", eyes: "shades", shirt: "#556b2f", tie: null, mouth: "flat" },
+  momentum: { skin: SKIN.tan, hair: "#f2c94c", hairStyle: "long", shirt: "#f2994a", tie: null, mouth: "grin" },
+  mean_revert: { skin: SKIN.dark, hair: "#2b1a10", hairStyle: "afro", shirt: "#1abc9c", tie: null },
+  longshot_fade: { skin: SKIN.light, hair: "#8a8a8a", hairStyle: "bald", shirt: "#7f8c8d", tie: "#7fd3ff", mouth: "frown" },
+  longshot_buy: { skin: SKIN.tan, hair: "#3b2412", hairStyle: "cap", hat: "#d63031", shirt: "#6c3fa0", tie: "#f5c542", mouth: "grin" },
+  nickel_picker: { skin: SKIN.light, hair: "#9e9e9e", hairStyle: "short", shirt: "#a0a7b4", tie: "#27ae60", mouth: "flat" },
+  favorite_sports: { skin: SKIN.brown, hair: "#f2d16b", hairStyle: "ponytail", shirt: "#c0392b", tie: null, mouth: "grin" },
+  market_maker: { skin: SKIN.tan, hair: "#4a2c17", hairStyle: "short", headset: true, shirt: "#ecf0f1", tie: "#1f3a68" },
+  whale_follow: { skin: SKIN.light, hair: "#eeeeee", hairStyle: "captain", hat: "#1f3a68", beard: true, shirt: "#1f3a68", tie: null },
+  dart_monkey: "monkey",
 };
+
+export const SPRITES: Record<string, Sprite> = Object.fromEntries(
+  Object.entries(LOOKS).map(([k, l]) => [k, l === "monkey" ? MONKEY : person(l)]),
+);
 
 /** Runs of same-coloured pixels per row: far fewer SVG rects than one per pixel. */
 export function spriteRects(s: Sprite): { x: number; y: number; w: number; fill: string }[] {

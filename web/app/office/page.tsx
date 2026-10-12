@@ -2,7 +2,7 @@ import AutoRefresh from "@/components/AutoRefresh";
 import Office from "@/components/Office";
 import Setup from "@/components/Setup";
 import { getActivity, getHistory, getLive, getPolicy, getRoster, withRoster } from "@/lib/db";
-import { profitSeries } from "@/lib/portfolio";
+import { portfolioSeries } from "@/lib/portfolio";
 
 export const dynamic = "force-dynamic";
 
@@ -23,8 +23,9 @@ export default async function OfficePage() {
   return (
     <>
       <AutoRefresh seconds={30} />
-      <Office employees={employees} activity={data.activity} trends={profitSeries(data.history)} total={total}
-        season={data.policy.season} btc={data.live.underlyings?.BTC?.spot ?? null} />
+      <Office employees={employees} activity={data.activity} total={total}
+        series={portfolioSeries(data.history).map((p) => ({ t: p.t, v: p.worth - p.putIn }))}
+        btc={data.live.underlyings?.BTC?.spot ?? null} />
     </>
   );
 }
