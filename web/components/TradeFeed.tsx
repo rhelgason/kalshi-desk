@@ -1,5 +1,6 @@
 import type { Employee, Fill } from "@/lib/types";
 import { ago, money } from "@/lib/format";
+import Avatar from "./Avatar";
 
 /** Recent paper trades, newest first, with how each one turned out. */
 export default function TradeFeed({ fills, employees }: { fills: Fill[]; employees: Employee[] }) {
@@ -13,7 +14,7 @@ export default function TradeFeed({ fills, employees }: { fills: Fill[]; employe
         const won = settled && (f.side === "yes" ? f.yes_value! >= 0.5 : f.yes_value! < 0.5);
         return (
           <li key={f.id}>
-            <span className="emoji" aria-hidden>{e?.emoji ?? "•"}</span>
+            <Avatar k={f.strategy} emoji={e?.emoji ?? "•"} size={28} />
             <div className="what">
               <div>
                 <strong>{e?.name ?? f.strategy}</strong> bought {f.count.toFixed(f.count % 1 ? 2 : 0)}{" "}

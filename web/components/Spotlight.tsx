@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Employee, NewsItem, Policy } from "@/lib/types";
 import { awardName } from "@/lib/hr";
 import { money } from "@/lib/format";
+import Avatar from "./Avatar";
 
 /** Employee of the Week/Month, plus when the next review happens and what's in the bonus pot. */
 export default function Spotlight({ award, employees, policy }: { award: NewsItem | null; employees: Employee[]; policy: Policy }) {
@@ -13,7 +14,7 @@ export default function Spotlight({ award, employees, policy }: { award: NewsIte
       <div className="spot-main">
         {winner ? (
           <>
-            <div className="spot-emoji" aria-hidden>{winner.emoji}</div>
+            <Avatar k={winner.key} emoji={winner.emoji} size={56} />
             <div>
               <div className="label">🏆 {award!.detail.title ?? title}</div>
               <Link href={`/employee/${winner.key}`} className="spot-name">{winner.name}</Link>

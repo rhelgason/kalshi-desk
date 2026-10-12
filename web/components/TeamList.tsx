@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Light } from "@/lib/advice";
 import type { Employee, Point } from "@/lib/types";
 import { dollars, pct } from "@/lib/format";
+import Avatar from "./Avatar";
 import Sparkline from "./Sparkline";
 
 export type TeamRow = { e: Employee; light: Light; trend: Point[] };
@@ -15,7 +16,7 @@ export default function TeamList({ rows }: { rows: TeamRow[] }) {
         return (
           <li key={e.key} className={light.key === "benched" || light.key === "fired" ? "benched" : ""}>
             <Link href={`/employee/${e.key}`}>
-              <span className="emoji" aria-hidden>{e.emoji}</span>
+              <Avatar k={e.key} emoji={e.emoji} size={36} />
               <span className="who-main">
                 <span className="name">{e.name}</span>
                 <span className={`light ${light.key}`}>{light.icon} {light.label}</span>

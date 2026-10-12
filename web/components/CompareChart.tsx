@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { Point, Series } from "@/lib/types";
 import { axisMoney, dollars, pct } from "@/lib/format";
+import Avatar from "./Avatar";
 import { niceTicks, useWidth } from "./useWidth";
 
 const valueAt = (pts: Point[], t: number) => {
@@ -87,7 +88,7 @@ export default function CompareChart({ series, focus, given, height = 240 }: {
   const Info = ({ r, color }: { r: Row; color: string }) => (
     <div className="info-row">
       <span className="swatch" style={{ background: color }} />
-      <span className="info-name">{r.s.emoji} {r.s.label}</span>
+      <Avatar k={r.s.key} emoji={r.s.emoji} size={20} /><span className="info-name">{r.s.label}</span>
       <strong className={r.v >= 0 ? "up" : "down"}>{dollars(r.v, true)}</strong>
       <span className="muted">{pct(r.v / (given[r.s.key] || 1000), true)} · #{r.rank} of {rows.length}</span>
     </div>

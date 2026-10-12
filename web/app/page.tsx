@@ -1,5 +1,6 @@
 import AdviceAction from "@/components/AdviceAction";
 import AutoRefresh from "@/components/AutoRefresh";
+import Avatar from "@/components/Avatar";
 import NewsFeed from "@/components/NewsFeed";
 import MoneyChart from "@/components/MoneyChart";
 import RangeTabs from "@/components/RangeTabs";
@@ -94,9 +95,9 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
         {best && worst && (
           <p className="summary">
             {(best.e.pnl ?? 0) > 0
-              ? <>{best.e.emoji} <strong>{best.e.name}</strong> is carrying the team ({dollars(best.e.pnl, true)})</>
+              ? <><strong>{best.e.name}</strong> is carrying the team ({dollars(best.e.pnl, true)})</>
               : <>Nobody is making money yet</>}
-            {worst !== best && (worst.e.pnl ?? 0) < 0 && <>; {worst.e.emoji} <strong>{worst.e.name}</strong> is dragging it down ({dollars(worst.e.pnl, true)})</>}.
+            {worst !== best && (worst.e.pnl ?? 0) < 0 && <>; <strong>{worst.e.name}</strong> is dragging it down ({dollars(worst.e.pnl, true)})</>}.
           </p>
         )}
       </section>
@@ -107,7 +108,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
           <ul className="todo">
             {todo.map(({ e, advice }) => (
               <li key={e.key}>
-                <span className="emoji" aria-hidden>{e.emoji}</span>
+                <Avatar k={e.key} emoji={e.emoji} size={36} />
                 <div className="what">
                   <strong>{advice.headline}</strong>
                   <div className="muted">{advice.why}</div>

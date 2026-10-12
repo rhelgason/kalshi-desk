@@ -2,6 +2,7 @@ import { Fragment } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import AdminPanel from "@/components/AdminPanel";
+import Avatar from "@/components/Avatar";
 import AutoRefresh from "@/components/AutoRefresh";
 import { LevelBadge, StatusBadge, Trophies } from "@/components/Badges";
 import NewsFeed from "@/components/NewsFeed";
@@ -69,7 +70,7 @@ export default async function EmployeePage({ params, searchParams }: {
       <AutoRefresh seconds={60} />
       <Link href="/" className="muted">← Home</Link>
       <div className="hero">
-        <span className="emoji" aria-hidden>{e.emoji}</span>
+        <Avatar k={e.key} emoji={e.emoji} size={80} />
         <div>
           <h1>{e.name} <Trophies n={e.awards} /></h1>
           <div className="row-btns" style={{ marginTop: 4 }}>

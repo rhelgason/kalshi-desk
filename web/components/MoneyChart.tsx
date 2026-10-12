@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import type { PortfolioPoint } from "@/lib/portfolio";
 import type { Point } from "@/lib/types";
 import { dollars } from "@/lib/format";
+import Avatar from "./Avatar";
 import PortfolioChart from "./PortfolioChart";
 
 type Member = { key: string; name: string; emoji: string; profit: Point[] };
@@ -70,7 +71,7 @@ export default function MoneyChart({ points, team, period }: { points: Portfolio
         <div className="chips">
           {ordered.map((m) => (
             <button key={m.key} className={`chip ${benched.includes(m.key) ? "on" : ""}`} onClick={() => toggle(m.key)} aria-pressed={benched.includes(m.key)}>
-              {m.emoji} {m.name.split(" ").slice(-1)[0]} <span className={change[m.key] >= 0 ? "up" : "down"}>{dollars(change[m.key], true)}</span>
+              <Avatar k={m.key} emoji={m.emoji} size={18} /> {m.name.split(" ").slice(-1)[0]} <span className={change[m.key] >= 0 ? "up" : "down"}>{dollars(change[m.key], true)}</span>
             </button>
           ))}
         </div>
