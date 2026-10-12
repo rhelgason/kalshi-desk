@@ -191,6 +191,31 @@ export async function getSettlementStats(season: number, strategy: string): Prom
   };
 }
 
+export type Activity = {
+  lastFill: { ts: string; side: string; count: number; price: number } | null;
+  betsLastHour: number;
+  pnlLastHour: number;
+  settledLastHour: number;
+};
+
+/** What each employee has been up to lately, for the office floor. */
+export async function getActivity(season: number): Promise<Record<string, Activity>> {
+  const hourAgo = new Date(Date.now() - 3_600_000).toISOString();
+  const [last, recent, settled] = await Promise.all([
+    db()`SELECT DISTINCT ON (strategy) strategy, ts, side, count, price FROM fills
+         WHERE season = ${season} ORDER BY strategy, id DESC`,
+    db()`SELECT strategy, count(*)::int AS n FROM fills WHERE season = ${season} AND ts >= ${hourAgo} GROUP BY strategy`,
+    db()`SELECT strategy, sum(pnl) AS pnl, count(*)::int AS n FROM settlements
+         WHERE season = ${season} AND ts >= ${hourAgo} GROUP BY strategy`,
+  ]);
+  const out: Record<string, Activity> = {};
+  const get = (k: string) => (out[k] ??= { lastFill: null, betsLastHour: 0, pnlLastHour: 0, settledLastHour: 0 });
+  for (const r of last) get(r.strategy).lastFill = { ts: r.ts, side: r.side, count: Number(r.count), price: Number(r.price) };
+  for (const r of recent) get(r.strategy).betsLastHour = r.n;
+  for (const r of settled) Object.assign(get(r.strategy), { pnlLastHour: Number(r.pnl), settledLastHour: r.n });
+  return out;
+}
+
 export async function getSettledCount(season: number): Promise<number> {
   const rows = await db()`SELECT count(*)::int AS n FROM settlements WHERE season = ${season}`;
   return rows[0].n;
