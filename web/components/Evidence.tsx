@@ -11,17 +11,6 @@ const TONE: Record<Evidence["verdict_key"], { icon: string; short: string; cls: 
   strong: { icon: "💪", short: "Real skill", cls: "up" },
 };
 
-/** One-glance "is this skill or luck?" label for the leaderboard. */
-export function SkillBadge({ e }: { e?: Evidence }) {
-  if (!e) return <span className="badge muted">⏳ No bets yet</span>;
-  const t = TONE[e.verdict_key];
-  return (
-    <span className={`badge ${t.cls}`} title={`${e.verdict}: ${(e.confidence * 100).toFixed(0)}% sure the edge is real`}>
-      {t.icon} {t.short}
-    </span>
-  );
-}
-
 /** A 0-100% bar of how sure we are the edge is real, with the 50% (coin flip) and 95% (strong) marks. */
 function ConfidenceBar({ value }: { value: number }) {
   const pct = Math.round(value * 100);
