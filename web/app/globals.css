@@ -301,18 +301,16 @@ body { background: radial-gradient(ellipse at top, #1d1840 0%, var(--page) 60%) 
 }
 
 /* ---------- The live office floor ---------- */
-.floor { background: #241d3d; }
-.floor-canvas { display: block; width: 100%; max-width: calc(78vh * 320 / 288); margin: 0 auto; aspect-ratio: 320 / 288; image-rendering: pixelated; }
-.floor-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 10px 12px 0; }
-.floor-card { display: flex; gap: 10px; align-items: center; margin: 10px 12px 0; padding: 10px; background: var(--surface-1); border: 2px solid var(--coin); box-shadow: 3px 3px 0 var(--shadow); }
-.floor-log { list-style: none; margin: 10px 12px 0; padding: 0; display: grid; gap: 4px; font-size: 13px; min-height: 1.4em; }
-.whos-here { list-style: none; margin: 14px 12px 0; padding: 0; display: grid; gap: 6px; }
-.whos-here a { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 6px 8px; background: var(--surface-1); border: 2px solid var(--border); color: var(--text-primary); }
-.whos-here a:hover { border-color: var(--coin); text-decoration: none; }
-.whos-here .who { display: grid; min-width: 0; }
-.whos-here .who .small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.office-legend { padding: 12px; margin: 0; }
-
+/* Wider than the rest of the site on laptops; fills the phone's width */
+.office { width: min(calc(100vw - 48px), calc((100vh - 120px) * 512 / 288), 1700px); margin-left: 50%; transform: translateX(-50%);
+  border: 3px solid #14101f; box-shadow: 6px 6px 0 var(--shadow); background: #14101f; border-radius: 0; overflow: hidden; }
+@media (max-width: 720px) { .office { width: calc(100vw - 32px); } }
+.floor { position: relative; }
+.floor-canvas { display: block; width: 100%; aspect-ratio: 512 / 288; image-rendering: pixelated; touch-action: pan-y; }
+@media (max-width: 720px) { .floor-canvas { aspect-ratio: 1 / 1; } }
+.floor-card { position: absolute; left: 8px; right: 8px; bottom: 8px; display: flex; gap: 10px; align-items: center; padding: 8px 10px;
+  background: var(--surface-1); border: 3px solid #14101f; box-shadow: 3px 3px 0 var(--shadow); max-width: 420px; }
+.floor-card > div { flex: 1; min-width: 0; }
 .quip { font-size: 13px; color: var(--text-muted); font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .quip > span { font-style: normal; margin-right: 2px; }
 .hero-quote { margin-top: 8px; font-size: 16px; font-style: italic; }

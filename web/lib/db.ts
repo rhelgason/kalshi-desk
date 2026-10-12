@@ -2,7 +2,7 @@ import postgres from "postgres";
 import { LEVELS, mergePolicy } from "./hr";
 import { binFor, RANGES, type History, type RangeKey } from "./portfolio";
 import type {
-  Accuracy, BacktestSummary, Evidence, Fill, LiveStatus, NewsItem, Policy, Realism, RosterRow, TuningRun,
+  Accuracy, BacktestSummary, Evidence, Fill, LiveStatus, NewsItem, Point, Policy, Realism, RosterRow, TuningRun,
 } from "./types";
 
 // Use Supabase's SESSION pooler (port 5432) for the dashboard. Through the
@@ -251,4 +251,16 @@ export function withRoster<T extends { key: string }>(employees: T[], roster: Re
       ...(params ? { params: { ...params, ...r.params } } : {}),
     };
   });
+}
+
+/** Bitcoin's price over the last few hours, from the bot's market tape (for the office TV). */
+export async function getBtcSeries(hours = 3): Promise<Point[]> {
+  const since = new Date(Date.now() - hours * 3_600_000).toISOString();
+  try {
+    const rows = await db()`SELECT ts, max(spot) AS spot FROM market_tape WHERE ts >= ${since} AND spot IS NOT NULL
+                            GROUP BY ts ORDER BY ts`;
+    return rows.map((r) => ({ t: Date.parse(r.ts), v: Number(r.spot) }));
+  } catch {
+    return [];
+  }
 }

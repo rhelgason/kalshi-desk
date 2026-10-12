@@ -1,9 +1,7 @@
-import Link from "next/link";
 import type { Activity } from "@/lib/db";
 import type { Employee, Point } from "@/lib/types";
 import OfficeFloor, { type FloorPerson, type Mood } from "./OfficeFloor";
 import { dollars } from "@/lib/format";
-import Avatar from "./Avatar";
 
 
 const minutes = (iso: string) => (Date.now() - Date.parse(iso)) / 60_000;
@@ -34,21 +32,14 @@ export function mood(e: Employee, a: Activity | undefined): { mood: Mood; line: 
   return { mood: "sleeping", line: last ? `Zzz… no good bets since ${ago(last.ts)}.` : "Zzz… hasn't found a bet yet." };
 }
 
-// Busiest first, so the action is at the top of the list
-const ORDER: Mood[] = ["celebrating", "stressed", "trading", "watching", "coffee", "sleeping", "benched", "fired"];
-
-const MOOD_WORD: Record<Mood, string> = {
-  celebrating: "🎉 winning", stressed: "😰 losing", trading: "⌨️ betting", watching: "👀 watching",
-  coffee: "☕ on a break", sleeping: "💤 napping", benched: "⏸️ benched", fired: "📦 fired",
-};
-
-/** The trading floor: a live top-down office where everyone acts out what they're really doing. */
-export default function Office({ employees, activity, total, btc, series }: {
+/** The office: a live top-down floor where everyone acts out what they're really doing. */
+export default function Office({ employees, activity, total, btc, series, btcSeries }: {
   employees: Employee[];
   activity: Record<string, Activity>;
   total: number;
   btc: number | null;
   series: Point[];
+  btcSeries: Point[];
 }) {
   const people: FloorPerson[] = employees.map((e) => {
     const a = activity[e.key];
@@ -57,33 +48,12 @@ export default function Office({ employees, activity, total, btc, series }: {
     return {
       key: e.key, name: e.name, pnl: e.pnl ?? 0, mood: m.mood, line: m.line, pnlLastHour: a?.pnlLastHour ?? 0,
       lastFillTs: f?.ts ?? null,
-      lastBet: f ? `bet ${dollars(f.count * f.price)} on ${f.side.toUpperCase()} at ${Math.round(f.price * 100)}¢` : null,
+      lastBet: f ? `bet ${dollars(f.count * f.price)} bitcoin goes ${f.side === "yes" ? "up" : "down"}` : null,
     };
   });
-  const tape = [...employees].sort((a, b) => (b.pnl ?? 0) - (a.pnl ?? 0))
-    .map((e) => `${e.name.toUpperCase()} ${dollars(e.pnl ?? 0, true)}`);
-  const tapeText = [`DESK ${dollars(total, true)}`, ...(btc ? [`BTC ${dollars(btc).replace(/\.\d+$/, "")}`] : []), ...tape].join("   ★   ");
-  const sorted = [...people].sort((a, b) => ORDER.indexOf(a.mood) - ORDER.indexOf(b.mood) || b.pnl - a.pnl);
   return (
     <div className="office">
-      <div className="tape" aria-hidden><div className="tape-inner"><span>{tapeText}</span><span>{tapeText}</span></div></div>
-      <OfficeFloor people={people} total={total} btc={btc} series={series} />
-      <ul className="whos-here">
-        {sorted.map((p) => (
-          <li key={p.key}>
-            <Link href={`/employee/${p.key}`}>
-              <Avatar k={p.key} size={28} />
-              <span className="who">{p.name}<span className="muted small">{MOOD_WORD[p.mood]} · {p.line}</span></span>
-              <span className={p.pnl > 0.004 ? "up" : p.pnl < -0.004 ? "down" : "muted"}>{dollars(p.pnl, true)}</span>
-            </Link>
-          </li>
-        ))}
-      </ul>
-      <p className="muted small office-legend">
-        Everyone acts out what they&apos;re really doing on Kalshi: at their desk when they just bet, wandering when it&apos;s quiet,
-        napping after hours without a good bet, ringing the bell when they win. Monitors glow green when someone&apos;s up, red when down.
-        The big board shows the whole desk&apos;s profit. The parties are just for fun.
-      </p>
+      <OfficeFloor people={people} total={total} btc={btc} series={series} btcSeries={btcSeries} />
     </div>
   );
 }
