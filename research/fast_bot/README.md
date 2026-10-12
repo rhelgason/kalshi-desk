@@ -85,3 +85,37 @@ Scripts expect their data next to them (not committed): `tape/` from
 candles.json.gz`, Binance 1s/1m klines in `binance/` and `binance1m/`, and
 aggTrades CSVs in `agg/` (from data.binance.vision).
 `recorder.py OUT HOURS` records the live book, tape and Coinbase ticks.
+
+## Follow-up: could money buy the speed?
+
+Binance is in Tokyo, so the Binance-timed table above can never be reached
+from the US: light in fiber needs ~55 ms just to cross the Pacific, and real
+routes take ~70 ms. The Binance-timed curve is flat until ~30 ms (≈ +$40k/month
+at our sizing), which is the theoretical "most possible gain", but no US
+trader gets there.
+
+So the same study was rerun timed against **Coinbase** (US-based, AWS us-east-1;
+646,000 trades, Oct 10-12). The test asked who trades first after a 3bp+
+Coinbase move, at the price actually paid:
+
+| Lands after the Coinbase print | 0 ms | 5 ms | 10 ms | 20 ms | 50 ms | 100 ms |
+|---|---|---|---|---|---|---|
+| Profit per contract | +1.4¢ | +1.0¢ | +0.5¢ | −0.2¢ | −0.8¢ | −1.0¢ |
+
+Kalshi already moves +0.7¢ in the first 50 ms after a 1bp Coinbase move: the
+professionals react within single-digit milliseconds. Size-weighted dollar
+totals at 20 ms look positive (+$3k/month for 3bp+) but come from a few
+high-volume events, with a 90% range of −$1.5k to +$7k, and one of the three
+days was flat.
+
+What landing within ~10 ms of a Coinbase print would take: servers in the same
+data centre as Coinbase (us-east-1) and Kalshi (location unpublished; one
+vendor's latency tests suggest Chicago, ~10-15 ms from Virginia), Kalshi's
+institutional FIX connection over AWS PrivateLink (by application to
+institutional@kalshi.com), and compiled, tuned code. A server in the right
+region costs ~$50-150/month and lands ~15-30 ms after the print: at or past
+break-even.
+
+Caveats: 2.3 days, mostly a weekend; exchange clocks can differ by a few ms,
+which matters at this scale; fills assume a quarter of what traded at that
+price.

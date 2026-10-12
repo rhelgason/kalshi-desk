@@ -6,10 +6,15 @@ import bisect, csv, glob, math, sys
 from tapelib import load_markets
 
 bt, bp = [], []
-for path in sorted(glob.glob("agg/*.csv")):
-    with open(path) as f:
+if "--coinbase" in sys.argv:
+    with open("cb/btcusd.csv") as f:
         for row in csv.reader(f):
-            bt.append(int(row[5]) / 1e6); bp.append(float(row[1]))
+            bt.append(float(row[0])); bp.append(float(row[1]))
+else:
+    for path in sorted(glob.glob("agg/*.csv")):
+        with open(path) as f:
+            for row in csv.reader(f):
+                bt.append(int(row[5]) / 1e6); bp.append(float(row[1]))
 lo, hi = bt[0], bt[-1]
 
 
@@ -21,7 +26,7 @@ def px(t):
 ms = [m for m in load_markets() if m["open"] > lo + 5 and m["close"] < hi]
 print(len(ms), "markets on the Binance day")
 D = (0.0, 0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60)
-LAT = (0.0, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 0.12, 0.15, 0.2, 0.3, 0.5, 1.0)
+LAT = (0.0, 0.005, 0.01, 0.02, 0.03, 0.05, 0.07, 0.1, 0.15, 0.3)
 EV = {}
 for theta in (1.0, 2.0, 3.0):
     shift = {d: [] for d in D}
@@ -113,9 +118,18 @@ def monthly(theta, L, share=0.25, cap=100):
     return est, boots[20], boots[380]
 
 print("\n$ per month (90% range), trading every move of at least X basis points:")
-for L in (0.05, 0.07, 0.08, 0.1, 0.15, 0.3):
+for L in (0.0, 0.005, 0.01, 0.02, 0.03, 0.05, 0.1):
     cells = []
     for theta in (1.0, 2.0, 3.0):
         e, a, b = monthly(theta, L)
         cells.append(f"{theta:.0f}bp+: ${e:+7.0f} (${a:+.0f} to ${b:+.0f})")
     print(f"  lands {L * 1000:4.0f}ms after Binance:  " + "   ".join(cells))
+
+if "--by-day" in sys.argv:
+    print("\nby day ($ per day, lands 20ms after the print):")
+    for theta in (2.0, 3.0):
+        days_ = {}
+        for edge, vol, tk in EV[theta][0.02]:
+            day = tk.split("-")[1][:7]
+            days_[day] = days_.get(day, 0) + edge / 100 * min(100, 0.25 * vol)
+        print(f"  {theta:.0f}bp+:", "  ".join(f"{d}: ${v:+.0f}" for d, v in sorted(days_.items())))
