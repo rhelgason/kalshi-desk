@@ -111,10 +111,16 @@ days was flat.
 What landing within ~10 ms of a Coinbase print would take: servers in the same
 data centre as Coinbase (us-east-1) and Kalshi (location unpublished; one
 vendor's latency tests suggest Chicago, ~10-15 ms from Virginia), Kalshi's
-institutional FIX connection over AWS PrivateLink (by application to
-institutional@kalshi.com), and compiled, tuned code. A server in the right
-region costs ~$50-150/month and lands ~15-30 ms after the print: at or past
-break-even.
+FIX connection over AWS PrivateLink, and compiled, tuned code. A server in the
+right region costs ~$50-150/month and lands ~15-30 ms after the print: at or
+past break-even.
+
+PrivateLink is only for accounts at Kalshi's Premier tier or above, which is
+earned by trading volume, not applied for: 0.125% of exchange volume, roughly
+$20-50M of our own trading a month at 2026 volumes
+(docs.kalshi.com/getting_started/rate_limits,
+docs.kalshi.com/fix-margin/connectivity). The paper desk trades a few hundred
+dollars a day.
 
 Caveats: 2.3 days, mostly a weekend; exchange clocks can differ by a few ms,
 which matters at this scale; fills assume a quarter of what traded at that
