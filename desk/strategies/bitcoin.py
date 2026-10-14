@@ -151,6 +151,27 @@ class PatientTwin:
             ))
         return out
 
+    def reprice(self, intent: TradeIntent, seen: Market, live: Market) -> Optional[TradeIntent]:
+        """
+        Re-price a bid against the live order book just before posting. The market
+        list (`seen`) can lag the book by several cents, and a bid priced off it can
+        sit above the real ask: Kalshi would reject that post-only order, and the
+        paper tape would "fill" it at a price nobody had to pay. Never bid more than
+        a tick under what the sibling would have paid (the ask they saw).
+        """
+        leg = intent.legs[0]
+        price = patient_price(live, leg.side, self.improve_ticks)
+        seen_ask = seen.ask(leg.side)
+        if not price or not seen_ask:
+            return None
+        price = min(price, round(seen_ask - seen.tick_at(seen_ask if leg.side is Side.YES else 1 - seen_ask), 4))
+        if price <= 0 or price >= live.ask(leg.side):
+            return None
+        count = math.floor(leg.count * leg.limit_price / price)
+        if count < 1:
+            return None
+        return replace(intent, legs=[Leg(leg.ticker, leg.side, price, count)])
+
 
 class NickelNora(PatientTwin, NickelNick):
     key = "nickel_maker"

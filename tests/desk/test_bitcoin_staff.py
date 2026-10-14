@@ -1,3 +1,5 @@
+import math
+from dataclasses import replace
 from datetime import timedelta
 
 from desk.feeds.crypto import UnderlyingQuote
@@ -84,3 +86,21 @@ class TestPatientTwins:
         m.price_ranges = LADDER
         [intent] = BreakoutBonnie().evaluate(snap(m, move=0.003), account)
         assert intent.post_only and (intent.legs[0].side, intent.legs[0].limit_price) == (Side.YES, 0.54)
+
+    def test_reprices_against_the_live_book_when_the_list_lags(self, account):
+        seen = btc15(0.53, 0.55, 13)  # the market list says YES 53/55...
+        seen.price_ranges = LADDER
+        [intent] = BreakoutBonnie().evaluate(snap(seen, move=0.003), account)
+        live = replace(seen, yes_bid=0.47, yes_ask=0.49)  # ...but the book has already dropped to 47/49
+        leg = BreakoutBonnie().reprice(intent, seen, live).legs[0]
+        assert leg.limit_price == 0.48  # not 0.54, which would sit above the real ask
+        assert leg.count == math.floor(intent.legs[0].count * 0.54 / 0.48)
+
+    def test_never_bids_more_than_the_sibling_would_pay(self, account):
+        seen = btc15(0.53, 0.55, 13)
+        seen.price_ranges = LADDER
+        [intent] = BreakoutBonnie().evaluate(snap(seen, move=0.003), account)
+        live = replace(seen, yes_bid=0.58, yes_ask=0.61)  # price ran away: Betty's 55c limit wouldn't fill
+        assert BreakoutBonnie().reprice(intent, seen, live).legs[0].limit_price == 0.54
+        crossed = replace(seen, yes_bid=0.52, yes_ask=0.53)
+        assert BreakoutBonnie().reprice(intent, seen, crossed).legs[0].limit_price == 0.52

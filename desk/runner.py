@@ -25,7 +25,7 @@ from desk.config import DeskConfig
 from desk.feeds.crypto import CryptoFeed
 from desk.kalshi.client import KalshiAPIError, KalshiClient
 from desk.kalshi.fees import FeeSchedule
-from desk.kalshi.models import Event, Market
+from desk.kalshi.models import Event, Market, Side
 from desk.paper.broker import ExecutionResult, PaperBroker
 from desk.paper.ledger import Ledger
 from desk.paper.scoreboard import format_scoreboard, scoreboard_rows
@@ -280,6 +280,9 @@ class Desk:
             intents.sort(key=lambda i: i.expected_edge, reverse=True)
             for intent in intents[: self.max_intents_per_strategy]:
                 if intent.post_only:
+                    intent = await self.live_post(strat, intent, snap)
+                    if not intent:
+                        continue
                     for o in self.broker.place(self._scaled(intent), _now()):
                         logger.debug("%s resting %s %s x%g @ %.2f", strat.key, o.ticker, o.side, o.count, o.price)
                     continue
@@ -287,6 +290,36 @@ class Desk:
                 if result:
                     results.append(result)
         return results
+
+    async def live_post(self, strat: Strategy, intent: TradeIntent, snap: Snapshot) -> Optional[TradeIntent]:
+        """
+        Check a resting bid against the live order book before posting it. The
+        market list can lag the book by several cents; a post-only bid at or
+        above the real ask would be rejected by Kalshi, so it isn't posted here
+        either. Strategies with a `reprice` hook (the patient twins) re-price.
+        """
+        try:
+            books = await self.client.get_orderbooks(intent.tickers)
+        except KalshiAPIError as e:
+            logger.warning("Couldn't fetch books for %s: %s", intent.tickers, e)
+            return None
+        live = {}
+        for leg in intent.legs:
+            m, book = snap.markets.get(leg.ticker), books.get(leg.ticker)
+            if not m or not book:
+                return None
+            live[leg.ticker] = replace(
+                m, yes_bid=book.best_bid(Side.YES), yes_ask=book.best_ask(Side.YES),
+                no_bid=book.best_bid(Side.NO), no_ask=book.best_ask(Side.NO))
+        reprice = getattr(strat, "reprice", None)
+        if reprice and len(intent.legs) == 1:
+            t = intent.legs[0].ticker
+            return reprice(intent, snap.markets[t], live[t])
+        for leg in intent.legs:
+            ask = live[leg.ticker].ask(leg.side)
+            if ask and leg.limit_price >= ask - 1e-9:
+                return None
+        return intent
 
     def _scaled(self, intent: TradeIntent) -> TradeIntent:
         mult = self.multipliers.get(intent.strategy, 1.0)

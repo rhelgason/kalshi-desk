@@ -6,10 +6,11 @@ import pytest
 
 from desk.config import DeskConfig
 from desk.kalshi.fees import FeeSchedule
-from desk.kalshi.models import Event
+from desk.kalshi.models import Event, Side
 from desk.paper.ledger import Ledger
 from desk.runner import Desk
 from desk.strategies import CoverArb, LongshotFade
+from desk.strategies.base import Leg, Snapshot, TradeIntent
 
 from tests.desk.conftest import NOW, book_for, make_market
 
@@ -92,7 +93,7 @@ async def test_desk_follows_roster_changes(desk_and_client, monkeypatch):
 
     # Suspend Bill from "the website": he stops trading but Rick keeps going
     rec = desk.roster["longshot_fade"]
-    rec.status, rec.suspended_until = "suspended", (NOW + timedelta(days=3)).isoformat()
+    rec.status, rec.suspended_until = "suspended", (NOW + timedelta(days=3650)).isoformat()
     desk.ledger.upsert_employee(rec.to_row())
     results = await desk.tick()
     assert {r.intent.strategy for r in results if r.filled} == {"cover_arb"}
@@ -121,3 +122,13 @@ async def test_reporting_failure_does_not_stop_trading(desk_and_client, monkeypa
     results = await desk.tick()  # must not raise
     assert any(r.filled for r in results)
     assert any(e["kind"] == "error" for e in desk.ledger.events_since())
+
+
+async def test_resting_bids_that_would_cross_the_live_book_are_not_posted(desk_and_client):
+    desk, client = desk_and_client
+    snap = Snapshot.build(NOW, list(client.events.values()), [], {}, {})
+    strat = desk.strategies[0]
+    ok = TradeIntent(strat.key, [Leg("ARB-T100", Side.YES, 0.49, 5)], "", post_only=True, ttl_seconds=60)
+    crossing = TradeIntent(strat.key, [Leg("ARB-T100", Side.YES, 0.50, 5)], "", post_only=True, ttl_seconds=60)
+    assert await desk.live_post(strat, ok, snap) is ok
+    assert await desk.live_post(strat, crossing, snap) is None  # the ask is 0.50: Kalshi would reject it
