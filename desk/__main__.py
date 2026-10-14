@@ -9,6 +9,7 @@ Command line for the desk.
     python -m desk tune EMPLOYEE --set param=v1,v2   search settings with a train/test split
     python -m desk jobs          background jobs: history sync, archive backfill, autotuning
     python -m desk review --days 30   performance review of every employee (Markdown)
+    python -m desk new-season --level nickel_picker=Senior ...   fresh start: split the office pool
     python -m desk employees     who works here
     python -m desk whoami        check your Kalshi API key (read-only)
 """
@@ -298,6 +299,25 @@ def cmd_review(cfg: DeskConfig, days: float, out: str | None) -> None:
         print(text)
 
 
+def cmd_new_season(cfg: DeskConfig, pool: float | None, levels: list[str], why: str) -> None:
+    from desk import hr
+
+    ledger = Ledger(cfg.db_path)
+    titles = {t.lower(): i for i, (t, _) in enumerate(hr.LEVELS)}
+    wanted = {}
+    for item in levels:
+        key, _, title = item.partition("=")
+        if key not in REGISTRY or title.lower() not in titles:
+            raise SystemExit(f"Can't read --level {item!r}: use employee_key=Intern|Associate|Senior|VP|Partner")
+        wanted[key] = titles[title.lower()]
+    roster = hr.load_roster(ledger, list(REGISTRY))
+    config = hr.effective_strategy_config(cfg.strategies, roster)
+    staff = [k for k in REGISTRY if (config.get(k) or {}).get("enabled", True) and roster[k].status != "fired"]
+    detail = hr.start_season(ledger, staff, cfg.pool_cash if pool is None else pool, cfg.starting_cash, wanted, why)
+    print(f"Season {detail['season']} started: ${detail['pool']:,.2f} office pool shared by "
+          f"{len(detail['members'])} employees ({', '.join(detail['members'])})")
+
+
 def cmd_employees() -> None:
     for key, cls in REGISTRY.items():
         p = cls.persona
@@ -354,6 +374,10 @@ def main(argv: list[str] | None = None) -> int:
     rv = sub.add_parser("review", help="performance review of every employee over the last N days")
     rv.add_argument("--days", type=float, default=30)
     rv.add_argument("--out", help="save the Markdown report here instead of printing it")
+    ns = sub.add_parser("new-season", help="start everyone fresh with a new office pool")
+    ns.add_argument("--pool", type=float, help="dollars in the office pool (default: pool_cash in desk.yaml)")
+    ns.add_argument("--level", action="append", default=[], help="employee_key=Title, e.g. nickel_picker=Senior")
+    ns.add_argument("--why", default="", help="the reason, for the HR log")
     sub.add_parser("employees")
     sub.add_parser("whoami")
     args = parser.parse_args(argv)
@@ -382,6 +406,8 @@ def main(argv: list[str] | None = None) -> int:
             asyncio.run(cmd_jobs(cfg, args.backfill_minutes, args.force_tune))
         elif args.cmd == "review":
             cmd_review(cfg, args.days, args.out)
+        elif args.cmd == "new-season":
+            cmd_new_season(cfg, args.pool, args.level, args.why)
         elif args.cmd == "employees":
             cmd_employees()
         elif args.cmd == "whoami":

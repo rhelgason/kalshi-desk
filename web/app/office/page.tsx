@@ -2,7 +2,7 @@ import AutoRefresh from "@/components/AutoRefresh";
 import Office from "@/components/Office";
 import Setup from "@/components/Setup";
 import { getActivity, getBtcSeries, getHistory, getLive, getPolicy, getRoster, withRoster } from "@/lib/db";
-import { portfolioSeries } from "@/lib/portfolio";
+import { only, poolKeys, portfolioSeries } from "@/lib/portfolio";
 
 export const dynamic = "force-dynamic";
 
@@ -19,12 +19,13 @@ export default async function OfficePage() {
   }
   if (!data.live) return <Setup error="The bot hasn't published a status yet. Is it running?" />;
   const employees = withRoster(data.live.employees, data.roster);
-  const total = employees.reduce((s, e) => s + (e.pnl ?? 0), 0);
+  const pool = new Set(poolKeys(data.live));
+  const total = data.live.pool?.pnl ?? employees.filter((e) => pool.has(e.key)).reduce((s, e) => s + (e.pnl ?? 0), 0);
   return (
     <>
       <AutoRefresh seconds={30} />
       <Office employees={employees} activity={data.activity} total={total}
-        series={portfolioSeries(data.history).map((p) => ({ t: p.t, v: p.worth - p.putIn }))}
+        series={portfolioSeries(only(data.history, pool)).map((p) => ({ t: p.t, v: p.worth - p.putIn }))}
         btc={data.live.underlyings?.BTC?.spot ?? null} btcSeries={data.btcSeries} />
     </>
   );

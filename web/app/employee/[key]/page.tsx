@@ -21,6 +21,7 @@ import { HOW_THEY_BET, quip } from "@/lib/voice";
 import { getAnalysis, getHistory, getLive, getNews, getPolicy, getRecentFills, getRoster, getSeasonStart, getSettlementStats, getTuningRuns, withRoster } from "@/lib/db";
 import { cents, dollars, money, pct, tone } from "@/lib/format";
 import { parseRange, profitSeries } from "@/lib/portfolio";
+import { poolShare } from "@/lib/hr";
 
 export const dynamic = "force-dynamic";
 
@@ -87,7 +88,7 @@ export default async function EmployeePage({ params, searchParams }: {
 
       <div className="money-row">
         <div className="card tile">
-          <div className="label">Money given</div>
+          <div className="label">{e.control ? "Money given" : "Pool share"}</div>
           <div className="value">{dollars(e.starting_cash)}</div>
         </div>
         <div className="card tile">
@@ -200,10 +201,10 @@ export default async function EmployeePage({ params, searchParams }: {
           <section className="card">
             <h2>HR file</h2>
             <dl className="kv" style={{ marginBottom: 12 }}>
-              <dt>Level</dt><dd>{e.level_title} ({e.multiplier ?? 1}x bet size)</dd>
+              <dt>Level</dt><dd>{e.level_title} (each bet {poolShare(e.multiplier ?? 1)} of the office pool)</dd>
               <dt>Awards</dt><dd>{e.awards ?? 0}</dd>
               <dt>Strikes</dt><dd>{e.strikes ?? 0}</dd>
-              <dt>Bankroll given</dt><dd>{money(e.starting_cash, false)}</dd>
+              <dt>{e.control ? "Bankroll given" : "Share of the pool at the start"}</dt><dd>{money(e.starting_cash, false)}</dd>
             </dl>
             <NewsFeed items={data.news} employees={[e]} />
           </section>

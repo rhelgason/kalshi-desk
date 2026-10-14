@@ -326,6 +326,11 @@ class Ledger:
         self._write("INSERT OR IGNORE INTO accounts(strategy, starting_cash, created_at) VALUES (?, ?, ?)",
                     (strategy, starting_cash, _now()))
 
+    def set_starting_cash(self, strategy: str, starting_cash: float) -> None:
+        self._write("INSERT INTO accounts(strategy, starting_cash, created_at) VALUES (?, ?, ?)"
+                    " ON CONFLICT(strategy) DO UPDATE SET starting_cash = excluded.starting_cash",
+                    (strategy, starting_cash, _now()))
+
     def record_fill(self, strategy: str, ticker: str, side: Side, count: float, price: float, fee: float,
                     intent_id: str = "", model_prob: Optional[float] = None,
                     expected_edge: Optional[float] = None, reason: str = "", ts: Optional[str] = None,

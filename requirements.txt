@@ -5,3 +5,4 @@ pyyaml>=6.0.1
 python-dotenv>=1.0.0
 cryptography>=42.0.0
 psycopg[binary]>=3.2
+tzdata>=2024.1  # the pool's midnight (servers may lack system time zones)

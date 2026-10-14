@@ -90,6 +90,14 @@ class PaperBroker:
         # A trade exactly at our price only partly reaches us: others were in line first
         self.queue_share = queue_share
         self.resting: list[RestingOrder] = []
+        # Employees who bet out of the shared office pool (see desk.paper.pool)
+        self.pool_members: set[str] = set()
+
+    def free_cash(self, strategy: str) -> float:
+        """Cash this employee can spend now: the pool's, for pool members, less bids already waiting."""
+        group = self.pool_members if strategy in self.pool_members else {strategy}
+        cash = sum(a.cash for k, a in self.accounts.items() if k in group)
+        return cash - sum(o.price * o.remaining for o in self.resting if o.strategy in group)
 
     def _shrunk(self, book: Orderbook) -> Orderbook:
         """A copy of the book with only our share of each level's size."""
@@ -141,8 +149,9 @@ class PaperBroker:
                 return ExecutionResult(intent, False, reason="no liquidity at limit price")
 
         total = sum(f.cost + fee for _, f, fee in legs)
-        if total > acct.cash + 1e-9:
-            return ExecutionResult(intent, False, reason=f"insufficient cash (${acct.cash:.2f} < ${total:.2f})")
+        cash = self.free_cash(intent.strategy)
+        if total > cash + 1e-9:
+            return ExecutionResult(intent, False, reason=f"insufficient cash (${cash:.2f} < ${total:.2f})")
 
         result = ExecutionResult(intent, True)
         latency = None
@@ -166,16 +175,12 @@ class PaperBroker:
     # Resting (maker) orders
     # ------------------------------------------------------------------
 
-    def _reserved(self, strategy: str) -> float:
-        return sum(o.price * o.remaining for o in self.resting if o.strategy == strategy)
-
     def place(self, intent: TradeIntent, now: datetime) -> list[RestingOrder]:
         """Rest each leg on the paper book, if the employee can cover it with free cash."""
-        acct = self.accounts[intent.strategy]
         placed = []
         for leg in intent.legs:
             cost = leg.limit_price * leg.count
-            if cost > acct.cash - self._reserved(intent.strategy) + 1e-9:
+            if cost > self.free_cash(intent.strategy) + 1e-9:
                 continue
             o = RestingOrder(
                 order_id=uuid.uuid4().hex[:10], strategy=intent.strategy, ticker=leg.ticker, side=leg.side.value,

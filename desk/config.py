@@ -18,7 +18,8 @@ class DeskConfig:
     # SQLite file, or a postgres:// URL. The DATABASE_URL environment variable
     # (e.g. from .env) overrides this so the hosted bot writes to Postgres.
     db_path: str = "data/desk.db"
-    starting_cash: float = 1000.0  # paper dollars per employee
+    starting_cash: float = 1000.0  # paper dollars for each control-group employee
+    pool_cash: float = 1000.0  # the office pool, split across its members when a season starts
 
     tick_seconds: float = 15.0
     universe_refresh_seconds: float = 300.0  # broad (non-crypto) market scan

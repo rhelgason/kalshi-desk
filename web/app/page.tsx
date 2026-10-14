@@ -5,6 +5,7 @@ import NewsFeed from "@/components/NewsFeed";
 import MoneyChart from "@/components/MoneyChart";
 import RangeTabs from "@/components/RangeTabs";
 import Setup from "@/components/Setup";
+import PoolGauges from "@/components/PoolGauges";
 import Spotlight from "@/components/Spotlight";
 import StatusPill from "@/components/StatusPill";
 import TeamList from "@/components/TeamList";
@@ -13,7 +14,8 @@ import { isAdmin } from "@/lib/admin";
 import { advise, betsPerDay, light } from "@/lib/advice";
 import { getAnalysis, getHistory, getLive, getNews, getPolicy, getRecentFills, getRoster, withRoster } from "@/lib/db";
 import { dollars, pct } from "@/lib/format";
-import { parseRange, portfolioSeries, profitSeries } from "@/lib/portfolio";
+import { only, parseRange, poolKeys, portfolioSeries, profitSeries } from "@/lib/portfolio";
+import { poolShare } from "@/lib/hr";
 
 export const dynamic = "force-dynamic";
 
@@ -36,13 +38,17 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
   if (!live) return <Setup error="The bot hasn't published a status yet. Is it running?" />;
 
   const employees = withRoster(live.employees, roster);
-  const worth = employees.reduce((s, e) => s + (e.equity ?? 0), 0);
-  const putIn = employees.reduce((s, e) => s + (e.starting_cash ?? 0), 0);
+  // "Your money" is the office pool: the control group's paper money isn't part of it
+  const members = new Set(poolKeys(live));
+  const team = employees.filter((e) => members.has(e.key));
+  const pool = live.pool;
+  const worth = pool?.equity ?? team.reduce((s, e) => s + (e.equity ?? 0), 0);
+  const putIn = pool?.capital ?? team.reduce((s, e) => s + (e.starting_cash ?? 0), 0);
   const profit = worth - putIn;
   const seasonStart = season.since;
 
   // End the line at the live numbers so the chart's "now" matches the headline
-  const past = portfolioSeries(history);
+  const past = portfolioSeries(only(history, members));
   const points = [...past, { t: Math.max(Date.parse(live.updated_at), past[past.length - 1]?.t ?? 0), worth, putIn }];
   const first = points[0];
   const rangeProfit = first ? profit - (first.worth - first.putIn) : null;
@@ -80,7 +86,11 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
         <div className={`change ${profit >= 0 ? "up" : "down"}`}>
           {profit >= 0 ? "▲" : "▼"} {dollars(Math.abs(profit))} ({pct(Math.abs(profit / (putIn || 1)), false, 1)}) {profit >= 0 ? "profit" : "loss"} since {since}
         </div>
-        <div className="muted">{employees.length} employees, {dollars(putIn / Math.max(1, employees.length)).replace(".00", "")} each.</div>
+        <div className="muted">
+          {team.length} employees share one pool. An Associate&apos;s bet is {poolShare(1, pool?.settings.bet_pct)} of it
+          {pool ? <> ({dollars(pool.bet)} right now)</> : null}.
+        </div>
+        {pool && <PoolGauges pool={pool} />}
 
         <RangeTabs value={range} path="/" />
         <MoneyChart points={points} period={RANGE_WORDS[range]}

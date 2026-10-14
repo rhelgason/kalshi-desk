@@ -4,20 +4,25 @@ import { useState, useTransition } from "react";
 import { requestRetune, startNewSeason, updatePolicy } from "@/app/actions";
 import type { Policy } from "@/lib/types";
 
-type Field = { key: string; label: string; help: string; kind: "number" | "percent" | "bool"; group?: "autotune" };
+type Field = { key: string; label: string; help: string; kind: "number" | "percent" | "bool"; group?: "autotune" | "pool" };
 
 const FIELDS: Field[] = [
+  { key: "bet_pct", label: "Associate's bet", help: "Share of the pool per bet; Interns half, Seniors 1.5x, VPs and Partners 2x", kind: "percent", group: "pool" },
+  { key: "window_cap", label: "Most in one 15-minute window", help: "Everyone together, as a share of the pool", kind: "percent", group: "pool" },
+  { key: "daily_stop", label: "Stop for the day after losing", help: "Since midnight; open bets still settle", kind: "percent", group: "pool" },
+  { key: "brake_drawdown", label: "Halve bets when the pool is down", help: "From its high, until it recovers", kind: "percent", group: "pool" },
   { key: "review_days", label: "Review every (days)", help: "7 = Employee of the Week, 28+ = of the Month", kind: "number" },
   { key: "min_settled", label: "Bets needed to be reviewed", help: "Settled bets in the period", kind: "number" },
-  { key: "promote_roi", label: "Promote at", help: "Period return on bankroll", kind: "percent" },
+  { key: "promote_roi", label: "Promote at", help: "Profit per $1 bet in the period (2% = 2¢)", kind: "percent" },
   { key: "promote_min_confidence", label: "Promotion needs skill confidence", help: "Season-to-date 'skill or luck?' score", kind: "percent" },
-  { key: "demote_roi", label: "Demote at", help: "Period return on bankroll", kind: "percent" },
+  { key: "demote_roi", label: "Demote at", help: "Profit per $1 bet in the period", kind: "percent" },
+  { key: "demote_max_confidence", label: "...unless skill confidence is above", help: "A proven employee keeps their level through one bad week", kind: "percent" },
   { key: "strikes_to_suspend", label: "Strikes before suspension", help: "Bad periods while already an Intern", kind: "number" },
   { key: "suspend_days", label: "Suspension length (days)", help: "", kind: "number" },
-  { key: "max_drawdown_suspend", label: "Suspend if bankroll drops", help: "Worst drop within one period", kind: "percent" },
+  { key: "max_loss_suspend", label: "Suspend if one employee loses", help: "Share of the pool, within one period", kind: "percent" },
   { key: "auto_fire", label: "Auto-fire repeat offenders", help: "Otherwise only you can fire", kind: "bool" },
   { key: "strikes_to_fire", label: "Strikes before auto-firing", help: "", kind: "number" },
-  { key: "award_bonus", label: "Award bonus ($)", help: "Paid from the reserve", kind: "number" },
+  { key: "award_bonus", label: "Award bonus ($)", help: "Off with the pool: a bonus would be money from nowhere", kind: "number" },
   { key: "reserve", label: "Bonus reserve ($)", help: "Paper money available for bonuses", kind: "number" },
   { key: "enabled", label: "Autotune enabled", help: "Daily retuning of eligible employees", kind: "bool", group: "autotune" },
   { key: "every_hours", label: "Retune every (hours)", help: "Checked by the background job every 3h", kind: "number", group: "autotune" },
@@ -34,7 +39,7 @@ export default function PolicyForm({ policy, admin }: { policy: Policy; admin: b
   const [msg, setMsg] = useState<string | null>(null);
 
   const value = (f: Field): number | boolean => {
-    const src = f.group ? (policy.autotune as any)[f.key] : (policy as any)[f.key];
+    const src = f.group ? (policy[f.group] as any)[f.key] : (policy as any)[f.key];
     return src;
   };
   const shown = (f: Field) => {
@@ -46,15 +51,17 @@ export default function PolicyForm({ policy, admin }: { policy: Policy; admin: b
   const save = () => {
     const top: Record<string, unknown> = {};
     const at: Record<string, unknown> = {};
+    const pl: Record<string, unknown> = {};
     for (const f of FIELDS) {
       if (!(f.key in draft)) continue;
       const raw = draft[f.key];
       const v = f.kind === "bool" ? raw : f.kind === "percent" ? Number(raw) / 100 : Number(raw);
       if (typeof v === "number" && !Number.isFinite(v)) continue;
-      (f.group ? at : top)[f.key] = v;
+      (f.group === "autotune" ? at : f.group === "pool" ? pl : top)[f.key] = v;
     }
     start(async () => {
-      await updatePolicy({ ...top, ...(Object.keys(at).length ? { autotune: at } : {}) } as any);
+      await updatePolicy({ ...top, ...(Object.keys(at).length ? { autotune: at } : {}),
+        ...(Object.keys(pl).length ? { pool: pl } : {}) } as any);
       setDraft({});
       setMsg("✓ Rules saved. The desk uses them from its next run.");
     });
@@ -62,9 +69,9 @@ export default function PolicyForm({ policy, admin }: { policy: Policy; admin: b
 
   return (
     <div className="form">
-      {(["", "autotune"] as const).map((group) => (
+      {(["pool", "", "autotune"] as const).map((group) => (
         <div key={group}>
-          <div className="section-title">{group ? "Autotuning" : "Performance reviews & bonuses"}</div>
+          <div className="section-title">{group === "pool" ? "The office pool (bet sizes & safety limits)" : group ? "Autotuning" : "Performance reviews"}</div>
           <div className="params">
             {FIELDS.filter((f) => (f.group ?? "") === group).map((f) => (
               <label key={f.key}>
@@ -89,8 +96,8 @@ export default function PolicyForm({ policy, admin }: { policy: Policy; admin: b
             <button className="btn" disabled={pending} onClick={() => start(async () => { await requestRetune(); setMsg("✓ Retune requested. The background job picks it up within ~3 hours."); })}>🔧 Retune everyone now</button>
             <button className="btn danger" disabled={pending}
               onClick={() => {
-                const r = prompt(`Start fresh? Every employee restarts at their starting money (old results stay in the records). Bonus reserve from now on:`, String(policy.reserve));
-                if (r !== null) start(async () => { await startNewSeason(Number(r)); setMsg("✓ Fresh start on the desk's next run."); });
+                if (confirm("Start fresh? The office pool goes back to its starting money and everyone keeps their level (old results stay in the records)."))
+                  start(async () => { await startNewSeason(0); setMsg("✓ Fresh start on the desk's next run."); });
               }}>🎉 Fresh start (reset everyone)</button>
           </div>
         </>

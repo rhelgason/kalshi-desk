@@ -6,7 +6,7 @@ export const LEVELS = [
   { title: "Associate", multiplier: 1 },
   { title: "Senior", multiplier: 1.5 },
   { title: "VP", multiplier: 2 },
-  { title: "Partner", multiplier: 3 },
+  { title: "Partner", multiplier: 2 },
 ];
 
 export const DEFAULT_POLICY: Policy = {
@@ -15,13 +15,15 @@ export const DEFAULT_POLICY: Policy = {
   min_settled: 20,
   promote_roi: 0.02,
   demote_roi: -0.03,
+  demote_max_confidence: 0.5,
   strikes_to_suspend: 2,
   suspend_days: 7,
-  max_drawdown_suspend: 0.3,
+  max_loss_suspend: 0.1,
   auto_fire: false,
   strikes_to_fire: 4,
-  award_bonus: 250,
-  reserve: 5000,
+  award_bonus: 0,
+  reserve: 0,
+  pool: { bet_pct: 0.01, window_cap: 0.03, daily_stop: 0.1, brake_drawdown: 0.25, brake_factor: 0.5, timezone: "America/Vancouver" },
   last_review: null,
   promote_min_confidence: 0.8,
   realism: { depth: 100, samples: 0, measured_at: null },
@@ -40,12 +42,17 @@ export const DEFAULT_POLICY: Policy = {
 export function mergePolicy(saved: Partial<Policy> | null): Policy {
   const p = structuredClone(DEFAULT_POLICY);
   if (!saved) return p;
-  const { autotune, realism, ...rest } = saved;
+  const { autotune, realism, pool, ...rest } = saved;
   Object.assign(p, rest);
   if (autotune) Object.assign(p.autotune, autotune);
+  if (pool) Object.assign(p.pool, pool);
   if (realism) Object.assign(p.realism, realism);
   return p;
 }
+
+/** A level's bet as a share of the office pool, e.g. "1.5%". */
+export const poolShare = (multiplier: number, betPct: number = DEFAULT_POLICY.pool.bet_pct) =>
+  `${Math.round(multiplier * betPct * 1000) / 10}%`;
 
 export const levelTitle = (level: number) => LEVELS[Math.max(0, Math.min(level, LEVELS.length - 1))].title;
 

@@ -8,18 +8,26 @@ Everything here is driven by two tables the website can edit:
               control-group flag, award count
   settings    "desk" row: season, review rules, the desk reserve, autotune policy
 
-Levels scale bet sizes. A promotion means bigger bets with the same strategy:
+Everyone except the control group trades out of one office pool, and every bet
+is a share of it (`pool.bet_pct`, 1% for an Associate) times their level:
 
-  0 Intern 0.5x · 1 Associate 1x · 2 Senior 1.5x · 3 VP 2x · 4 Partner 3x
+  0 Intern 0.5x · 1 Associate 1x · 2 Senior 1.5x · 3 VP 2x · 4 Partner 2x
+
+So a promotion means bigger bets with the same strategy, and as the pool grows
+or shrinks every bet grows or shrinks with it. Desk-wide guardrails (runner.py):
+at most `pool.window_cap` of the pool in any one 15-minute window, nobody bets
+after the pool loses `pool.daily_stop` in a day, and bets are halved while the
+pool is more than `pool.brake_drawdown` below its high.
 
 Each review period (default 7 days) the review:
-  - names an Employee of the Week/Month (best profit in the period) and pays a
-    bonus from the desk reserve into their bankroll
-  - promotes employees whose return beat `promote_roi`, demotes ones below
-    `demote_roi`
+  - names an Employee of the Week/Month (best profit in the period); a bonus is
+    only paid if `award_bonus` is set (off with the pool: it would be money from nowhere)
+  - judges the period by profit per dollar bet: promotes employees above
+    `promote_roi` (if the season's evidence says it isn't luck), demotes ones
+    below `demote_roi` (unless the season's evidence still says they have an edge)
   - gives a strike for a bad period at the Intern level; enough strikes and the
     employee is suspended for `suspend_days` (or fired, if auto_fire is on)
-  - suspends anyone whose bankroll fell more than `max_drawdown_suspend` in the period
+  - suspends anyone who alone lost more than `max_loss_suspend` of the pool in the period
 Control-group employees (the dart monkey, the long-shot buyer) are measured but
 never promoted, demoted or suspended; they're the yardstick.
 """
@@ -38,7 +46,7 @@ from desk.paper.ledger import Ledger
 
 logger = logging.getLogger(__name__)
 
-LEVELS = [("Intern", 0.5), ("Associate", 1.0), ("Senior", 1.5), ("VP", 2.0), ("Partner", 3.0)]
+LEVELS = [("Intern", 0.5), ("Associate", 1.0), ("Senior", 1.5), ("VP", 2.0), ("Partner", 2.0)]
 CONTROL_GROUP = {"dart_monkey", "longshot_buy"}
 # Employees that start at the bottom when first hired (unproven strategies)
 START_AS_INTERN = {"breakout", "early_favorite", "nickel_maker", "early_maker", "breakout_maker", "favorite_sports", "market_maker"}
@@ -47,17 +55,28 @@ DEFAULT_POLICY: dict[str, Any] = {
     "season": 1,
     "review_days": 7,
     "min_settled": 20,  # settled bets needed in a period to be reviewed
-    "promote_roi": 0.02,  # +2% of bankroll in the period
+    "promote_roi": 0.02,  # +2 cents per $1 bet in the period
     # ...and the skill-or-luck confidence (season to date) must be at least this
     "promote_min_confidence": 0.8,
-    "demote_roi": -0.03,
+    "demote_roi": -0.03,  # -3 cents per $1 bet in the period
+    # ...unless the season's evidence is still at least this sure of an edge
+    "demote_max_confidence": 0.5,
     "strikes_to_suspend": 2,
     "suspend_days": 7,
-    "max_drawdown_suspend": 0.30,
+    "max_loss_suspend": 0.10,  # one employee losing 10% of the pool in a period
     "auto_fire": False,
     "strikes_to_fire": 4,
-    "award_bonus": 250.0,
-    "reserve": 5000.0,  # paper money the desk can hand out as bonuses
+    "award_bonus": 0.0,
+    "reserve": 0.0,  # paper money the desk can hand out as bonuses
+    # The office pool: how much of it each bet and each window may use
+    "pool": {
+        "bet_pct": 0.01,  # an Associate's bet; levels scale it (Intern 0.5%, VP/Partner 2%)
+        "window_cap": 0.03,  # all employees together, in any one 15-minute window
+        "daily_stop": 0.10,  # no new bets once the pool is down this much since midnight
+        "brake_drawdown": 0.25,  # this far below the pool's high...
+        "brake_factor": 0.5,  # ...every bet is cut to this
+        "timezone": "America/Vancouver",  # whose midnight starts the day
+    },
     "last_review": None,
     # Backtests assume this many contracts at the best price; the background job
     # replaces it with the median depth measured in live paper fills
@@ -211,10 +230,12 @@ class PeriodStats:
     wins: int
     capital: float
     worst_drawdown: float
+    wagered: float = 0.0  # dollars bet on the markets that settled in the period
 
     @property
     def roi(self) -> float:
-        return self.pnl / self.capital if self.capital else 0.0
+        """Profit per dollar bet (bet sizes follow the pool, so this is the fair yardstick)."""
+        return self.pnl / self.wagered if self.wagered else 0.0
 
 
 def period_stats(ledger: Ledger, accounts: dict[str, PaperAccount], since: datetime) -> dict[str, PeriodStats]:
@@ -229,12 +250,19 @@ def period_stats(ledger: Ledger, accounts: dict[str, PaperAccount], since: datet
         " WHERE season = ? AND ts >= ? GROUP BY strategy",
         (ledger.season, since_iso),
     )
+    bet = ledger._rows(
+        "SELECT f.strategy, SUM(f.count * f.price + f.fee) AS wagered FROM fills f"
+        " JOIN settlements s ON s.strategy = f.strategy AND s.ticker = f.ticker AND s.season = f.season"
+        " WHERE s.season = ? AND s.ts >= ? GROUP BY f.strategy",
+        (ledger.season, since_iso),
+    )
     dd = {r["strategy"]: (1 - r["lo"] / r["hi"]) if r["hi"] else 0.0 for r in eq}
+    wagered = {r["strategy"]: float(r["wagered"] or 0) for r in bet}
     out = {}
     for k, acct in accounts.items():
         r = next((x for x in rows if x["strategy"] == k), None)
         out[k] = PeriodStats(k, float(r["pnl"]) if r else 0.0, int(r["n"]) if r else 0,
-                             int(r["wins"]) if r else 0, acct.capital, dd.get(k, 0.0))
+                             int(r["wins"]) if r else 0, acct.capital, dd.get(k, 0.0), wagered.get(k, 0.0))
     return out
 
 
@@ -247,7 +275,7 @@ def review_due(policy: dict, now: Optional[datetime] = None) -> bool:
 
 def run_review(ledger: Ledger, roster: dict[str, EmployeeRecord], accounts: dict[str, PaperAccount],
                policy: dict, now: Optional[datetime] = None,
-               evidence: Optional[dict[str, dict]] = None) -> list[dict]:
+               evidence: Optional[dict[str, dict]] = None, pool: Optional[float] = None) -> list[dict]:
     """
     Apply the review rules. Mutates roster, accounts (bonuses) and policy; returns the actions taken.
 
@@ -260,6 +288,8 @@ def run_review(ledger: Ledger, roster: dict[str, EmployeeRecord], accounts: dict
     since = datetime.fromisoformat(policy["last_review"]) if policy.get("last_review") else now - timedelta(
         days=float(policy["review_days"]))
     stats = period_stats(ledger, accounts, since)
+    if pool is None:  # the office pool's capital: everyone but the control group
+        pool = sum(a.capital for k, a in accounts.items() if not (roster.get(k) and roster[k].control))
     actions: list[dict] = []
 
     def act(key: Optional[str], kind: str, **detail) -> None:
@@ -286,12 +316,12 @@ def run_review(ledger: Ledger, roster: dict[str, EmployeeRecord], accounts: dict
         rec, st = roster[k], stats[k]
         if rec.status == "suspended":
             continue
-        if st.worst_drawdown > float(policy["max_drawdown_suspend"]):
+        conf = float((evidence.get(k) or {}).get("confidence", 0.5))
+        if pool and -st.pnl > float(policy["max_loss_suspend"]) * pool:
             _suspend(rec, now, float(policy["suspend_days"]))
-            act(k, "hr", action="suspended", why=f"bankroll fell {st.worst_drawdown:.0%} this period",
+            act(k, "hr", action="suspended", why=f"lost {-st.pnl / pool:.0%} of the office pool this period",
                 until=rec.suspended_until)
         elif st.roi >= float(policy["promote_roi"]) and rec.level < len(LEVELS) - 1:
-            conf = float((evidence.get(k) or {}).get("confidence", 0.5))
             if conf >= float(policy.get("promote_min_confidence", 0.0)):
                 rec.level += 1
                 rec.strikes = 0
@@ -301,7 +331,10 @@ def run_review(ledger: Ledger, roster: dict[str, EmployeeRecord], accounts: dict
                 act(k, "hr", action="held back", roi=round(st.roi, 4), confidence=round(conf, 3),
                     why=f"good period, but only {conf:.0%} sure it isn't luck")
         elif st.roi <= float(policy["demote_roi"]):
-            if rec.level > 0:
+            if conf > float(policy.get("demote_max_confidence", 1.0)):
+                act(k, "hr", action="kept", roi=round(st.roi, 4), confidence=round(conf, 3),
+                    why=f"bad period, but still {conf:.0%} sure of an edge overall")
+            elif rec.level > 0:
                 rec.level -= 1
                 act(k, "hr", action="demoted", to=level_title(rec.level), roi=round(st.roi, 4))
             else:
@@ -331,3 +364,39 @@ def run_review(ledger: Ledger, roster: dict[str, EmployeeRecord], accounts: dict
 def _suspend(rec: EmployeeRecord, now: datetime, days: float) -> None:
     rec.status = "suspended"
     rec.suspended_until = (now + timedelta(days=days)).isoformat()
+
+
+# ---------------------------------------------------------------------------
+# A new season
+# ---------------------------------------------------------------------------
+
+
+def start_season(ledger: Ledger, staff: list[str], pool_cash: float, control_cash: float,
+                 levels: Optional[dict[str, int]] = None, why: str = "", now: Optional[datetime] = None) -> dict:
+    """
+    Start everyone fresh: split `pool_cash` evenly across the office pool's members
+    (the staff minus the control group), give each control employee `control_cash`,
+    optionally re-level people, and schedule the first review a period from now.
+    Old seasons' rows stay in the records.
+    """
+    now = now or _now()
+    roster = load_roster(ledger, staff)
+    members = [k for k in staff if not roster[k].control]
+    for k in staff:
+        ledger.set_starting_cash(k, pool_cash / len(members) if k in members else control_cash)
+    for k, level in (levels or {}).items():
+        rec = roster[k]
+        if rec.level != level:
+            ledger.record_event("hr", {"action": "re-leveled", "from": level_title(rec.level),
+                                       "to": level_title(level), "why": why}, strategy=k)
+        rec.level, rec.strikes = level, 0
+        ledger.upsert_employee(rec.to_row())
+    policy = load_policy(ledger)
+    policy["season"] = int(policy.get("season") or 1) + 1
+    policy["last_review"] = now.isoformat()
+    policy["award_bonus"], policy["reserve"] = 0.0, 0.0  # bonuses would be money from nowhere
+    save_policy(ledger, policy)
+    ledger.refresh_season()
+    detail = {"action": "new season", "season": policy["season"], "pool": pool_cash, "members": members}
+    ledger.record_event("season", detail)
+    return detail

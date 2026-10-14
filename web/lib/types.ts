@@ -57,7 +57,35 @@ export type HRInfo = {
   last_review: string | null;
   next_review: string | null;
   reserve: number;
-  levels: { title: string; multiplier: number }[];
+  levels: { title: string; multiplier: number; bet_pct?: number }[];
+};
+
+export type PoolSettings = {
+  bet_pct: number;
+  window_cap: number;
+  daily_stop: number;
+  brake_drawdown: number;
+  brake_factor: number;
+  timezone: string;
+};
+
+/** The office pool everyone but the control group bets out of (desk/paper/pool.py). */
+export type PoolSummary = {
+  equity: number;
+  capital: number;
+  pnl: number;
+  cash: number;
+  in_play: number;
+  day_open: number;
+  today: number;
+  peak: number;
+  stopped: boolean;
+  stopped_at: string | null;
+  braked: boolean;
+  bet: number;
+  window_cap: number;
+  settings: PoolSettings;
+  members: string[];
 };
 
 export type RosterRow = {
@@ -80,13 +108,15 @@ export type Policy = {
   min_settled: number;
   promote_roi: number;
   demote_roi: number;
+  demote_max_confidence: number;
   strikes_to_suspend: number;
   suspend_days: number;
-  max_drawdown_suspend: number;
+  max_loss_suspend: number;
   auto_fire: boolean;
   strikes_to_fire: number;
   award_bonus: number;
   reserve: number;
+  pool: PoolSettings;
   last_review: string | null;
   promote_min_confidence: number;
   realism: { depth: number; samples: number; measured_at: string | null; median_on_offer?: number };
@@ -129,6 +159,7 @@ export type LiveStatus = {
   tick_seconds: number;
   season?: number;
   hr?: HRInfo;
+  pool?: PoolSummary;
   employees: Employee[];
   positions: Position[];
   underlyings: Record<string, Underlying>;

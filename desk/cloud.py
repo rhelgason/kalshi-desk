@@ -193,6 +193,9 @@ async def run_cloud_tick(ledger: Optional[Ledger] = None, config_path: Optional[
         peaks = state.get("peaks") or {}
         desk.drawdowns = {k: v[1] for k, v in peaks.items()}
         desk.briers = state.get("briers") or {}
+        from desk.paper.pool import PoolState
+
+        desk.pool.state = PoolState.from_dict(state.get("pool"))
 
         try:
             results = await desk.tick()
@@ -228,6 +231,7 @@ async def run_cloud_tick(ledger: Optional[Ledger] = None, config_path: Optional[
             "marks": {t: m for t, m in desk.marks.items() if t in held},
             "fees": {k: [f.fee_type, f.multiplier] for k, f in desk.fees.items()},
             "peaks": peaks,
+            "pool": desk.pool.state.to_dict(),
             "briers": desk.briers,
             "budget": budget,
             "last_run": {"at": now.isoformat(), "seconds": round(time.time() - started, 1),

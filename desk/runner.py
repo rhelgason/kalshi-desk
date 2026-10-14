@@ -16,6 +16,7 @@ import asyncio
 import gzip
 import json
 import logging
+import math
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from dataclasses import replace
@@ -28,6 +29,7 @@ from desk.kalshi.fees import FeeSchedule
 from desk.kalshi.models import Event, Market, Side
 from desk.paper.broker import ExecutionResult, PaperBroker
 from desk.paper.ledger import Ledger
+from desk.paper.pool import Pool, PoolAccountView, PoolState, event_of
 from desk.paper.scoreboard import format_scoreboard, scoreboard_rows
 from desk import hr
 from desk.paper.account import PaperAccount
@@ -71,8 +73,11 @@ class Desk:
         self.multipliers: dict[str, float] = {}
         self.season = ledger.season
         self.broker = PaperBroker(ledger, accounts or {}, liquidity_share=config.liquidity_share)
+        # The office pool everyone but the control group bets out of (desk.paper.pool)
+        self.pool = Pool(self.policy["pool"], ())
         self.sync_hr()
         if accounts is None:
+            self._ensure_account_rows()
             self.broker.accounts = ledger.load_accounts(config.starting_cash, self._all_keys())
             self._ensure_accounts()
 
@@ -110,11 +115,27 @@ class Desk:
     def _all_keys(self) -> list[str]:
         return sorted({s.key for s in self.strategies} | set(self.roster))
 
+    def opening_cash(self, key: str) -> float:
+        """A new hire's own money: none for pool members (they share the pool), paper cash for the control group."""
+        rec = self.roster.get(key)
+        return self.config.starting_cash if rec and rec.control else 0.0
+
+    def _ensure_account_rows(self) -> None:
+        keys = self._all_keys()
+        members = [k for k in keys if not (self.roster.get(k) and self.roster[k].control)]
+        existing = {r["strategy"] for r in self.ledger._rows("SELECT strategy FROM accounts")}
+        if members and not existing & set(members):
+            # A brand-new office: split the pool evenly to start
+            for k in members:
+                self.ledger.ensure_account(k, self.config.pool_cash / len(members))
+        for k in keys:
+            self.ledger.ensure_account(k, self.opening_cash(k))
+
     def _ensure_accounts(self) -> None:
         for k in self._all_keys():
             if k not in self.accounts:
-                self.ledger.ensure_account(k, self.config.starting_cash)
-                self.accounts[k] = PaperAccount(k, self.config.starting_cash)
+                self.ledger.ensure_account(k, self.opening_cash(k))
+                self.accounts[k] = PaperAccount(k, self.opening_cash(k))
 
     def sync_hr(self) -> None:
         """Apply the latest roster and settings from the database (run before each tick)."""
@@ -123,9 +144,11 @@ class Desk:
         if season != self.season:
             logger.info("Season %s started: everyone begins fresh", season)
             self.season = season
+            self._ensure_account_rows()
             self.broker.accounts = self.ledger.load_accounts(self.config.starting_cash, self._all_keys())
             self.marks = {}
             self.drawdowns = {} if self.drawdowns is not None else None
+            self.pool.state = PoolState()
         if not self.policy.get("last_review"):
             self.policy["last_review"] = _now().isoformat()  # first review one period from now
             hr.save_policy(self.ledger, self.policy)
@@ -163,6 +186,8 @@ class Desk:
 
         self.inactive = {k for k, r in self.roster.items() if not r.is_working()}
         self.multipliers = {k: r.multiplier for k, r in self.roster.items()}
+        self.pool.settings = self.policy["pool"]
+        self.pool.members = self.broker.pool_members = {k for k, r in self.roster.items() if not r.control}
         if self.manage_roster and self.broker.accounts:
             # Retired employees (no longer on staff) stop being tracked once they hold nothing
             keep = set(self._all_keys())
@@ -268,12 +293,19 @@ class Desk:
 
     async def run_strategies(self, snap: Snapshot) -> list[ExecutionResult]:
         results = []
-        for strat in self.strategies:
+        self.pool.update(self.pool.total_equity(self.accounts, self.marks), _now())
+        if self.pool.stopped:
+            logger.info("Daily stop: the pool is down %.1f%% today, no new bets until midnight", -self.pool.today * 100)
+        # Higher levels go first, so they get first claim on a window's share of the pool
+        for strat in sorted(self.strategies, key=lambda s: -self.multipliers.get(s.key, 1.0)):
             if strat.key in self.inactive:
                 continue  # suspended: positions still settle, but no new bets
+            if strat.key in self.pool.members and self.pool.stopped:
+                continue
             acct = self.accounts[strat.key]
+            view = PoolAccountView(acct, self.broker.free_cash(strat.key)) if strat.key in self.pool.members else acct
             try:
-                intents = strat.evaluate(snap, acct)
+                intents = strat.evaluate(snap, view)
             except Exception:
                 logger.exception("%s crashed while evaluating", strat.key)
                 continue
@@ -281,12 +313,14 @@ class Desk:
             for intent in intents[: self.max_intents_per_strategy]:
                 if intent.post_only:
                     intent = await self.live_post(strat, intent, snap)
+                    intent = intent and self.sized(intent)
                     if not intent:
                         continue
-                    for o in self.broker.place(self._scaled(intent), _now()):
+                    for o in self.broker.place(intent, _now()):
                         logger.debug("%s resting %s %s x%g @ %.2f", strat.key, o.ticker, o.side, o.count, o.price)
                     continue
-                result = await self.execute(intent, snap)
+                intent = self.sized(intent)
+                result = intent and await self.execute(intent, snap)
                 if result:
                     results.append(result)
         return results
@@ -321,12 +355,24 @@ class Desk:
                 return None
         return intent
 
-    def _scaled(self, intent: TradeIntent) -> TradeIntent:
-        mult = self.multipliers.get(intent.strategy, 1.0)
-        if mult == 1.0:
-            return intent
-        # Level-based sizing: promotions mean bigger bets with the same strategy
-        return replace(intent, legs=[replace(leg, count=max(1.0, round(leg.count * mult, 2))) for leg in intent.legs])
+    def sized(self, intent: TradeIntent) -> Optional[TradeIntent]:
+        """
+        Resize a bet to its share of the pool: the employee's level times the
+        pool's bet size, trimmed to what's left of the window cap. The strategy
+        picks the market, side and price; the pool decides how much. None = skip.
+        """
+        dollars = self.pool.bet_dollars(self.multipliers.get(intent.strategy, 1.0))
+        if intent.strategy in self.pool.members:
+            room = min(self.pool.window_room(event_of(leg.ticker), self.accounts, self.broker.resting)
+                       for leg in intent.legs)
+            dollars = min(dollars, room)
+        cost = sum(leg.count * leg.limit_price for leg in intent.legs)
+        if dollars <= 0 or cost <= 0:
+            return None
+        legs = [replace(leg, count=math.floor(leg.count * dollars / cost * 100) / 100) for leg in intent.legs]
+        if any(leg.count < 1 for leg in legs):
+            return None  # less than one contract left under the cap
+        return replace(intent, legs=legs)
 
     async def match_resting(self) -> None:
         """Fill maker orders from the live trade tape since they were placed, then expire stale ones."""
@@ -348,7 +394,6 @@ class Desk:
         self.broker.expire(now)
 
     async def execute(self, intent: TradeIntent, snap: Snapshot) -> Optional[ExecutionResult]:
-        intent = self._scaled(intent)
         try:
             books = await self.client.get_orderbooks(intent.tickers)
             fees = await self._fees_for(intent.tickers, snap)
@@ -515,7 +560,7 @@ class Desk:
             self._last_equity = now
         if hr.review_due(self.policy, now):
             for a in hr.run_review(self.ledger, self.roster, self.accounts, self.policy, now,
-                                   evidence=self.compute_evidence()):
+                                   evidence=self.compute_evidence(), pool=self.pool.equity or None):
                 logger.info("HR: %s", a)
             self.inactive = {k for k, r in self.roster.items() if not r.is_working()}
             self.multipliers = {k: r.multiplier for k, r in self.roster.items()}
@@ -605,8 +650,10 @@ class Desk:
                 "last_review": last_review,
                 "next_review": next_review.isoformat() if next_review else None,
                 "reserve": self.policy["reserve"],
-                "levels": [{"title": t, "multiplier": m} for t, m in hr.LEVELS],
+                "levels": [{"title": t, "multiplier": m, "bet_pct": m * float(self.policy["pool"]["bet_pct"])}
+                           for t, m in hr.LEVELS],
             },
+            "pool": self.pool.summary(self.accounts, self.broker.resting),
             "employees": employees,
             "positions": positions,
             "underlyings": quotes,

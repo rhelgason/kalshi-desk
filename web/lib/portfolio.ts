@@ -95,3 +95,15 @@ export function profitSeries(h: History): Record<string, Point[]> {
   }
   return out;
 }
+
+/** The same history, limited to some employees (the office pool leaves out the control group). */
+export function only(h: History, keys: Iterable<string>): History {
+  const keep = new Set(keys);
+  const pick = <T,>(o: Record<string, T>) => Object.fromEntries(Object.entries(o).filter(([k]) => keep.has(k)));
+  return { ...h, points: pick(h.points), seeds: pick(h.seeds), starting: pick(h.starting),
+    transfers: h.transfers.filter((x) => keep.has(x.strategy)) };
+}
+
+/** Who's in the office pool: the bot says; before it does, everyone but the control group. */
+export const poolKeys = (live: { pool?: { members: string[] }; employees: { key: string; control?: boolean }[] }) =>
+  live.pool?.members ?? live.employees.filter((e) => !e.control).map((e) => e.key);

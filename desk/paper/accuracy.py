@@ -68,25 +68,32 @@ class AccuracySummary:
 
 
 def settled_bets(ledger: Ledger, strategy: Optional[str] = None) -> list[Bet]:
-    """Every fill whose market has settled, paired with how it turned out."""
+    """Every bet whose market has settled, paired with how it turned out."""
     outcomes: dict[tuple[str, str], float] = {}
     for s in ledger.settlements(strategy):
         outcomes[(s["strategy"], s["ticker"])] = s["yes_value"]
-    bets = []
+    # One bet per employee, market and side, however many pieces it filled in
+    merged: dict[tuple[str, str, str], list] = {}
     for f in ledger.fills(strategy):
         key = (f["strategy"], f["ticker"])
         if key not in outcomes or f["count"] <= 0:
             continue
-        yes_value = outcomes[key]
+        m = merged.setdefault((*key, f["side"]), [0.0, 0.0, 0.0, f["model_prob"]])
+        m[0] += f["count"]
+        m[1] += f["count"] * f["price"]
+        m[2] += f["fee"]
+    bets = []
+    for (strat, ticker, side), (count, paid, fee, prob) in merged.items():
+        yes_value = outcomes[(strat, ticker)]
         bets.append(Bet(
-            strategy=f["strategy"],
-            ticker=f["ticker"],
-            side=f["side"],
-            price=f["price"],
-            fee_per_contract=f["fee"] / f["count"],
-            count=f["count"],
-            model_prob=f["model_prob"],
-            outcome=yes_value if f["side"] == "yes" else 1 - yes_value,
+            strategy=strat,
+            ticker=ticker,
+            side=side,
+            price=paid / count,
+            fee_per_contract=fee / count,
+            count=count,
+            model_prob=prob,
+            outcome=yes_value if side == "yes" else 1 - yes_value,
         ))
     return bets
 
@@ -188,14 +195,20 @@ def format_accuracy(summaries: list[AccuracySummary], personas: Optional[dict[st
     return "\n".join(lines)
 
 
+# One bet per employee, market and side: a resting bid often fills in several
+# pieces, and counting each piece as its own bet would overstate the evidence.
 _BETS_CTE = """
-WITH bets AS (
-    SELECT f.strategy, f.price, f.model_prob, f.count,
-           f.fee / NULLIF(f.count, 0) AS fpc,
+WITH pieces AS (
+    SELECT strategy, ticker, season, side, sum(count) AS count, sum(count * price) / sum(count) AS price,
+           sum(fee) / sum(count) AS fpc, avg(model_prob) AS model_prob
+    FROM fills WHERE count > 0 AND season = %(season)s
+    GROUP BY strategy, ticker, season, side
+),
+bets AS (
+    SELECT f.strategy, f.price, f.model_prob, f.count, f.fpc,
            CASE WHEN f.side = 'yes' THEN s.yes_value ELSE 1 - s.yes_value END AS outcome
-    FROM fills f
+    FROM pieces f
     JOIN settlements s ON s.strategy = f.strategy AND s.ticker = f.ticker AND s.season = f.season
-    WHERE f.count > 0 AND f.season = %(season)s
 )
 """
 

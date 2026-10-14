@@ -125,3 +125,23 @@ dollars a day.
 Caveats: 2.3 days, mostly a weekend; exchange clocks can differ by a few ms,
 which matters at this scale; fills assume a quarter of what traded at that
 price.
+
+## Bet sizing: how much of the pool per bet? (Oct 14, 2026)
+
+`sizing.py` / `sizing2.py` replay the twins' 55 days of bets (Ellie, Nora,
+Bonnie; ~34 bets a day, often the same window and direction) with every bet a
+fixed share of one $100 pool, compounding. Shifting each employee's returns
+tests what happens if the backtested edge is only half real, or not real at all.
+
+| Each bet | Backtest right | Half the edge | No edge | Worst day | Worst fall from a high |
+|---|---|---|---|---|---|
+| 0.5% | $122 | $110 | $99 | −6% | −14 to −20% |
+| 1% | $144 | $117 | $95 | −12% | −27 to −37% |
+| 2% | $187 | $123 | $81 | −22% | −48 to −62% |
+| 5% | $216 | $75 | $26 | −47% | −86 to −95% |
+
+Growth peaks around 3-5% per bet if the backtests are right (full Kelly), but
+we don't know the true edge, so the desk uses ~1/4 of that: **1% per bet**
+for an Associate. A daily stop at −10% held the worst day to about −11%; it
+doesn't catch a slow bleed, hence the half-size brake at 25% below the high.
+Live rules: desk/paper/pool.py.

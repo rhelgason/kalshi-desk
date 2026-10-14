@@ -1,5 +1,6 @@
 """The full desk loop against a fake Kalshi client: discover, trade, settle."""
 
+import math
 from datetime import timedelta
 
 import pytest
@@ -58,7 +59,7 @@ def desk_and_client():
 
     # The runner checks strike_date against "now"; pin the horizon wide open
     cfg = DeskConfig(crypto_series=["ARB"], crypto_horizon_hours=24 * 365 * 1000, liquidity_share=1.0,
-                     starting_cash=100)
+                     starting_cash=100, pool_cash=200)
     client = FakeClient([event], [longshot])
     desk = Desk(cfg, client, [CoverArb(), LongshotFade()], Ledger(":memory:"))
     return desk, client
@@ -107,8 +108,8 @@ async def test_level_scales_bet_size(desk_and_client, monkeypatch):
     desk.ledger.upsert_employee(rec.to_row())
     results = await desk.tick()
     bill = next(r for r in results if r.intent.strategy == "longshot_fade" and r.filled)
-    unscaled = 5 // 0.95  # Bill's $5 stake at a 95c NO price
-    assert bill.fills[0].count == pytest.approx(2 * unscaled)
+    # A VP bets 2% of the pool (two employees x $100), at a 95c NO price
+    assert bill.fills[0].count == pytest.approx(math.floor(200 * 0.02 / 0.95 * 100) / 100)
 
 
 async def test_reporting_failure_does_not_stop_trading(desk_and_client, monkeypatch):
@@ -132,3 +133,17 @@ async def test_resting_bids_that_would_cross_the_live_book_are_not_posted(desk_a
     crossing = TradeIntent(strat.key, [Leg("ARB-T100", Side.YES, 0.50, 5)], "", post_only=True, ttl_seconds=60)
     assert await desk.live_post(strat, ok, snap) is ok
     assert await desk.live_post(strat, crossing, snap) is None  # the ask is 0.50: Kalshi would reject it
+
+
+def test_bets_are_trimmed_to_whats_left_of_the_window_cap(desk_and_client):
+    desk, _ = desk_and_client
+    desk.pool.update(desk.pool.total_equity(desk.accounts, {}), NOW)  # $200 pool: $6 per window
+    desk.multipliers["longshot_fade"] = 2.0  # VP: $4 bets
+    t = "KXBTC15M-26OCT151200-00"
+    desk.accounts["cover_arb"].apply_fill(t, Side.YES, 8, 0.5, 0)  # $4 already riding on this window
+    bet = desk.sized(TradeIntent("longshot_fade", [Leg(t, Side.NO, 0.5, 100)], ""))
+    assert bet.legs[0].count == pytest.approx(4)  # $2 left under the cap
+    other = desk.sized(TradeIntent("longshot_fade", [Leg("KXBTC15M-26OCT151215-15", Side.NO, 0.5, 100)], ""))
+    assert other.legs[0].count == pytest.approx(8)  # a fresh window: the full $4
+    desk.accounts["cover_arb"].apply_fill(t, Side.YES, 4, 0.5, 0)
+    assert desk.sized(TradeIntent("longshot_fade", [Leg(t, Side.NO, 0.5, 100)], "")) is None

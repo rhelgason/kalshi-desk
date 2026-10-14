@@ -3,7 +3,13 @@
 
 env: prod                 # prod = real market data (still paper money). demo = Kalshi's sandbox
 db_path: data/desk.db     # the ledger: every paper trade and payout
-starting_cash: 1000       # paper dollars each employee starts with
+# The office pool: one pot every employee (except the control group) bets out of,
+# like one real Kalshi account. Each bet is a share of it: 1% for an Associate,
+# 0.5% Intern, 1.5% Senior, 2% VP/Partner, with at most 3% of the pool in any one
+# 15-minute window, no new bets after a 10% down day, and half-size bets while
+# the pool is 25% below its high. These live in the HR settings (website).
+pool_cash: 1000           # split across the pool's members when a season starts
+starting_cash: 1000       # paper dollars for each control-group employee (Dan, Lenny)
 
 tick_seconds: 15          # how often everyone looks at the market
 # Bitcoin only (since Season 3): "will BTC be up in 15 minutes?" markets settle
@@ -19,6 +25,7 @@ broad_scan: false         # no sports, weather, or other non-bitcoin markets
 liquidity_share: 0.5      # assume faster bots take half of every displayed order
 
 # One block per employee (the bitcoin team). Set enabled: false to give someone the day off.
+# A `stake` here no longer sets the bet's dollars: the office pool does (see pool_cash).
 # Retired with the bitcoin focus: Risk-Free Rick, Sudoku Sue, Vega Vinny,
 # Front-Runner Fran, Spread Sam, Whale Watcher Walt, and (no edge on 15-minute
 # bitcoin) The Professor, Momentum Mo, Rubber Band Randy. Code kept in desk/strategies.

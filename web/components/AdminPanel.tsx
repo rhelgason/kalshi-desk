@@ -5,7 +5,7 @@ import {
   fireEmployee, grantBonus, rehireEmployee, reinstateEmployee, saveSettings, setAutotune, setLevel, setNote,
   suspendEmployee,
 } from "@/app/actions";
-import { LEVELS } from "@/lib/hr";
+import { LEVELS, poolShare } from "@/lib/hr";
 import type { Employee, RosterRow } from "@/lib/types";
 
 type Params = NonNullable<Employee["params"]>;
@@ -66,7 +66,7 @@ export default function AdminPanel({ e, roster, reserve }: { e: Employee; roster
         {LEVELS.map((l, i) => (
           <button key={l.title} className={`btn ${i === level ? "on" : ""}`} disabled={pending || i === level}
             onClick={() => run(() => setLevel(e.key, i), `Now ${l.title}`)}>
-            {l.title} <span className="muted">{l.multiplier}x</span>
+            {l.title} <span className="muted">{poolShare(l.multiplier)}</span>
           </button>
         ))}
       </div>

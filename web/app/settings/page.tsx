@@ -3,7 +3,7 @@ import Setup from "@/components/Setup";
 import { isAdmin } from "@/lib/admin";
 import { getCoverage, getJobs, getPolicy } from "@/lib/db";
 import { ago } from "@/lib/format";
-import { LEVELS, awardName } from "@/lib/hr";
+import { LEVELS, awardName, poolShare } from "@/lib/hr";
 
 export const dynamic = "force-dynamic";
 
@@ -28,12 +28,12 @@ export default async function Handbook() {
         </p>
         <div className="table-wrap">
           <table>
-            <thead><tr><th>Level</th><th className="num">Bet size</th><th>How to get there</th></tr></thead>
+            <thead><tr><th>Level</th><th className="num">Each bet</th><th>How to get there</th></tr></thead>
             <tbody>
               {LEVELS.map((l, i) => (
                 <tr key={l.title}>
                   <td>{l.title}</td>
-                  <td className="num">{l.multiplier}x</td>
+                  <td className="num">{poolShare(l.multiplier, policy.pool.bet_pct)} of the pool</td>
                   <td className="muted">{i === 0 ? "New hires and demoted employees" : `One promotion above ${LEVELS[i - 1].title}`}</td>
                 </tr>
               ))}

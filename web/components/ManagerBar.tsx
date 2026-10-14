@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { fireEmployee, rehireEmployee, reinstateEmployee, setLevel, suspendEmployee } from "@/app/actions";
-import { LEVELS } from "@/lib/hr";
+import { LEVELS, poolShare } from "@/lib/hr";
 import type { Employee } from "@/lib/types";
 
 /** The everyday manager controls in one slim row: bet size, bench, fire. Everything else lives further down. */
@@ -25,8 +25,8 @@ export default function ManagerBar({ e }: { e: Employee }) {
       <span className="label">👔 Manager</span>
       {status !== "fired" && (
         <select aria-label="Bet size" value={e.level ?? 1} disabled={pending}
-          onChange={(ev) => { const l = Number(ev.target.value); run(() => setLevel(e.key, l), `Bet size now ${LEVELS[l].multiplier}× (${LEVELS[l].title})`); }}>
-          {LEVELS.map((l, i) => <option key={l.title} value={i}>Bet size {l.multiplier}× · {l.title}</option>)}
+          onChange={(ev) => { const l = Number(ev.target.value); run(() => setLevel(e.key, l), `Bets now ${poolShare(LEVELS[l].multiplier)} of the pool (${LEVELS[l].title})`); }}>
+          {LEVELS.map((l, i) => <option key={l.title} value={i}>{l.title} · {poolShare(l.multiplier)} of the pool per bet</option>)}
         </select>
       )}
       {status === "fired" ? (

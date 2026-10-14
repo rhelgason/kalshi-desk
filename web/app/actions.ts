@@ -118,12 +118,13 @@ async function writePolicy(policy: Policy) {
     ON CONFLICT (key) DO UPDATE SET updated_at = excluded.updated_at, data = excluded.data`;
 }
 
-export async function updatePolicy(changes: Partial<Policy> & { autotune?: Partial<Policy["autotune"]> }) {
+export async function updatePolicy(changes: Partial<Omit<Policy, "pool">> & { autotune?: Partial<Policy["autotune"]>; pool?: Partial<Policy["pool"]> }) {
   await requireAdmin();
   const policy = await getPolicy();
-  const { autotune, ...rest } = changes;
+  const { autotune, pool, ...rest } = changes;
   Object.assign(policy, rest);
   if (autotune) Object.assign(policy.autotune, autotune);
+  if (pool) Object.assign(policy.pool, pool);
   await writePolicy(policy);
   await event("admin", null, { action: "desk rules changed", changes });
   done(["/settings", "/"]);
