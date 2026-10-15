@@ -73,7 +73,7 @@ def test_review_awards_promotes_demotes_and_suspends():
     _settle(led, "bad_intern", -50, n=25, ts=when)
     _settle(led, "dart_monkey", 500, n=25, ts=when)  # control group: never rewarded
 
-    actions = hr.run_review(led, roster, accounts, policy, NOW, evidence={"star": {"confidence": 0.9}})
+    actions = hr.run_review(led, roster, accounts, policy, NOW, evidence={"star": {"confidence": 0.9, "bets": 60}})
     kinds = {(a["strategy"], a["kind"], a.get("action")) for a in actions}
     assert ("star", "award", None) in kinds
     assert accounts["star"].cash == 1250 and policy["reserve"] == 4750
@@ -116,7 +116,7 @@ def test_a_bad_week_doesnt_demote_a_proven_employee():
     policy["last_review"] = (NOW - timedelta(days=7)).isoformat()
     _settle(led, "pro", -20, n=25, ts=(NOW - timedelta(days=1)).isoformat())
     actions = hr.run_review(led, roster, {"pro": PaperAccount("pro", 1000)}, policy, NOW,
-                            evidence={"pro": {"confidence": 0.9}})
+                            evidence={"pro": {"confidence": 0.9, "bets": 60}})
     assert roster["pro"].level == 1
     assert any(a.get("action") == "kept" for a in actions)
 
@@ -130,7 +130,7 @@ def test_reviews_judge_profit_per_dollar_bet():
     _settle(led, "big", 30, n=25, ts=when, stake=100)  # +1.2c per $1 on big bets: not enough
     _settle(led, "small", 10, n=25, ts=when)  # +4c per $1
     hr.run_review(led, roster, {k: PaperAccount(k, 1000) for k in roster}, policy, NOW,
-                  evidence={"big": {"confidence": 0.9}, "small": {"confidence": 0.9}})
+                  evidence={"big": {"confidence": 0.9, "bets": 60}, "small": {"confidence": 0.9, "bets": 60}})
     assert (roster["big"].level, roster["small"].level) == (1, 2)
 
 
@@ -153,7 +153,7 @@ def test_good_period_without_evidence_is_held_back():
     policy["last_review"] = (NOW - timedelta(days=7)).isoformat()
     _settle(led, "lucky", 80, n=25, ts=(NOW - timedelta(days=1)).isoformat())
     actions = hr.run_review(led, roster, {"lucky": PaperAccount("lucky", 1000)}, policy, NOW,
-                            evidence={"lucky": {"confidence": 0.62}})
+                            evidence={"lucky": {"confidence": 0.62, "bets": 60}})
     assert roster["lucky"].level == 1
     held = [a for a in actions if a.get("action") == "held back"]
     assert held and "62%" in held[0]["why"]
@@ -172,3 +172,33 @@ def test_new_season_splits_the_pool_and_relevels():
     policy = hr.load_policy(led)
     assert policy["award_bonus"] == 0 and policy["last_review"] == NOW.isoformat()
     assert any("re-leveled" in str(e) for e in led.events_since())
+
+
+def test_too_few_bets_neither_promote_nor_protect():
+    # 92% sure, but on 12 bets: the score itself says "too early to tell"
+    led = Ledger(":memory:")
+    roster = hr.load_roster(led, ["new", "slump"])
+    roster["slump"].level = 2
+    policy = hr.load_policy(led)
+    policy["last_review"] = (NOW - timedelta(days=7)).isoformat()
+    when = (NOW - timedelta(days=1)).isoformat()
+    _settle(led, "new", 80, n=25, ts=when)
+    _settle(led, "slump", -50, n=25, ts=when)
+    actions = hr.run_review(led, roster, {k: PaperAccount(k, 1000) for k in roster}, policy, NOW,
+                            evidence={"new": {"confidence": 0.92, "bets": 12}, "slump": {"confidence": 0.92, "bets": 12}})
+    assert roster["new"].level == 1 and roster["slump"].level == 1  # held back; demoted
+    held = next(a for a in actions if a.get("action") == "held back")
+    assert "12 of 30 bets" in held["why"]
+
+
+def test_twins_follow_their_siblings_settings():
+    base = {"nickel_picker": {"min_price": 0.88, "stake": 10}, "nickel_maker": {"min_price": 0.88},
+            "breakout": {"min_move": 0.002}}
+    roster = {k: hr.EmployeeRecord(k) for k in ("nickel_picker", "nickel_maker", "breakout", "breakout_maker")}
+    roster["nickel_picker"].params = {"min_price": 0.85}  # autotune moved Nick
+    roster["breakout_maker"].params = {"max_price": 0.55}  # set on purpose for Bonnie
+    cfg = hr.effective_strategy_config(base, roster)
+    assert cfg["nickel_maker"] == {"min_price": 0.85, "stake": 10}
+    assert cfg["breakout_maker"] == {"min_move": 0.002, "max_price": 0.55}
+    roster["nickel_picker"].status = "fired"
+    assert "enabled" not in hr.effective_strategy_config(base, roster)["nickel_maker"]  # Nora keeps working

@@ -62,21 +62,14 @@ strategies:
     min_price: 0.75       # backtest Aug-Oct: +$132 train / +$11 test; the edge may be fading
     max_seconds: 780
   # The patient twins (Season 3, week 2): same picks as Nick, Edie and Betty, but they post a
-  # bid and wait instead of paying the ask. No fee when someone fills them. Keep their
-  # settings in step with their siblings' so the only difference is how they buy.
+  # bid and wait instead of paying the ask. No fee when someone fills them. They use their
+  # sibling's settings automatically (including autotune's changes), so the only difference
+  # is how they buy; anything set here for a twin applies on top (desk/hr.py TWINS).
   # 55-day replay on Kalshi's minute candles, per $1 bet (taker -> patient twin):
   #   Edie +1.3c -> +1.6c, Nick +3.6c -> +3.8c, Betty -0.2c -> +3.2c (noisy)
-  nickel_maker:           # 🐢 Nickel Nora - NEW, probation: Nick's picks, resting bids
-    min_price: 0.88
-    max_price: 0.95
-    min_seconds: 600
-    stake: 10
-  early_maker:            # 🐣 Early Bird Ellie - NEW, probation: Edie's picks, resting bids
-    min_price: 0.75
-    max_seconds: 780
-  breakout_maker:         # 🛶 Breakout Bonnie - NEW, probation: Betty's picks, resting bids
-    min_move: 0.002
-    max_price: 0.60
+  nickel_maker: {}        # 🐢 Nickel Nora: Nick's picks, resting bids
+  early_maker: {}         # 🐣 Early Bird Ellie: Edie's picks, resting bids
+  breakout_maker: {}      # 🛶 Breakout Bonnie: Betty's picks, resting bids
   dart_monkey:            # 🐒 Dart Monkey Dan - control group: random bets; the benchmark to beat
     bets_per_tick: 0.2
     max_hours: 24

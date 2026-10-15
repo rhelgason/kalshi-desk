@@ -42,12 +42,17 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 from desk.paper.account import PaperAccount
+from desk.paper.evidence import MIN_BETS
 from desk.paper.ledger import Ledger
 
 logger = logging.getLogger(__name__)
 
 LEVELS = [("Intern", 0.5), ("Associate", 1.0), ("Senior", 1.5), ("VP", 2.0), ("Partner", 2.0)]
 CONTROL_GROUP = {"dart_monkey", "longshot_buy"}
+# The patient twins: same picks as a sibling, but they post a bid and wait instead
+# of paying the ask. They follow the sibling's settings (including autotune's
+# changes), so the only difference between the two is how they buy.
+TWINS = {"nickel_maker": "nickel_picker", "early_maker": "early_favorite", "breakout_maker": "breakout"}
 # Employees that start at the bottom when first hired (unproven strategies)
 START_AS_INTERN = {"breakout", "early_favorite", "nickel_maker", "early_maker", "breakout_maker", "favorite_sports", "market_maker"}
 
@@ -203,11 +208,21 @@ def reinstate_expired(ledger: Ledger, roster: dict[str, EmployeeRecord], now: Op
 
 
 def effective_strategy_config(base: dict[str, dict], roster: dict[str, EmployeeRecord]) -> dict[str, dict]:
-    """desk.yaml settings with the website's overrides on top. Fired employees are left out."""
+    """
+    desk.yaml settings with the website's overrides on top. Fired employees are
+    left out. A twin starts from its sibling's settings (desk.yaml plus the
+    sibling's overrides, e.g. from autotune), then its own on top.
+    """
     out = {}
     keys = set(base) | set(roster)
     for k in keys:
-        cfg = dict(base.get(k) or {})
+        cfg = {}
+        sibling = TWINS.get(k)
+        if sibling:
+            cfg.update({p: v for p, v in (base.get(sibling) or {}).items() if p != "enabled"})
+        cfg.update(base.get(k) or {})
+        if sibling and roster.get(sibling):
+            cfg.update(roster[sibling].params or {})
         rec = roster.get(k)
         if rec:
             cfg.update(rec.params or {})
@@ -316,7 +331,10 @@ def run_review(ledger: Ledger, roster: dict[str, EmployeeRecord], accounts: dict
         rec, st = roster[k], stats[k]
         if rec.status == "suspended":
             continue
-        conf = float((evidence.get(k) or {}).get("confidence", 0.5))
+        ev = evidence.get(k) or {}
+        # Under MIN_BETS the score is "too early to tell": it neither earns a
+        # promotion nor protects from a demotion
+        conf = float(ev.get("confidence", 0.5)) if int(ev.get("bets", 0)) >= MIN_BETS else 0.5
         if pool and -st.pnl > float(policy["max_loss_suspend"]) * pool:
             _suspend(rec, now, float(policy["suspend_days"]))
             act(k, "hr", action="suspended", why=f"lost {-st.pnl / pool:.0%} of the office pool this period",
@@ -327,6 +345,9 @@ def run_review(ledger: Ledger, roster: dict[str, EmployeeRecord], accounts: dict
                 rec.strikes = 0
                 act(k, "hr", action="promoted", to=level_title(rec.level), roi=round(st.roi, 4),
                     confidence=round(conf, 3))
+            elif int(ev.get("bets", 0)) < MIN_BETS:
+                act(k, "hr", action="held back", roi=round(st.roi, 4), confidence=round(conf, 3),
+                    why=f"good period, but only {int(ev.get('bets', 0))} of {MIN_BETS} bets so far: too early to tell")
             else:
                 act(k, "hr", action="held back", roi=round(st.roi, 4), confidence=round(conf, 3),
                     why=f"good period, but only {conf:.0%} sure it isn't luck")
