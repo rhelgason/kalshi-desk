@@ -1,11 +1,13 @@
 name: desk jobs
 
 # History sync, archive backfill, and autotuning for Kalshi Desk.
-# Runs every 3 hours; each run checks the database to decide whether autotuning
-# is due (daily by default) or was requested from the website.
+# Runs every 6 hours (about 1,300 of a private repo's 2,000 free minutes a
+# month); each run checks the database to decide whether autotuning is due
+# (daily by default) or was requested from the website. Then a health check
+# fails the run (GitHub emails you) if the bot has stopped reporting.
 on:
   schedule:
-    - cron: "23 */3 * * *"
+    - cron: "23 */6 * * *"
   workflow_dispatch:
     inputs:
       force_tune:
@@ -31,4 +33,9 @@ jobs:
       - name: Run desk jobs
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: python -m desk jobs --backfill-minutes 12 ${{ inputs.force_tune && '--force-tune' || '' }}
+        run: python -m desk jobs --backfill-minutes 8 ${{ inputs.force_tune && '--force-tune' || '' }}
+      - name: Is the bot still running?
+        if: always()
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python -m desk health

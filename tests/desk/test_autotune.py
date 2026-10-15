@@ -76,6 +76,18 @@ def test_run_autotune_respects_autotune_flag_and_logs(monkeypatch):
     assert hr.load_policy(led)["autotune"]["requested_at"] is None
 
 
+def test_retired_employees_are_not_tuned():
+    # The Professor (fair_value) retired in Season 3 but kept his roster row with autotune on;
+    # trying to tune him crashed every background job from Oct 13
+    led = Ledger(":memory:")
+    hr.load_roster(led, list(SEARCH_SPACES))
+    data = BacktestData(markets=favorite_history(), spot={"BTC": flat_spot(100_100, minutes=1200)}, dvol={},
+                        start=ts0, end=ts0 + 40 * 15 * 60 + 600)
+    decisions = run_autotune(led, DeskConfig(), data)
+    assert {d["employee"] for d in decisions} == {"nickel_picker", "longshot_fade", "sniper"}
+    assert hr.load_policy(led)["autotune"]["last_run"]
+
+
 def test_autotune_due():
     p = hr.load_policy(Ledger(":memory:"))
     assert autotune_due(p)  # never run

@@ -29,6 +29,7 @@ from desk.backtest.tune import TuneRow, combos, tune
 from desk.config import DeskConfig
 from desk.kalshi.fees import FeeSchedule
 from desk.paper.ledger import Ledger
+from desk.strategies import REGISTRY
 
 logger = logging.getLogger(__name__)
 
@@ -100,12 +101,15 @@ def run_autotune(ledger: Ledger, cfg: DeskConfig, data: BacktestData,
                  fees: Optional[dict[str, FeeSchedule]] = None, only: Optional[list[str]] = None,
                  depth: float = 100) -> list[dict]:
     policy = hr.load_policy(ledger)
-    roster = hr.load_roster(ledger, list(SEARCH_SPACES))
+    # Only current staff: retired employees keep their old search space (and
+    # their roster row) but can't be built any more
+    staff = [k for k in SEARCH_SPACES if k in REGISTRY]
+    roster = hr.load_roster(ledger, staff)
     effective = hr.effective_strategy_config(cfg.strategies, roster)
     bt_cfg = BacktestConfig(starting_cash=cfg.starting_cash, depth=depth, fill_delay=1, fees=fees or {})
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     decisions = []
-    for key in SEARCH_SPACES:
+    for key in staff:
         rec = roster[key]
         if (only and key not in only) or not rec.autotune or rec.status == "fired" or rec.control:
             continue

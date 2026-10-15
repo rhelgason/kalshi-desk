@@ -11,6 +11,7 @@ Command line for the desk.
     python -m desk review --days 30   performance review of every employee (Markdown)
     python -m desk new-season --level nickel_picker=Senior ...   fresh start: split the office pool
     python -m desk log --hours 6 what the bot did each run (bets, skips and why, warnings)
+    python -m desk health        is the hosted bot running? (exit 1 if it has gone quiet)
     python -m desk employees     who works here
     python -m desk whoami        check your Kalshi API key (read-only)
 """
@@ -338,6 +339,29 @@ def cmd_log(cfg: DeskConfig, hours: float, verbose: bool, employee: str | None) 
             print(f"  {e['ts'][:19]} {e['detail'][:300]}")
 
 
+def cmd_health(cfg: DeskConfig, max_quiet_minutes: float = 15) -> int:
+    from datetime import datetime, timedelta, timezone
+
+    ledger = Ledger(cfg.db_path)
+    live = ledger.get_status("live")
+    if not live:
+        print("The bot has never reported.")
+        return 1
+    quiet = (datetime.now(timezone.utc) - datetime.fromisoformat(live["updated_at"])).total_seconds() / 60
+    since = (datetime.now(timezone.utc) - timedelta(hours=6)).isoformat()
+    errors = ledger._rows("SELECT count(*) AS n FROM events WHERE kind = 'error' AND ts >= ?", (since,))[0]["n"]
+    runs = ledger.recent_runs(since)
+    warned = sum(1 for r in runs if r["summary"].get("warnings"))
+    failed = sum(1 for r in runs if r["summary"].get("failed"))
+    pool = live.get("pool") or {}
+    print(f"Last report {quiet:.0f} min ago; {len(runs)} runs in 6h ({failed} failed, {warned} with warnings), "
+          f"{errors} errors; pool ${pool.get('equity', 0):,.2f}")
+    if quiet > max_quiet_minutes:
+        print(f"UNHEALTHY: no report for {quiet:.0f} minutes")
+        return 1
+    return 0
+
+
 def cmd_employees() -> None:
     for key, cls in REGISTRY.items():
         p = cls.persona
@@ -402,6 +426,7 @@ def main(argv: list[str] | None = None) -> int:
     lg.add_argument("--hours", type=float, default=6)
     lg.add_argument("--employee", help="only this employee key")
     lg.add_argument("--all", action="store_true", help="every run in detail, not just totals")
+    sub.add_parser("health", help="is the hosted bot running? exit 1 if it has gone quiet")
     sub.add_parser("employees")
     sub.add_parser("whoami")
     args = parser.parse_args(argv)
@@ -434,6 +459,8 @@ def main(argv: list[str] | None = None) -> int:
             cmd_new_season(cfg, args.pool, args.level, args.why)
         elif args.cmd == "log":
             cmd_log(cfg, args.hours, args.all, args.employee)
+        elif args.cmd == "health":
+            return cmd_health(cfg)
         elif args.cmd == "employees":
             cmd_employees()
         elif args.cmd == "whoami":
