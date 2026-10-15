@@ -42,6 +42,33 @@ def test_feed_round_trip_keeps_recent_history():
     assert fresh._vol_refreshed["BTC"] == now
 
 
+def test_a_saved_price_goes_stale_and_unwatched_coins_are_dropped():
+    feed = CryptoFeed(("BTC", "ETH"))
+    now = datetime.now(timezone.utc)
+    feed.quotes["BTC"] = UnderlyingQuote("BTC", 2.0, fetched_at=now - timedelta(minutes=3))
+    feed.quotes["ETH"] = UnderlyingQuote("ETH", 3.0, fetched_at=now)
+    fresh = CryptoFeed(("BTC",))  # the desk stopped watching ETH
+    load_feed(fresh, dump_feed(feed))
+    assert set(fresh.quotes) == {"BTC"}
+    assert fresh.quotes["BTC"].fetched_at == now - timedelta(minutes=3)  # not "now": it's an old price
+    assert fresh.fresh_quotes(now) == {}
+    # A state saved before prices carried a time counts as stale too
+    old = CryptoFeed(("BTC",))
+    load_feed(old, {"quotes": {"BTC": {"spot": 1.0, "iv": None, "rv": None}}})
+    assert old.fresh_quotes() == {}
+
+
+async def test_failed_price_sources_mean_no_price_not_an_old_one():
+    import httpx
+
+    feed = CryptoFeed(("BTC",), transport=httpx.MockTransport(lambda req: httpx.Response(503)))
+    feed.quotes["BTC"] = UnderlyingQuote("BTC", 2.0, fetched_at=datetime.now(timezone.utc) - timedelta(minutes=2))
+    try:
+        assert await feed.refresh() == {}
+    finally:
+        await feed.close()
+
+
 def test_lease_blocks_second_holder_until_released_or_stale():
     led = Ledger(":memory:")
     assert led.try_lease("tick", 60)

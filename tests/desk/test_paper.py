@@ -211,8 +211,35 @@ class TestRestingOrders:
         from datetime import timedelta
         self.broker.place(TradeIntent("mm", [Leg("T", Side.YES, 0.4, 5)], "", post_only=True, ttl_seconds=60),
                           self.now)
-        assert self.broker.expire(self.now + timedelta(seconds=30)) == 0
-        assert self.broker.expire(self.now + timedelta(seconds=90)) == 1
+        assert self.broker.expire(self.now + timedelta(seconds=30)) == []
+        assert [o.ticker for o in self.broker.expire(self.now + timedelta(seconds=90))] == ["T"]
+
+    def test_a_trade_fills_a_bid_only_once_across_runs(self):
+        # A bid lives longer than one run, and each run re-reads the tape since it went up
+        from datetime import timedelta
+        self.broker.place(TradeIntent("mm", [Leg("T", Side.YES, 0.4, 20)], "", post_only=True, ttl_seconds=600),
+                          self.now)
+        first = {"T": [self._trade(1, "no", 0.39, 5)]}
+        assert [f.count for f in self.broker.match(first, {}, self.now + timedelta(minutes=2))] == [5]
+        again = {"T": [self._trade(1, "no", 0.39, 5), self._trade(3, "no", 0.39, 2)]}
+        assert [f.count for f in self.broker.match(again, {}, self.now + timedelta(minutes=4))] == [2]
+        assert self.accounts["mm"].position("T") == (7, 0)
+
+    def test_a_missing_tape_is_checked_next_run(self):
+        from datetime import timedelta
+        self.broker.place(TradeIntent("mm", [Leg("T", Side.YES, 0.4, 20)], "", post_only=True, ttl_seconds=600),
+                          self.now)
+        assert self.broker.match({}, {}, self.now + timedelta(minutes=2)) == []  # Kalshi didn't answer
+        late = {"T": [self._trade(1, "no", 0.39, 5)]}
+        assert [f.count for f in self.broker.match(late, {}, self.now + timedelta(minutes=4))] == [5]
+
+    def test_cancel_pulls_only_those_employees_bids(self):
+        self.accounts["other"] = PaperAccount("other", 100)
+        for who in ("mm", "other"):
+            self.broker.place(TradeIntent(who, [Leg("T", Side.YES, 0.4, 5)], "", post_only=True, ttl_seconds=60),
+                              self.now)
+        assert [o.strategy for o in self.broker.cancel({"mm"})] == ["mm"]
+        assert [o.strategy for o in self.broker.resting] == ["other"] and self.accounts["mm"].resting == []
 
 
 def test_load_accounts_only_returns_the_requested_employees(tmp_path):

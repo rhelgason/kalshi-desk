@@ -115,3 +115,21 @@ async def test_buy_no_is_sent_as_yes_ask_at_complement():
     assert body["price"] == "0.7000"
     assert body["count"] == "3.00"
     assert body["time_in_force"] == "immediate_or_cancel"
+
+
+async def test_fee_lookup_failure_is_not_remembered():
+    calls = []
+
+    def handler(req):
+        calls.append(1)
+        if len(calls) == 1:
+            return httpx.Response(404, json={"error": {"message": "nope"}})
+        return httpx.Response(200, json={"series": {"fee_type": "quadratic_with_maker_fees", "fee_multiplier": 1}})
+
+    async with client_with(handler) as c:
+        first = await c.get_fee_schedule("KXBTC15M")
+        assert first.assumed and first.fee_type == "quadratic"
+        second = await c.get_fee_schedule("KXBTC15M")  # asks again, and this time it's real
+        assert not second.assumed and second.charges_maker_fees
+        await c.get_fee_schedule("KXBTC15M")
+    assert len(calls) == 2

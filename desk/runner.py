@@ -17,6 +17,7 @@ import gzip
 import json
 import logging
 import math
+import traceback
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from dataclasses import replace
@@ -24,10 +25,11 @@ from typing import Optional
 
 from desk.config import DeskConfig
 from desk.feeds.crypto import CryptoFeed
+from desk.journal import RunJournal, short_reason
 from desk.kalshi.client import KalshiAPIError, KalshiClient
 from desk.kalshi.fees import FeeSchedule
 from desk.kalshi.models import Event, Market, Side
-from desk.paper.broker import ExecutionResult, PaperBroker
+from desk.paper.broker import ExecutionResult, PaperBroker, RestingOrder
 from desk.paper.ledger import Ledger
 from desk.paper.pool import Pool, PoolAccountView, PoolState, event_of
 from desk.paper.scoreboard import format_scoreboard, scoreboard_rows
@@ -99,6 +101,9 @@ class Desk:
         self._last_accuracy: Optional[datetime] = None
         self.started_at = _now()
         self.tick_count = 0
+        # This run's summary (desk/journal.py), saved to the `runs` table at the end of each tick
+        self.journal = RunJournal()
+        self._last_prune: Optional[datetime] = None
 
     @property
     def accounts(self):
@@ -149,6 +154,8 @@ class Desk:
             self.marks = {}
             self.drawdowns = {} if self.drawdowns is not None else None
             self.pool.state = PoolState()
+            self.broker.resting = []  # last season's bids don't carry over
+            self.broker.sync_resting_views()
         if not self.policy.get("last_review"):
             self.policy["last_review"] = _now().isoformat()  # first review one period from now
             hr.save_policy(self.ledger, self.policy)
@@ -218,8 +225,7 @@ class Desk:
             for e in events:
                 if e.strike_date and now < e.strike_date <= horizon:
                     tickers.append(e.event_ticker)
-            if series not in self.fees:
-                self.fees[series] = await self.client.get_fee_schedule(series)
+            await self._fee_for_series(series)
         if set(tickers) != set(self.crypto_event_tickers):
             logger.info("Crypto events: %s", ", ".join(sorted(tickers)) or "none")
         self.crypto_event_tickers = tickers
@@ -281,14 +287,19 @@ class Desk:
         )
         return {m.ticker: r for m, r in zip(busy, results) if not isinstance(r, Exception)}
 
+    async def _fee_for_series(self, series: str) -> FeeSchedule:
+        if series in self.fees:
+            return self.fees[series]
+        fee = await self.client.get_fee_schedule(series)
+        if not fee.assumed:  # only Kalshi's real answer is kept (and saved between cloud runs)
+            self.fees[series] = fee
+        return fee
+
     async def _fees_for(self, tickers: list[str], snap: Snapshot) -> dict[str, FeeSchedule]:
         out = {}
         for t in tickers:
             m = snap.markets.get(t)
-            series = m.series_ticker if m else t.split("-", 1)[0]
-            if series not in self.fees:
-                self.fees[series] = await self.client.get_fee_schedule(series)
-            out[t] = self.fees[series]
+            out[t] = await self._fee_for_series(m.series_ticker if m else t.split("-", 1)[0])
         return out
 
     async def run_strategies(self, snap: Snapshot) -> list[ExecutionResult]:
@@ -296,91 +307,149 @@ class Desk:
         self.pool.update(self.pool.total_equity(self.accounts, self.marks), _now())
         if self.pool.stopped:
             logger.info("Daily stop: the pool is down %.1f%% today, no new bets until midnight", -self.pool.today * 100)
+            for o in self.broker.cancel(self.pool.members):  # bids waiting on the book come down too
+                self._bid_ended(o, "bid pulled: daily stop")
         # Higher levels go first, so they get first claim on a window's share of the pool
         for strat in sorted(self.strategies, key=lambda s: -self.multipliers.get(s.key, 1.0)):
             if strat.key in self.inactive:
+                self.journal.count(strat.key, "suspended")
                 continue  # suspended: positions still settle, but no new bets
             if strat.key in self.pool.members and self.pool.stopped:
+                self.journal.count(strat.key, "daily stop")
                 continue
+            self.journal.count(strat.key, "on shift")
             acct = self.accounts[strat.key]
             view = PoolAccountView(acct, self.broker.free_cash(strat.key)) if strat.key in self.pool.members else acct
             try:
                 intents = strat.evaluate(snap, view)
             except Exception:
                 logger.exception("%s crashed while evaluating", strat.key)
+                self.journal.count(strat.key, "crashed")
                 continue
+            if intents:
+                self.journal.count(strat.key, "ideas", len(intents))
             intents.sort(key=lambda i: i.expected_edge, reverse=True)
             for intent in intents[: self.max_intents_per_strategy]:
                 if intent.post_only:
-                    intent = await self.live_post(strat, intent, snap)
-                    intent = intent and self.sized(intent)
-                    if not intent:
-                        continue
-                    for o in self.broker.place(intent, _now()):
-                        logger.debug("%s resting %s %s x%g @ %.2f", strat.key, o.ticker, o.side, o.count, o.price)
+                    await self.post_bid(strat, intent, snap)
                     continue
-                intent = self.sized(intent)
-                result = intent and await self.execute(intent, snap)
+                bet, why = self.size(intent)
+                if not bet:
+                    self._skip(intent, why)
+                    continue
+                result = await self.execute(bet, snap)
                 if result:
                     results.append(result)
         return results
 
+    async def post_bid(self, strat: Strategy, intent: TradeIntent, snap: Snapshot) -> list[RestingOrder]:
+        """Check, size and post one resting bid; every outcome is logged and recorded."""
+        live, why = await self._live_post(strat, intent, snap)
+        bet, why = self.size(live) if live else (None, why)
+        if not bet:
+            self._skip(intent, why)
+            return []
+        placed = self.broker.place(bet, _now())
+        if not placed:
+            self._skip(bet, "not enough free cash for the bid")
+            return []
+        who = self.personas.get(strat.key, strat.key)
+        for o in placed:
+            self.journal.count(strat.key, "bids posted")
+            logger.info("%s BID %s %gx %s @ %.3f (until %s) | %s", who, o.side.upper(), o.count, o.ticker, o.price,
+                        o.expires_at[11:19], o.reason)
+            self._safely("log decision", lambda o=o: self.ledger.record_decision(
+                o.strategy, o.ticker, o.side, o.price, o.count, 0.0, "bid posted", o.reason,
+                {"order_id": o.order_id, "expires_at": o.expires_at}))
+        return placed
+
+    def _skip(self, intent: TradeIntent, why: str) -> None:
+        """An idea that didn't become a bet: count it, log it, and keep it for reviews."""
+        self.journal.skipped(intent.strategy, why)
+        logger.info("%s skipped %s: %s", self.personas.get(intent.strategy, intent.strategy),
+                    ", ".join(intent.tickers), why)
+        for leg in intent.legs:
+            self._safely("log decision", lambda leg=leg: self.ledger.record_decision(
+                intent.strategy, leg.ticker, leg.side.value, leg.limit_price, leg.count, 0.0, why, intent.reason))
+
+    def _bid_ended(self, o: RestingOrder, outcome: str) -> None:
+        self.journal.count(o.strategy, outcome)
+        logger.info("%s %s: %s %s @ %.3f, filled %g of %g", self.personas.get(o.strategy, o.strategy), outcome,
+                    o.ticker, o.side.upper(), o.price, o.filled, o.count)
+        self._safely("log decision", lambda: self.ledger.record_decision(
+            o.strategy, o.ticker, o.side, o.price, o.count, o.filled, outcome, o.reason, {"order_id": o.order_id}))
+
     async def live_post(self, strat: Strategy, intent: TradeIntent, snap: Snapshot) -> Optional[TradeIntent]:
+        return (await self._live_post(strat, intent, snap))[0]
+
+    async def _live_post(self, strat: Strategy, intent: TradeIntent,
+                         snap: Snapshot) -> tuple[Optional[TradeIntent], str]:
         """
         Check a resting bid against the live order book before posting it. The
         market list can lag the book by several cents; a post-only bid at or
         above the real ask would be rejected by Kalshi, so it isn't posted here
         either. Strategies with a `reprice` hook (the patient twins) re-price.
+        Returns (bid or None, why not).
         """
         try:
             books = await self.client.get_orderbooks(intent.tickers)
         except KalshiAPIError as e:
             logger.warning("Couldn't fetch books for %s: %s", intent.tickers, e)
-            return None
+            return None, "couldn't fetch the order book"
         live = {}
         for leg in intent.legs:
             m, book = snap.markets.get(leg.ticker), books.get(leg.ticker)
             if not m or not book:
-                return None
+                return None, "no order book for the market"
             live[leg.ticker] = replace(
                 m, yes_bid=book.best_bid(Side.YES), yes_ask=book.best_ask(Side.YES),
                 no_bid=book.best_bid(Side.NO), no_ask=book.best_ask(Side.NO))
         reprice = getattr(strat, "reprice", None)
         if reprice and len(intent.legs) == 1:
             t = intent.legs[0].ticker
-            return reprice(intent, snap.markets[t], live[t])
+            bid = reprice(intent, snap.markets[t], live[t])
+            return bid, "" if bid else "no room for a bid under the live ask"
         for leg in intent.legs:
             ask = live[leg.ticker].ask(leg.side)
             if ask and leg.limit_price >= ask - 1e-9:
-                return None
-        return intent
+                return None, "bid would cross the live ask"
+        return intent, ""
 
     def sized(self, intent: TradeIntent) -> Optional[TradeIntent]:
+        return self.size(intent)[0]
+
+    def size(self, intent: TradeIntent) -> tuple[Optional[TradeIntent], str]:
         """
         Resize a bet to its share of the pool: the employee's level times the
         pool's bet size, trimmed to what's left of the window cap. The strategy
-        picks the market, side and price; the pool decides how much. None = skip.
+        picks the market, side and price; the pool decides how much.
+        Returns (bet or None, why not).
         """
         dollars = self.pool.bet_dollars(self.multipliers.get(intent.strategy, 1.0))
+        capped = False
         if intent.strategy in self.pool.members:
             room = min(self.pool.window_room(event_of(leg.ticker), self.accounts, self.broker.resting)
                        for leg in intent.legs)
+            capped = room < dollars
             dollars = min(dollars, room)
         cost = sum(leg.count * leg.limit_price for leg in intent.legs)
-        if dollars <= 0 or cost <= 0:
-            return None
+        if cost <= 0:
+            return None, "no price"
+        if dollars <= 0:
+            return None, "window cap full" if capped else "the pool is empty"
         legs = [replace(leg, count=math.floor(leg.count * dollars / cost * 100) / 100) for leg in intent.legs]
         if any(leg.count < 1 for leg in legs):
-            return None  # less than one contract left under the cap
-        return replace(intent, legs=legs)
+            # less than one contract left under the cap
+            return None, "window cap full" if capped else "bet under 1 contract"
+        return replace(intent, legs=legs), ""
 
     async def match_resting(self) -> None:
-        """Fill maker orders from the live trade tape since they were placed, then expire stale ones."""
+        """Fill maker orders from the live trade tape since they were last checked, then expire stale ones."""
         now = _now()
+        before = list(self.broker.resting)
         since: dict[str, datetime] = {}
         for o in self.broker.resting:
-            placed = datetime.fromisoformat(o.placed_at)
-            since[o.ticker] = min(since.get(o.ticker, placed), placed)
+            since[o.ticker] = min(since.get(o.ticker, o.checked_from), o.checked_from)
         if since:
             # Busy bitcoin markets trade ~50 times a second, so fetch every page since the order went up
             results = await asyncio.gather(
@@ -389,9 +458,19 @@ class Desk:
                 return_exceptions=True)
             trades = {t: r for t, r in zip(since, results) if not isinstance(r, Exception)}
             fees = {t: self.fees.get(t.split("-", 1)[0]) or FeeSchedule() for t in since}
+            for t in since:
+                if t not in trades:
+                    logger.warning("Couldn't fetch the trade tape for %s; its bids are checked next run", t)
             for f in self.broker.match(trades, fees, now):
-                logger.info("Maker fill: %s %s %gx @ %.2f", f.ticker, f.side.upper(), f.count, f.avg_price)
+                self.journal.count(f.strategy, "maker fills")
+                logger.info("%s MAKER FILL %s %gx %s @ %.3f", self.personas.get(f.strategy, f.strategy),
+                            f.side.upper(), f.count, f.ticker, f.avg_price)
         self.broker.expire(now)
+        still = {o.order_id for o in self.broker.resting}
+        for o in before:
+            if o.order_id not in still:
+                self._bid_ended(o, "bid filled" if o.remaining < 0.01 else
+                                "bid expired" if o.filled < 0.01 else "bid expired, part filled")
 
     async def execute(self, intent: TradeIntent, snap: Snapshot) -> Optional[ExecutionResult]:
         try:
@@ -399,16 +478,20 @@ class Desk:
             fees = await self._fees_for(intent.tickers, snap)
         except KalshiAPIError as e:
             logger.warning("Couldn't fetch books for %s: %s", intent.tickers, e)
+            self._skip(intent, "couldn't fetch the order book")
             return None
         context = self._safely_value(lambda: self.decision_context(intent, snap, books))
         result = self.broker.execute(intent, books, fees, signal_time=snap.now, context=context)
         self._safely("log decision", lambda: self.log_decision(intent, result, context))
         who = self.personas.get(intent.strategy, intent.strategy)
         if result.filled:
+            self.journal.count(intent.strategy, "bets")
+            self.journal.count(intent.strategy, "dollars bet", round(result.total_cost, 2))
             legs = ", ".join(f"{f.side.upper()} {f.count:g}x {f.ticker} @ {f.avg_price:.3f}" for f in result.fills)
             logger.info("%s BOUGHT %s | %s", who, legs, intent.reason)
         else:
-            logger.debug("%s skipped: %s (%s)", who, result.reason, intent.reason)
+            self.journal.skipped(intent.strategy, result.reason)
+            logger.info("%s skipped %s: %s (%s)", who, ", ".join(intent.tickers), result.reason, intent.reason)
         return result
 
     # ------------------------------------------------------------------
@@ -505,6 +588,8 @@ class Desk:
                 if pnl:
                     settled[m.ticker] = pnl
                     for strat, p in pnl.items():
+                        self.journal.count(strat, "payouts")
+                        self.journal.count(strat, "payout P&L", round(p, 2))
                         logger.info("%s SETTLED %s -> %s, P&L %+.2f", self.personas.get(strat, strat),
                                     m.ticker, "YES" if value == 1 else "NO" if value == 0 else value, p)
         self._last_settle = _now()
@@ -536,53 +621,102 @@ class Desk:
             f.write(json.dumps(row) + "\n")
 
     async def tick(self) -> list[ExecutionResult]:
-        now = _now()
-        self.sync_hr()
-        if (self._last_crypto is None
-                or (now - self._last_crypto).total_seconds() >= self.config.crypto_refresh_seconds):
-            await self.refresh_crypto()
-        if (self._last_universe is None
-                or (now - self._last_universe).total_seconds() >= self.config.universe_refresh_seconds):
-            await self.refresh_broad()
+        """One run, journaled: whatever happens, a summary lands in the `runs` table."""
+        self.journal = RunJournal()
+        self.journal.capture()
+        try:
+            return await self._tick()
+        except Exception as e:
+            self.journal.info["failed"] = f"{type(e).__name__}: {e}"
+            raise
+        finally:
+            self.journal.release()
+            self._safely("record the run journal", self.record_run)
 
-        await self.match_resting()
-        snap = await self.build_snapshot()
+    async def _tick(self) -> list[ExecutionResult]:
+        now = _now()
+        j = self.journal
+        with j.phase("hr"):
+            self.sync_hr()
+        with j.phase("discover"):
+            if (self._last_crypto is None
+                    or (now - self._last_crypto).total_seconds() >= self.config.crypto_refresh_seconds):
+                await self.refresh_crypto()
+            if (self._last_universe is None
+                    or (now - self._last_universe).total_seconds() >= self.config.universe_refresh_seconds):
+                await self.refresh_broad()
+
+        with j.phase("bids"):
+            await self.match_resting()
+        with j.phase("snapshot"):
+            snap = await self.build_snapshot()
         self.last_snapshot = snap
         self.update_marks(snap)
         self.record_snapshot(snap)
-        self._safely("record market tape", lambda: self.record_tape(snap))
-        results = await self.run_strategies(snap)
+        with j.phase("tape"):
+            self._safely("record market tape", lambda: self.record_tape(snap))
+        with j.phase("decide"):
+            results = await self.run_strategies(snap)
 
-        if self._due(self._last_settle, self.config.settle_check_seconds, now):
-            await self.settle_check()
-        if self._due(self._last_equity, self.config.equity_every_seconds, now):
-            self.record_equity()
-            self._last_equity = now
+        with j.phase("settle"):
+            if self._due(self._last_settle, self.config.settle_check_seconds, now):
+                await self.settle_check()
+            if self._due(self._last_equity, self.config.equity_every_seconds, now):
+                self.record_equity()
+                self._last_equity = now
         if hr.review_due(self.policy, now):
-            for a in hr.run_review(self.ledger, self.roster, self.accounts, self.policy, now,
-                                   evidence=self.compute_evidence(), pool=self.pool.equity or None):
-                logger.info("HR: %s", a)
+            with j.phase("review"):
+                for a in hr.run_review(self.ledger, self.roster, self.accounts, self.policy, now,
+                                       evidence=self.compute_evidence(), pool=self.pool.equity or None):
+                    logger.info("HR: %s", a)
+                    j.count(a.get("strategy") or "desk", f"review: {a.get('action') or a['kind']}")
             self.inactive = {k for k, r in self.roster.items() if not r.is_working()}
             self.multipliers = {k: r.multiplier for k, r in self.roster.items()}
 
         self.tick_count += 1
         # Reporting is best-effort: a bug in a dashboard summary must never stop
         # trading or settlement (the timer still advances, so it isn't retried every run)
-        if self._due(self._last_status, self.config.status_every_seconds, now):
-            self._safely("publish status", lambda: self.publish_status(snap))
-            self._last_status = now
-        if self._due(self._last_accuracy, self.config.accuracy_every_seconds, now):
-            self._safely("publish accuracy", self.publish_accuracy)
-            self._last_accuracy = now
+        with j.phase("report"):
+            if self._due(self._last_status, self.config.status_every_seconds, now):
+                self._safely("publish status", lambda: self.publish_status(snap))
+                self._last_status = now
+            if self._due(self._last_accuracy, self.config.accuracy_every_seconds, now):
+                self._safely("publish accuracy", self.publish_accuracy)
+                self._last_accuracy = now
         return results
+
+    def record_run(self) -> None:
+        """Save this run's journal (and, about hourly, drop journals older than two weeks)."""
+        snap = self.last_snapshot
+        held = {t for a in self.accounts.values() for t in a.open_tickers}
+        self.journal.info.update({
+            "season": self.season,
+            "tick": self.tick_count,
+            "market": {
+                "windows": sorted(self.crypto_event_tickers),
+                "markets": len(snap.markets) if snap else 0,
+                "spot": {k: round(q.spot, 2) for k, q in snap.underlyings.items()} if snap else {},
+                "no_price": [s for s in self.feed.symbols if not snap or s not in snap.underlyings] if self.feed else [],
+            },
+            "pool": {k: v for k, v in self.pool.summary(self.accounts, self.broker.resting).items()
+                     if k in ("equity", "pnl", "cash", "in_play", "today", "stopped", "braked", "bet", "window_cap")},
+            "bids_waiting": len(self.broker.resting),
+            "positions": len(held),
+        })
+        self.ledger.record_run(self.journal.summary())
+        now = _now()
+        if self._due(self._last_prune, 3600, now):
+            self._last_prune = now
+            self.ledger.prune_runs()
 
     def _safely(self, what: str, fn) -> None:
         try:
             fn()
-        except Exception:
+        except Exception as e:
             logger.exception("Failed to %s; continuing", what)
             try:
-                self.ledger.record_event("error", {"step": what})
+                self.ledger.record_event("error", {"step": what, "error": f"{type(e).__name__}: {e}",
+                                                   "trace": traceback.format_exc()[-2000:]})
             except Exception:
                 pass
 

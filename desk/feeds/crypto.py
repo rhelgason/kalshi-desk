@@ -27,6 +27,9 @@ import httpx
 logger = logging.getLogger(__name__)
 
 MINUTES_PER_YEAR = 365 * 24 * 60
+# A spot price older than this isn't handed to the employees: if both price
+# sources fail, betting on a minutes-old bitcoin price is worse than not betting
+MAX_QUOTE_AGE_SECONDS = 90.0
 
 KRAKEN_PAIRS = {"BTC": "XBTUSD", "ETH": "ETHUSD", "SOL": "SOLUSD"}
 DERIBIT_INDEX = {"BTC": "btc_usd", "ETH": "eth_usd", "SOL": "sol_usd"}
@@ -143,13 +146,28 @@ class CryptoFeed:
                 out[w] = math.log(spot / past[-1])
         return out
 
+    def fresh_quotes(self, now: Optional[datetime] = None,
+                     max_age: float = MAX_QUOTE_AGE_SECONDS) -> dict[str, UnderlyingQuote]:
+        now = now or datetime.now(timezone.utc)
+        return {s: q for s, q in self.quotes.items()
+                if s in self.symbols and (now - q.fetched_at).total_seconds() <= max_age}
+
     async def refresh(self, vol_every_seconds: float = 300) -> dict[str, UnderlyingQuote]:
-        """Update spot every call; vol only every `vol_every_seconds`."""
+        """Update spot every call; vol only every `vol_every_seconds`. Returns only fresh quotes."""
 
         async def one(sym: str) -> None:
             kraken, deribit = await asyncio.gather(self.kraken_mid(sym), self.deribit_index(sym))
             sources = {k: v for k, v in (("kraken", kraken), ("deribit", deribit)) if v}
+            if len(sources) == 1:
+                logger.warning("%s price from %s only (the other source failed)", sym, next(iter(sources)))
             if not sources:
+                prev = self.quotes.get(sym)
+                age = (datetime.now(timezone.utc) - prev.fetched_at).total_seconds() if prev else float("inf")
+                if age > MAX_QUOTE_AGE_SECONDS:
+                    logger.warning("No %s price from Kraken or Deribit, and the last one is too old: "
+                                   "nobody bets on %s this run", sym, sym)
+                else:
+                    logger.warning("No %s price from Kraken or Deribit; using the one from %.0fs ago", sym, age)
                 return
             prev = self.quotes.get(sym)
             quote = UnderlyingQuote(
@@ -170,7 +188,7 @@ class CryptoFeed:
             self.quotes[sym] = quote
 
         await asyncio.gather(*(one(s) for s in self.symbols))
-        return self.quotes
+        return self.fresh_quotes()
 
 
 # Which underlying a Kalshi series tracks. Only series with numeric strikes

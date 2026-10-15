@@ -10,6 +10,7 @@ Command line for the desk.
     python -m desk jobs          background jobs: history sync, archive backfill, autotuning
     python -m desk review --days 30   performance review of every employee (Markdown)
     python -m desk new-season --level nickel_picker=Senior ...   fresh start: split the office pool
+    python -m desk log --hours 6 what the bot did each run (bets, skips and why, warnings)
     python -m desk employees     who works here
     python -m desk whoami        check your Kalshi API key (read-only)
 """
@@ -318,6 +319,25 @@ def cmd_new_season(cfg: DeskConfig, pool: float | None, levels: list[str], why: 
           f"{len(detail['members'])} employees ({', '.join(detail['members'])})")
 
 
+def cmd_log(cfg: DeskConfig, hours: float, verbose: bool, employee: str | None) -> None:
+    from datetime import datetime, timedelta, timezone
+
+    from desk.journal import format_runs
+
+    since = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+    rows = Ledger(cfg.db_path).recent_runs(since)
+    if employee:
+        for r in rows:
+            r["summary"]["employees"] = {k: v for k, v in (r["summary"].get("employees") or {}).items() if k == employee}
+    print(format_runs(rows, verbose=verbose))
+    errors = Ledger(cfg.db_path)._rows("SELECT ts, detail FROM events WHERE kind = 'error' AND ts >= ? ORDER BY id",
+                                       (since,))
+    if errors:
+        print("\nErrors:")
+        for e in errors:
+            print(f"  {e['ts'][:19]} {e['detail'][:300]}")
+
+
 def cmd_employees() -> None:
     for key, cls in REGISTRY.items():
         p = cls.persona
@@ -378,6 +398,10 @@ def main(argv: list[str] | None = None) -> int:
     ns.add_argument("--pool", type=float, help="dollars in the office pool (default: pool_cash in desk.yaml)")
     ns.add_argument("--level", action="append", default=[], help="employee_key=Title, e.g. nickel_picker=Senior")
     ns.add_argument("--why", default="", help="the reason, for the HR log")
+    lg = sub.add_parser("log", help="what the bot did each run: bets, skips and why, warnings, errors")
+    lg.add_argument("--hours", type=float, default=6)
+    lg.add_argument("--employee", help="only this employee key")
+    lg.add_argument("--all", action="store_true", help="every run in detail, not just totals")
     sub.add_parser("employees")
     sub.add_parser("whoami")
     args = parser.parse_args(argv)
@@ -408,6 +432,8 @@ def main(argv: list[str] | None = None) -> int:
             cmd_review(cfg, args.days, args.out)
         elif args.cmd == "new-season":
             cmd_new_season(cfg, args.pool, args.level, args.why)
+        elif args.cmd == "log":
+            cmd_log(cfg, args.hours, args.all, args.employee)
         elif args.cmd == "employees":
             cmd_employees()
         elif args.cmd == "whoami":

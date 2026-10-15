@@ -183,13 +183,14 @@ class KalshiClient:
         return data.get("series") or {}
 
     async def get_fee_schedule(self, series_ticker: str) -> FeeSchedule:
-        """Fee settings for a series (cached; they rarely change)."""
+        """Fee settings for a series (cached; they rarely change). Defaults if Kalshi can't be reached."""
         if series_ticker not in self._fee_cache:
             try:
                 self._fee_cache[series_ticker] = FeeSchedule.from_series(await self.get_series(series_ticker))
-            except KalshiAPIError as e:
-                logger.warning("Couldn't load fees for %s (%s); assuming defaults", series_ticker, e)
-                self._fee_cache[series_ticker] = FeeSchedule()
+            except (KalshiAPIError, httpx.TransportError) as e:
+                # Not cached: a passing outage shouldn't fix the wrong fees in place for good
+                logger.warning("Couldn't load fees for %s (%s); assuming defaults this time", series_ticker, e)
+                return FeeSchedule(assumed=True)
         return self._fee_cache[series_ticker]
 
     async def get_events(

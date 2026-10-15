@@ -39,6 +39,7 @@ class LegFill:
     count: float
     avg_price: float
     fee: float
+    strategy: str = ""
 
 
 @dataclass
@@ -67,10 +68,18 @@ class RestingOrder:
     expires_at: str
     reason: str = ""
     filled: float = 0.0
+    # The tape has been checked up to here: a trade already matched in one run
+    # must not fill the bid again in the next (resting bids outlive a run)
+    matched_until: Optional[str] = None
 
     @property
     def remaining(self) -> float:
         return round(self.count - self.filled, 2)
+
+    @property
+    def checked_from(self) -> datetime:
+        """Trades at or before this moment have already been matched against the bid."""
+        return datetime.fromisoformat(self.matched_until or self.placed_at)
 
 
 def _trade_time(t: dict) -> Optional[datetime]:
@@ -201,14 +210,17 @@ class PaperBroker:
         """
         fills = []
         for o in self.resting:
+            if o.ticker not in trades:
+                continue  # the tape couldn't be fetched: try again next run
             placed = datetime.fromisoformat(o.placed_at)
+            start = o.checked_from
             until = min(now, datetime.fromisoformat(o.expires_at))
-            for t in sorted(trades.get(o.ticker, []), key=lambda t: str(t.get("created_time", ""))):
+            for t in sorted(trades[o.ticker], key=lambda t: str(t.get("created_time", ""))):
                 if o.remaining < 0.01:
                     break
                 when = _trade_time(t)
                 taker = t.get("taker_outcome_side") or t.get("taker_side")
-                if not when or when <= placed or when > until or taker == o.side:
+                if not when or when <= start or when > until or taker == o.side:
                     continue
                 price = float(t.get(f"{o.side}_price_dollars") or 1)
                 size = float(t.get("count_fp") or 0)
@@ -229,16 +241,25 @@ class PaperBroker:
                                         seen_price=o.price, book_depth=size,
                                         latency_ms=int((when - placed).total_seconds() * 1000))
                 o.filled = round(o.filled + qty, 2)
-                fills.append(LegFill(o.ticker, o.side, qty, o.price, fee))
+                fills.append(LegFill(o.ticker, o.side, qty, o.price, fee, strategy=o.strategy))
+            o.matched_until = max(start, until).isoformat()
         self.resting = [o for o in self.resting if o.remaining >= 0.01]
         self.sync_resting_views()
         return fills
 
-    def expire(self, now: datetime) -> int:
-        before = len(self.resting)
+    def expire(self, now: datetime) -> list[RestingOrder]:
+        """Take bids past their time off the book; returns them."""
+        gone = [o for o in self.resting if datetime.fromisoformat(o.expires_at) <= now]
         self.resting = [o for o in self.resting if datetime.fromisoformat(o.expires_at) > now]
         self.sync_resting_views()
-        return before - len(self.resting)
+        return gone
+
+    def cancel(self, strategies: set[str]) -> list[RestingOrder]:
+        """Pull every waiting bid from these employees (e.g. when the daily stop kicks in)."""
+        gone = [o for o in self.resting if o.strategy in strategies]
+        self.resting = [o for o in self.resting if o.strategy not in strategies]
+        self.sync_resting_views()
+        return gone
 
     def sync_resting_views(self) -> None:
         for name, acct in self.accounts.items():

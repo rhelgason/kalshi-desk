@@ -24,6 +24,9 @@ season starts every employee fresh while keeping the old rows.
 History store (for backtests and autotuning; filled by the background jobs):
   market_history  settled markets with their 1-minute bid/ask candles
   price_history   1-minute coin prices and hourly implied vol, one row per day
+
+Diagnostics:
+  runs            one summary per desk run, kept 14 days (desk/journal.py)
 """
 
 from __future__ import annotations
@@ -164,6 +167,16 @@ CREATE TABLE IF NOT EXISTS market_tape (
     strike REAL,
     spot REAL
 );
+-- One summary per desk run (desk/journal.py): the hosted bot's logs don't last
+CREATE TABLE IF NOT EXISTS runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts TEXT NOT NULL,
+    season INTEGER NOT NULL DEFAULT 1,
+    seconds REAL,
+    warnings INTEGER NOT NULL DEFAULT 0,
+    summary TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS runs_ts ON runs(ts);
 CREATE INDEX IF NOT EXISTS decisions_strategy_ts ON decisions(strategy, ts);
 CREATE INDEX IF NOT EXISTS market_tape_ticker_ts ON market_tape(ticker, ts);
 CREATE INDEX IF NOT EXISTS market_history_series_close ON market_history(series, close_ts);
@@ -178,10 +191,11 @@ CREATE INDEX IF NOT EXISTS settlements_strategy_ticker ON settlements(strategy, 
 # below only runs when this differs from what the database records, because
 # ALTER TABLE takes a full-table lock even when there's nothing to change, and
 # running it every 2 minutes can pile up behind a slow query.
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 
 TABLES = ("accounts", "fills", "settlements", "equity", "events", "status", "backtests", "transfers",
-          "employees", "settings", "tuning_runs", "market_history", "price_history", "decisions", "market_tape")
+          "employees", "settings", "tuning_runs", "market_history", "price_history", "decisions", "market_tape",
+          "runs")
 SEASONED = ("fills", "settlements", "equity")
 # Fill reality check: what the employee saw vs. what the paper fill got
 FILL_REALISM = (("seen_price", "REAL"), ("book_depth", "REAL"), ("latency_ms", "INTEGER"),
@@ -386,6 +400,21 @@ class Ledger:
         for r in rows:
             self._write("INSERT INTO market_tape(ts, ticker, secs_left, yes_bid, yes_ask, yes_bid_size,"
                         " yes_ask_size, volume, strike, spot) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", r)
+
+    def record_run(self, summary: dict, ts: Optional[str] = None) -> None:
+        """One run's journal (desk/journal.py)."""
+        self._write("INSERT INTO runs(ts, season, seconds, warnings, summary) VALUES (?, ?, ?, ?, ?)",
+                    (ts or _now(), self.season, summary.get("seconds"), len(summary.get("warnings") or []),
+                     json.dumps(summary, default=str)))
+
+    def prune_runs(self, keep_days: float = 14) -> None:
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=keep_days)).isoformat()
+        self._write("DELETE FROM runs WHERE ts < ?", (cutoff,))
+
+    def recent_runs(self, since: str, limit: int = 2000) -> list[dict]:
+        rows = self._rows("SELECT ts, season, seconds, warnings, summary FROM runs WHERE ts >= ? ORDER BY ts DESC LIMIT ?",
+                          (since, limit))
+        return [{**dict(r), "summary": json.loads(r["summary"])} for r in reversed(rows)]
 
     def record_event(self, kind: str, detail: dict | str, strategy: Optional[str] = None) -> None:
         text = detail if isinstance(detail, str) else json.dumps(detail, default=str)

@@ -147,3 +147,89 @@ def test_bets_are_trimmed_to_whats_left_of_the_window_cap(desk_and_client):
     assert other.legs[0].count == pytest.approx(8)  # a fresh window: the full $4
     desk.accounts["cover_arb"].apply_fill(t, Side.YES, 4, 0.5, 0)
     assert desk.sized(TradeIntent("longshot_fade", [Leg(t, Side.NO, 0.5, 100)], "")) is None
+
+
+async def test_every_run_leaves_a_journal(desk_and_client, monkeypatch):
+    desk, client = desk_and_client
+    monkeypatch.setattr("desk.runner._now", lambda: NOW)
+    await desk.tick()
+    [run] = desk.ledger.recent_runs("2000-01-01")
+    s = run["summary"]
+    assert s["employees"]["cover_arb"]["bets"] == 1 and s["employees"]["longshot_fade"]["ideas"] == 1
+    assert {"hr", "decide", "settle", "report"} <= set(s["phases"])
+    assert s["pool"]["equity"] == pytest.approx(200)
+    assert s["market"]["markets"] == 3
+
+
+async def test_a_failed_run_is_journaled_with_its_error(desk_and_client, monkeypatch):
+    desk, client = desk_and_client
+    monkeypatch.setattr("desk.runner._now", lambda: NOW)
+
+    async def down(*a, **kw):
+        raise RuntimeError("kalshi is down")
+
+    monkeypatch.setattr(desk, "build_snapshot", down)
+    with pytest.raises(RuntimeError):
+        await desk.tick()
+    [run] = desk.ledger.recent_runs("2000-01-01")
+    assert run["summary"]["failed"] == "RuntimeError: kalshi is down"
+
+
+async def test_warnings_during_a_run_are_kept(desk_and_client, monkeypatch):
+    import logging
+
+    desk, client = desk_and_client
+    monkeypatch.setattr("desk.runner._now", lambda: NOW)
+    real = desk.refresh_crypto
+
+    async def noisy():
+        logging.getLogger("desk.feeds.crypto").warning("No BTC price from Kraken or Deribit")
+        await real()
+
+    monkeypatch.setattr(desk, "refresh_crypto", noisy)
+    await desk.tick()
+    [run] = desk.ledger.recent_runs("2000-01-01")
+    assert run["summary"]["warnings"] == ["WARNING desk.feeds.crypto: No BTC price from Kraken or Deribit"]
+    assert not logging.getLogger("desk").handlers  # the capture is removed after the run
+
+
+def test_skipped_bets_say_why(desk_and_client):
+    desk, _ = desk_and_client
+    desk.pool.update(desk.pool.total_equity(desk.accounts, {}), NOW)  # $200 pool: $6 per window
+    t = "KXBTC15M-26OCT151200-00"
+    desk.accounts["cover_arb"].apply_fill(t, Side.YES, 12, 0.5, 0)  # the window is full
+    bet, why = desk.size(TradeIntent("longshot_fade", [Leg(t, Side.NO, 0.5, 100)], ""))
+    assert bet is None and why == "window cap full"
+    desk._skip(TradeIntent("longshot_fade", [Leg(t, Side.NO, 0.5, 100)], "fade"), why)
+    row = desk.ledger._rows("SELECT outcome, reason FROM decisions")[0]
+    assert (row["outcome"], row["reason"]) == ("window cap full", "fade")
+    assert desk.journal.employees["longshot_fade"]["skipped: window cap full"] == 1
+
+
+async def test_daily_stop_pulls_waiting_bids(desk_and_client, monkeypatch):
+    desk, client = desk_and_client
+    monkeypatch.setattr("desk.runner._now", lambda: NOW)
+    desk.pool.update(200, NOW)
+    desk.broker.place(TradeIntent("longshot_fade", [Leg("LS-1", Side.NO, 0.9, 2)], "", post_only=True,
+                                  ttl_seconds=600), NOW)
+    desk.accounts["cover_arb"].cash -= 25  # the pool is down 12.5% today
+    snap = Snapshot.build(NOW, [], [], {}, {})
+    await desk.run_strategies(snap)
+    assert desk.pool.stopped and desk.broker.resting == []
+    assert desk.ledger._rows("SELECT outcome FROM decisions")[0]["outcome"] == "bid pulled: daily stop"
+
+
+async def test_ended_bids_are_recorded(desk_and_client, monkeypatch):
+    desk, client = desk_and_client
+    monkeypatch.setattr("desk.runner._now", lambda: NOW + timedelta(minutes=5))
+
+    async def get_trades(ticker, **kw):
+        return [{"created_time": (NOW + timedelta(minutes=1)).isoformat(), "taker_outcome_side": "yes",
+                 "no_price_dollars": "0.9000", "yes_price_dollars": "0.1000", "count_fp": "1.00"}]
+
+    client.get_trades = get_trades
+    desk.broker.place(TradeIntent("longshot_fade", [Leg("LS-1", Side.NO, 0.95, 2)], "", post_only=True,
+                                  ttl_seconds=120), NOW)
+    await desk.match_resting()
+    row = desk.ledger._rows("SELECT outcome, filled, count FROM decisions")[0]
+    assert (row["outcome"], row["filled"], row["count"]) == ("bid expired, part filled", 1, 2)

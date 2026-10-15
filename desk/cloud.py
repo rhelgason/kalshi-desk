@@ -106,19 +106,27 @@ def load_accounts(data: dict) -> dict[str, PaperAccount]:
 
 def dump_feed(feed: CryptoFeed, keep_minutes: int = 75) -> dict:
     cutoff = datetime.now(timezone.utc) - timedelta(minutes=keep_minutes)
+    mine = set(feed.symbols)  # coins the desk no longer watches are dropped
     return {
-        "history": {s: [[t.isoformat(), p] for t, p in h if t >= cutoff] for s, h in feed.history.items()},
-        "quotes": {s: {"iv": q.implied_vol, "rv": q.realized_vol, "spot": q.spot} for s, q in feed.quotes.items()},
-        "vol_refreshed": {s: t.isoformat() for s, t in feed._vol_refreshed.items()},
+        "history": {s: [[t.isoformat(), p] for t, p in h if t >= cutoff] for s, h in feed.history.items() if s in mine},
+        "quotes": {s: {"iv": q.implied_vol, "rv": q.realized_vol, "spot": q.spot, "at": q.fetched_at.isoformat()}
+                   for s, q in feed.quotes.items() if s in mine},
+        "vol_refreshed": {s: t.isoformat() for s, t in feed._vol_refreshed.items() if s in mine},
     }
 
 
 def load_feed(feed: CryptoFeed, data: dict) -> None:
+    mine = set(feed.symbols)
     for s, pts in (data.get("history") or {}).items():
-        feed.history[s] = deque(((datetime.fromisoformat(t), p) for t, p in pts), maxlen=2000)
+        if s in mine:
+            feed.history[s] = deque(((datetime.fromisoformat(t), p) for t, p in pts), maxlen=2000)
     for s, q in (data.get("quotes") or {}).items():
-        feed.quotes[s] = UnderlyingQuote(s, spot=q["spot"], implied_vol=q["iv"], realized_vol=q["rv"])
-    feed._vol_refreshed = {s: datetime.fromisoformat(t) for s, t in (data.get("vol_refreshed") or {}).items()}
+        if s in mine:
+            # Keep when the price was fetched: a saved price is not a fresh one
+            at = _dt(q.get("at")) or datetime(2000, 1, 1, tzinfo=timezone.utc)
+            feed.quotes[s] = UnderlyingQuote(s, spot=q["spot"], implied_vol=q["iv"], realized_vol=q["rv"], fetched_at=at)
+    feed._vol_refreshed = {s: datetime.fromisoformat(t) for s, t in (data.get("vol_refreshed") or {}).items()
+                           if s in mine}
 
 
 # ---------------------------------------------------------------------------
@@ -186,6 +194,9 @@ async def run_cloud_tick(ledger: Optional[Ledger] = None, config_path: Optional[
         desk._last_slow = _dt(t.get("slow"))
         desk._last_equity = _dt(t.get("equity"))
         desk._last_accuracy = _dt(t.get("accuracy"))
+        desk._last_prune = _dt(t.get("prune"))
+        # Known windows, so "Crypto events: ..." is only logged when they change
+        desk.crypto_event_tickers = list(state.get("crypto_events") or [])
         desk.started_at = _dt(state.get("started_at")) or desk.started_at
         desk.tick_count = state.get("tick_count", 0)
         desk.marks = state.get("marks") or {}
@@ -225,11 +236,15 @@ async def run_cloud_tick(ledger: Optional[Ledger] = None, config_path: Optional[
             "feed": dump_feed(feed),
             "strategies": {s.key: st for s in desk.strategies if (st := s.get_state()) is not None},
             "timers": {"universe": _iso(desk._last_universe), "slow": _iso(desk._last_slow),
-                       "equity": _iso(desk._last_equity), "accuracy": _iso(desk._last_accuracy)},
+                       "equity": _iso(desk._last_equity), "accuracy": _iso(desk._last_accuracy),
+                       "prune": _iso(desk._last_prune)},
+            "crypto_events": desk.crypto_event_tickers,
             "started_at": _iso(desk.started_at),
             "tick_count": desk.tick_count,
             "marks": {t: m for t, m in desk.marks.items() if t in held},
-            "fees": {k: [f.fee_type, f.multiplier] for k, f in desk.fees.items()},
+            # Only series the desk trades or still holds (old seasons' sports fees pile up otherwise)
+            "fees": {k: [f.fee_type, f.multiplier] for k, f in desk.fees.items()
+                     if k in cfg.crypto_series or k in {t.split("-", 1)[0] for t in held}},
             "peaks": peaks,
             "pool": desk.pool.state.to_dict(),
             "briers": desk.briers,
@@ -238,9 +253,11 @@ async def run_cloud_tick(ledger: Optional[Ledger] = None, config_path: Optional[
                          "cpu_seconds": round(used, 3)},
         }
         ledger.set_status(STATE_KEY, state)
+        journal = desk.journal.summary()
         return {
             "ok": True,
             "fills": sum(len(r.fills) for r in results if r.filled),
+            "warnings": journal["warnings"],
             "seconds": round(time.time() - started, 1),
             "cpu_seconds": round(used, 3),
             "budget": budget,

@@ -37,9 +37,9 @@ pytest tests/desk            # offline test suite
 The desk is meant to be hands-off. Three loops keep improving it:
 
 - **Performance reviews** (inside the bot, every `review_days`): crown the
-  Employee of the Week/Month with a bonus from the desk reserve, promote
-  employees who beat the promotion threshold to bigger bet sizes (Intern 0.5x
-  → Associate 1x → Senior 1.5x → VP 2x → Partner 3x), demote losers, and
+  Employee of the Week/Month (no cash bonus: the office pool is one pot), promote
+  employees who beat the promotion threshold, with at least 30 bets of evidence, to bigger bet sizes (Intern 0.5x
+  → Associate 1x → Senior 1.5x → VP 2x → Partner 2x), demote losers, and
   suspend repeat offenders. Rules live in the database and are editable on the
   site's **Handbook** page.
 - **Autotuning** (GitHub Actions, `.github/workflows/jobs.yml`, every 3h):
@@ -70,7 +70,18 @@ desk/jobs.py      background jobs (history sync, archive backfill, autotune, nig
 desk/backtest/    replay engine, tuning with train/test split, permanent history store
 desk/cloud.py     one tick per serverless invocation (Vercel), state saved in Postgres
 desk/runner.py    the loop: HR sync -> discover -> snapshot -> strategies -> fill -> settle -> review
+desk/journal.py   one summary per run (the `runs` table), since the host's logs last under an hour
 ```
+
+## Checking on the bot
+
+`python -m desk log --hours 6` reads the run journal: every run's time, the
+pool, and per employee how many ideas they had, bets and bids they placed,
+maker fills, payouts, and why ideas didn't become bets ("window cap full",
+"no liquidity at limit price", ...), plus any warnings and errors. Add
+`--all` for each run in detail, or `--employee nickel_maker` for one person.
+Every attempted bet, posted bid and how each bid ended (filled, expired,
+pulled by the daily stop) is also in the `decisions` table.
 
 Adding an employee: subclass `Strategy` in `desk/strategies/`, give it a
 `key` and `persona`, implement `evaluate(snapshot, account)`, and register it

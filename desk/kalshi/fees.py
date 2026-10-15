@@ -70,6 +70,8 @@ class FeeSchedule:
     fee_type: str = "quadratic"
     multiplier: float = 1.0
     round_to: float = 0.01
+    # True when Kalshi couldn't be asked and these are defaults: use, but don't keep
+    assumed: bool = False
 
     @classmethod
     def from_series(cls, series: dict) -> "FeeSchedule":
