@@ -149,3 +149,24 @@ export async function startNewSeason(reserve: number) {
   await event("season", null, { action: "new season", season: policy.season });
   done(["/", "/settings"]);
 }
+
+/** The real-money kill switch: no new orders, waiting ones cancelled on the bot's next run. */
+export async function haltTrading(reason: string) {
+  await requireAdmin();
+  const data = { halted: true, reason: reason || "stopped from the website", by: "website", at: now() };
+  await db()`INSERT INTO settings (key, updated_at, data) VALUES ('trading', ${now()}, ${JSON.stringify(data)})
+    ON CONFLICT (key) DO UPDATE SET updated_at = excluded.updated_at, data = excluded.data`;
+  await event("trading", null, { action: "halted", reason: data.reason });
+  done(["/settings", "/"]);
+}
+
+/** Allow real trading again; the bot re-checks its books against Kalshi from scratch. */
+export async function resumeTrading() {
+  await requireAdmin();
+  const data = { halted: false, resumed_by: "website", at: now() };
+  await db()`INSERT INTO settings (key, updated_at, data) VALUES ('trading', ${now()}, ${JSON.stringify(data)})
+    ON CONFLICT (key) DO UPDATE SET updated_at = excluded.updated_at, data = excluded.data`;
+  await db()`UPDATE status SET data = '{}', updated_at = ${now()} WHERE key = '_live_books'`;
+  await event("trading", null, { action: "resumed" });
+  done(["/settings", "/"]);
+}

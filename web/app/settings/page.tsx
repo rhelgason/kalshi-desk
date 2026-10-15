@@ -1,7 +1,8 @@
 import PolicyForm from "@/components/PolicyForm";
+import RealMoney from "@/components/RealMoney";
 import Setup from "@/components/Setup";
 import { isAdmin } from "@/lib/admin";
-import { getCoverage, getJobs, getPolicy } from "@/lib/db";
+import { getCoverage, getJobs, getKillSwitch, getLive, getPolicy } from "@/lib/db";
 import { ago } from "@/lib/format";
 import { LEVELS, awardName, poolShare } from "@/lib/hr";
 
@@ -10,12 +11,14 @@ export const dynamic = "force-dynamic";
 export default async function Handbook() {
   let data;
   try {
-    const [policy, jobs, coverage, admin] = await Promise.all([getPolicy(), getJobs(), getCoverage(), isAdmin()]);
-    data = { policy, jobs, coverage, admin };
+    const [policy, jobs, coverage, admin, live, killSwitch] = await Promise.all([
+      getPolicy(), getJobs(), getCoverage(), isAdmin(), getLive(), getKillSwitch(),
+    ]);
+    data = { policy, jobs, coverage, admin, trading: live?.trading ?? { mode: "paper" as const }, killSwitch };
   } catch (e) {
     return <Setup error={String(e)} />;
   }
-  const { policy, jobs, coverage, admin } = data;
+  const { policy, jobs, coverage, admin, trading, killSwitch } = data;
   const at = policy.autotune;
   return (
     <div className="stack">
@@ -42,6 +45,8 @@ export default async function Handbook() {
         </div>
       </section>
 
+      <RealMoney trading={trading} killSwitch={killSwitch} admin={admin} />
+
       <section className="card">
         <h2>Desk rules</h2>
         <PolicyForm policy={policy} admin={admin} />
@@ -50,7 +55,7 @@ export default async function Handbook() {
       <section className="card">
         <h2>Background jobs</h2>
         <p className="sub">
-          Every 3 hours GitHub Actions syncs new market history, backfills Kalshi&apos;s archive, and retunes employees
+          Every 6 hours GitHub Actions syncs new market history, backfills Kalshi&apos;s archive, and retunes employees
           when due (every {at.every_hours}h{at.enabled ? "" : ", currently paused"}).
         </p>
         <dl className="kv">

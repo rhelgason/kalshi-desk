@@ -151,6 +151,21 @@ export type TuningRun = {
 
 export type TuneResult = { pnl: number; bets: number; wins: number; roi: number; skill: number | null; realized_edge: number | null };
 
+/** Paper or real money; for real money, the kill switch and the last check against Kalshi (desk/live). */
+export type TradingStatus = {
+  mode: "paper" | "live";
+  env?: string;
+  halted?: boolean;
+  reason?: string;
+  by?: string;
+  at?: string;
+  limits?: { max_order_dollars: number; max_orders_per_day: number; max_daily_loss: number; max_drift: number };
+  books?: {
+    at: string; ok: boolean; balance: number; expected: number; drift: number;
+    mismatches: Record<string, [number, number]>;
+  } | null;
+};
+
 export type LiveStatus = {
   updated_at: string;
   started_at: string;
@@ -160,6 +175,7 @@ export type LiveStatus = {
   season?: number;
   hr?: HRInfo;
   pool?: PoolSummary;
+  trading?: TradingStatus;
   employees: Employee[];
   positions: Position[];
   underlyings: Record<string, Underlying>;

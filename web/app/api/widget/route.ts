@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db, getHistory, getLive, getPolicy, getSeasonStart } from "@/lib/db";
+import { db, getHistory, getKillSwitch, getLive, getPolicy, getSeasonStart } from "@/lib/db";
 import { only, poolKeys, portfolioSeries, type RangeKey } from "@/lib/portfolio";
 
 /**
@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
   const hours = Math.min(Math.max(q.get("hours") ? Number(q.get("hours")) : (Number(q.get("days")) || 7) * 24, 1), 24 * 90);
   const range: RangeKey = hours <= 24 ? "day" : hours <= 24 * 7 ? "week" : hours <= 24 * 30 ? "month" : "quarter";
 
-  const [live, policy] = await Promise.all([getLive(), getPolicy()]);
+  const [live, policy, kill] = await Promise.all([getLive(), getPolicy(), getKillSwitch()]);
   if (!live?.pool) return NextResponse.json({ ok: false, error: "the bot hasn't reported yet" }, { status: 503 });
   const pool = live.pool;
   const tz = pool.settings?.timezone || "America/Vancouver";
@@ -113,7 +113,8 @@ export async function GET(req: NextRequest) {
     pnl: pool.pnl,
     in_play: pool.in_play,
     open_bets: open,
-    safety: pool.stopped ? "stopped" : pool.braked ? "braked" : "clear",
+    safety: kill.halted ? "halted" : pool.stopped ? "stopped" : pool.braked ? "braked" : "clear",
+    mode: live.trading?.mode ?? "paper",
     chart: {
       days: hours / 24,
       since: series[0][0],
@@ -127,8 +128,8 @@ export async function GET(req: NextRequest) {
       pct: pool.today,
       settled: rows.reduce((s, r) => s + r.n, 0),
       won: rows.reduce((s, r) => s + r.won, 0),
-      text: todayText(day),
-      brief: briefText(day),
+      text: (kill.halted ? `Real trading stopped: ${kill.reason ?? "by you"}. ` : "") + todayText(day),
+      brief: (kill.halted ? "Real trading stopped. " : "") + briefText(day),
     },
     series,
   }, { headers: { "Cache-Control": "no-store" } });

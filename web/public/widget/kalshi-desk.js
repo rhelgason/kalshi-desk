@@ -107,7 +107,7 @@ function chart(d, w, h, labels = true) {
 function header(w, d, size) {
   const row = w.addStack();
   row.centerAlignContent();
-  text(row, "KALSHI DESK", size, G.dim, "bold");
+  text(row, d && d.mode === "live" ? "KALSHI DESK · LIVE" : "KALSHI DESK", size, G.dim, "bold");
   row.addSpacer();
   if (!d) return;
   if (d.stale) text(row, `● OFFLINE ${fmt(d.updated_at, "h:mm a")}`, size, G.alert, "bold");
@@ -161,7 +161,7 @@ function build(d, family) {
 
   if (large) {
     w.addSpacer(8);
-    const status = d.safety === "stopped" ? "STOPPED FOR TODAY" : d.safety === "braked" ? "BETS HALVED" : "ALL CLEAR";
+    const status = { halted: "REAL TRADING STOPPED", stopped: "STOPPED FOR TODAY", braked: "BETS HALVED" }[d.safety] || "ALL CLEAR";
     text(w, `STATUS   ${status}`, 10, d.safety === "clear" ? G.dim : G.alert, "medium");
     text(w, `IN PLAY  ${money(d.in_play)} on ${d.open_bets} bet${d.open_bets === 1 ? "" : "s"}`, 10, G.dim, "medium");
     text(w, `CHANGE   ${money(d.chart.change, true)} over the chart`, 10, d.chart.change < 0 ? G.loss : G.dim, "medium");

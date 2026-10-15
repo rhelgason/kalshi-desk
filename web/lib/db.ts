@@ -32,6 +32,12 @@ async function status<T>(key: string): Promise<T | null> {
 
 export const getLive = () => status<LiveStatus>("live");
 
+/** The kill switch straight from the table (the bot's status lags a run behind a press of the button). */
+export async function getKillSwitch(): Promise<{ halted: boolean; reason?: string; by?: string; at?: string }> {
+  const rows = await db()`SELECT data FROM settings WHERE key = 'trading'`;
+  return rows.length ? JSON.parse(rows[0].data) : { halted: false };
+}
+
 export async function getPolicy(): Promise<Policy> {
   const rows = await db()`SELECT data FROM settings WHERE key = 'desk'`;
   return mergePolicy(rows.length ? JSON.parse(rows[0].data) : null);
