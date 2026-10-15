@@ -395,8 +395,16 @@ async def cmd_live_check(cfg: DeskConfig, order: bool) -> int:
         # Half a contract at the lowest price: tests fractional counts; post-only so it can't buy anything now
         price = market.price_ranges[0][0] if market.price_ranges and market.price_ranges[0][0] > 0 else 0.01
         print(f"Placing a post-only bid: 0.5 YES contracts at ${price:.4f} on {market.ticker} ...")
-        resp = await client.create_order(market.ticker, Side.YES, 0.5, price, time_in_force="good_till_canceled",
-                                         post_only=True, expiration_ts=int(time.time()) + 120)
+        from desk.kalshi.client import KalshiAPIError
+
+        try:
+            resp = await client.create_order(market.ticker, Side.YES, 0.5, price, time_in_force="good_till_canceled",
+                                             post_only=True, expiration_ts=int(time.time()) + 120)
+        except KalshiAPIError as e:
+            print(f"  Kalshi refused the order: {e}")
+            if "balance" in str(e):
+                print("  (The request itself was accepted; the account needs funds.)")
+            return 1
         print(f"  accepted: order {resp.get('order_id')}, filled {resp.get('fill_count')}, "
               f"resting {resp.get('remaining_count')}")
         got = await client.get_order(resp["order_id"])

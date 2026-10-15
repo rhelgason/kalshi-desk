@@ -86,3 +86,7 @@ research/**/binance*/
 research/**/agg/
 research/**/*.json.gz
 research/**/*.jsonl.gz
+
+# Kalshi API private keys: never commit
+.kalshi/
+*.pem
