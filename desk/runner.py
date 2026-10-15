@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import gzip
+import inspect
 import json
 import logging
 import math
@@ -45,6 +46,11 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+async def _done(x):
+    """The paper broker answers at once; the live broker has to ask Kalshi."""
+    return await x if inspect.isawaitable(x) else x
+
+
 class Desk:
     def __init__(
         self,
@@ -74,7 +80,15 @@ class Desk:
         self.inactive: set[str] = set()
         self.multipliers: dict[str, float] = {}
         self.season = ledger.season
-        self.broker = PaperBroker(ledger, accounts or {}, liquidity_share=config.liquidity_share)
+        # Real money only when desk.yaml says `trading: live` (and the host and API key agree: desk/live)
+        self.guard = None
+        if config.trading == "live":
+            from desk.live import make_live_broker
+
+            self.broker = make_live_broker(config, ledger, accounts or {}, client)
+            self.guard = self.broker.guard
+        else:
+            self.broker = PaperBroker(ledger, accounts or {}, liquidity_share=config.liquidity_share)
         # The office pool everyone but the control group bets out of (desk.paper.pool)
         self.pool = Pool(self.policy["pool"], ())
         self.sync_hr()
@@ -307,8 +321,9 @@ class Desk:
         self.pool.update(self.pool.total_equity(self.accounts, self.marks), _now())
         if self.pool.stopped:
             logger.info("Daily stop: the pool is down %.1f%% today, no new bets until midnight", -self.pool.today * 100)
-            for o in self.broker.cancel(self.pool.members):  # bids waiting on the book come down too
+            for o in await _done(self.broker.cancel(self.pool.members)):  # bids waiting come down too
                 self._bid_ended(o, "bid pulled: daily stop")
+        halted = bool(self.guard and self.guard.halted)
         # Higher levels go first, so they get first claim on a window's share of the pool
         for strat in sorted(self.strategies, key=lambda s: -self.multipliers.get(s.key, 1.0)):
             if strat.key in self.inactive:
@@ -316,6 +331,9 @@ class Desk:
                 continue  # suspended: positions still settle, but no new bets
             if strat.key in self.pool.members and self.pool.stopped:
                 self.journal.count(strat.key, "daily stop")
+                continue
+            if strat.key in self.pool.members and halted:
+                self.journal.count(strat.key, "trading halted")
                 continue
             self.journal.count(strat.key, "on shift")
             acct = self.accounts[strat.key]
@@ -349,7 +367,7 @@ class Desk:
         if not bet:
             self._skip(intent, why)
             return []
-        placed = self.broker.place(bet, _now())
+        placed = await _done(self.broker.place(bet, _now()))
         if not placed:
             self._skip(bet, "not enough free cash for the bid")
             return []
@@ -447,8 +465,15 @@ class Desk:
         """Fill maker orders from the live trade tape since they were last checked, then expire stale ones."""
         now = _now()
         before = list(self.broker.resting)
+        if self.guard:
+            # Real bids: ask Kalshi what filled
+            for f in await self.broker.poll(now):
+                self.journal.count(f.strategy, "maker fills")
+                logger.info("%s REAL MAKER FILL %s %gx %s @ %.3f", self.personas.get(f.strategy, f.strategy),
+                            f.side.upper(), f.count, f.ticker, f.avg_price)
+        paper = [o for o in self.broker.resting if not (self.guard and o.strategy in self.pool.members)]
         since: dict[str, datetime] = {}
-        for o in self.broker.resting:
+        for o in paper:
             since[o.ticker] = min(since.get(o.ticker, o.checked_from), o.checked_from)
         if since:
             # Busy bitcoin markets trade ~50 times a second, so fetch every page since the order went up
@@ -465,7 +490,7 @@ class Desk:
                 self.journal.count(f.strategy, "maker fills")
                 logger.info("%s MAKER FILL %s %gx %s @ %.3f", self.personas.get(f.strategy, f.strategy),
                             f.side.upper(), f.count, f.ticker, f.avg_price)
-        self.broker.expire(now)
+        await _done(self.broker.expire(now))
         still = {o.order_id for o in self.broker.resting}
         for o in before:
             if o.order_id not in still:
@@ -481,7 +506,7 @@ class Desk:
             self._skip(intent, "couldn't fetch the order book")
             return None
         context = self._safely_value(lambda: self.decision_context(intent, snap, books))
-        result = self.broker.execute(intent, books, fees, signal_time=snap.now, context=context)
+        result = await _done(self.broker.execute(intent, books, fees, signal_time=snap.now, context=context))
         self._safely("log decision", lambda: self.log_decision(intent, result, context))
         who = self.personas.get(intent.strategy, intent.strategy)
         if result.filled:
@@ -638,6 +663,9 @@ class Desk:
         j = self.journal
         with j.phase("hr"):
             self.sync_hr()
+        if self.guard:
+            with j.phase("guard"):
+                await self.check_guard()
         with j.phase("discover"):
             if (self._last_crypto is None
                     or (now - self._last_crypto).total_seconds() >= self.config.crypto_refresh_seconds):
@@ -664,6 +692,9 @@ class Desk:
             if self._due(self._last_equity, self.config.equity_every_seconds, now):
                 self.record_equity()
                 self._last_equity = now
+        if self.guard:
+            with j.phase("reconcile"):
+                await self.reconcile_live()
         if hr.review_due(self.policy, now):
             with j.phase("review"):
                 for a in hr.run_review(self.ledger, self.roster, self.accounts, self.policy, now,
@@ -684,6 +715,53 @@ class Desk:
                 self._safely("publish accuracy", self.publish_accuracy)
                 self._last_accuracy = now
         return results
+
+    # ------------------------------------------------------------------
+    # Real money: the kill switch and checking our books against Kalshi
+    # ------------------------------------------------------------------
+
+    async def check_guard(self) -> None:
+        """Re-read the kill switch; while it's on, nothing real stays on the book."""
+        self.guard.refresh()
+        if self.guard.halted:
+            real = [o for o in self.broker.resting if o.strategy in self.pool.members]
+            if real:
+                for o in await self.broker.cancel_everything():
+                    self._bid_ended(o, "bid pulled: trading halted")
+            self.journal.info["halted"] = self.guard.state.get("reason") or True
+
+    async def reconcile_live(self) -> None:
+        from desk.live.reconcile import reconcile
+
+        books = self.guard.books()
+        if books.get("season") != self.season:
+            books = {"season": self.season}  # a new season is a new pool: measure from scratch
+        try:
+            r = await reconcile(self.client, self.accounts, self.pool.members, self.broker.resting,
+                                baseline=books.get("baseline"))
+        except KalshiAPIError as e:
+            logger.warning("Couldn't check our books against Kalshi: %s", e)
+            return
+        bad = bool(r.mismatches) or abs(r.drift) > float(self.guard.limits["max_drift"])
+        books.update(baseline=r.baseline if books.get("baseline") is None else books["baseline"],
+                     strikes=books.get("strikes", 0) + 1 if bad else 0,
+                     last={**r.to_dict(), "at": _now().isoformat()})
+        self.journal.info["books"] = {"balance": r.balance, "drift": r.drift, "mismatches": len(r.mismatches)}
+        if bad:
+            logger.warning("Our books differ from Kalshi (check %d): drift $%.2f, positions %s",
+                           books["strikes"], r.drift, r.mismatches)
+        if books["strikes"] >= 2:
+            what = (f"positions differ on {', '.join(sorted(r.mismatches))}" if r.mismatches
+                    else f"cash is off by ${r.drift:+.2f}")
+            self.guard.halt(f"our books don't match Kalshi: {what}")
+            for o in await self.broker.cancel_everything():
+                self._bid_ended(o, "bid pulled: trading halted")
+        else:
+            self.guard.check_loss(self.pool.equity, self.pool.state.day_open)
+            if self.guard.halted:
+                for o in await self.broker.cancel_everything():
+                    self._bid_ended(o, "bid pulled: trading halted")
+        self.guard.save_books(books)
 
     def record_run(self) -> None:
         """Save this run's journal (and, about hourly, drop journals older than two weeks)."""
@@ -788,11 +866,19 @@ class Desk:
                            for t, m in hr.LEVELS],
             },
             "pool": self.pool.summary(self.accounts, self.broker.resting),
+            "trading": self.trading_status(),
             "employees": employees,
             "positions": positions,
             "underlyings": quotes,
             "crypto_events": self.crypto_event_tickers,
         })
+
+    def trading_status(self) -> dict:
+        """Paper or real money, and for real money: the kill switch and the last check against Kalshi."""
+        if not self.guard:
+            return {"mode": "paper"}
+        return {"mode": "live", "env": self.config.env, **self.guard.state, "limits": self.guard.limits,
+                "books": self.guard.books().get("last")}
 
     def compute_evidence(self) -> dict[str, dict]:
         """Skill-or-luck evidence for every employee this season."""

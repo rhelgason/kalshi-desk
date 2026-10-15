@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import time
 import uuid
 from typing import Any, AsyncIterator, Optional
@@ -316,9 +317,22 @@ class KalshiClient:
             if not cursor:
                 return out
 
-    async def get_fills(self, ticker: Optional[str] = None, limit: int = 200) -> list[dict]:
-        data = await self.request("GET", "/portfolio/fills", params={"ticker": ticker, "limit": limit}, auth=True)
-        return data.get("fills") or []
+    async def get_fills(self, ticker: Optional[str] = None, order_id: Optional[str] = None,
+                        min_ts: Optional[int] = None, limit: int = 200) -> list[dict]:
+        """Our own fills (newest first), optionally for one order or market, every page."""
+        params = {"ticker": ticker, "order_id": order_id, "min_ts": min_ts, "limit": limit}
+        out = []
+        cursor = None
+        while True:
+            data = await self.request("GET", "/portfolio/fills", params={**params, "cursor": cursor}, auth=True)
+            out.extend(data.get("fills") or [])
+            cursor = data.get("cursor")
+            if not cursor:
+                return out
+
+    async def get_order(self, order_id: str) -> dict:
+        data = await self.request("GET", f"/portfolio/orders/{order_id}", auth=True)
+        return data.get("order") or {}
 
     # ------------------------------------------------------------------
     # Trading (needs API key AND allow_trading=True)
@@ -346,13 +360,18 @@ class KalshiClient:
         Buy `count` contracts of `side` paying at most `limit_price` each.
 
         Kalshi's V2 order endpoint quotes everything from the YES side:
-        buying NO at p is sent as an "ask" (sell YES) at 1 - p.
+        buying NO at p is sent as an "ask" (sell YES) at 1 - p. Counts go in
+        0.01-contract steps (rounded down). time_in_force is immediate_or_cancel,
+        fill_or_kill or good_till_canceled (with expiration_ts for a timed order).
+        The response carries order_id, fill_count, remaining_count and, if
+        anything filled, average_fill_price and average_fee_paid.
         """
         self._require_trading()
         if not (0 < limit_price < 1):
             raise ValueError(f"limit_price must be between 0 and 1, got {limit_price}")
+        count = math.floor(count * 100 + 1e-6) / 100
         if count <= 0:
-            raise ValueError("count must be positive")
+            raise ValueError("count must be at least 0.01")
 
         if side is Side.YES:
             book_side, yes_price = "bid", limit_price
@@ -377,7 +396,11 @@ class KalshiClient:
         return await self.request("POST", "/portfolio/events/orders", json=body, auth=True)
 
     async def cancel_order(self, order_id: str, ticker: str) -> dict:
-        self._require_trading()
+        """Cancel one order. Cancelling is always allowed, even with trading switched off."""
         return await self.request(
             "DELETE", f"/portfolio/events/orders/{order_id}", params={"market_ticker": ticker}, auth=True
         )
+
+    async def cancel_all_orders(self) -> dict:
+        """Cancel every resting order on the account (the kill switch)."""
+        return await self.request("DELETE", "/portfolio/events/orders", auth=True)

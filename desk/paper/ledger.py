@@ -27,6 +27,9 @@ History store (for backtests and autotuning; filled by the background jobs):
 
 Diagnostics:
   runs            one summary per desk run, kept 14 days (desk/journal.py)
+
+Real money (desk/live):
+  orders          every order sent to Kalshi and what became of it
 """
 
 from __future__ import annotations
@@ -177,6 +180,28 @@ CREATE TABLE IF NOT EXISTS runs (
     summary TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS runs_ts ON runs(ts);
+-- Every real order sent to Kalshi (desk/live), and what became of it
+CREATE TABLE IF NOT EXISTS orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts TEXT NOT NULL,
+    season INTEGER NOT NULL DEFAULT 1,
+    env TEXT NOT NULL,
+    strategy TEXT NOT NULL,
+    order_id TEXT,
+    client_order_id TEXT,
+    ticker TEXT NOT NULL,
+    side TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    price REAL NOT NULL,
+    count REAL NOT NULL,
+    filled REAL NOT NULL DEFAULT 0,
+    fees REAL NOT NULL DEFAULT 0,
+    status TEXT NOT NULL,
+    error TEXT,
+    updated_at TEXT
+);
+CREATE INDEX IF NOT EXISTS orders_ts ON orders(ts);
+CREATE INDEX IF NOT EXISTS orders_order_id ON orders(order_id);
 CREATE INDEX IF NOT EXISTS decisions_strategy_ts ON decisions(strategy, ts);
 CREATE INDEX IF NOT EXISTS market_tape_ticker_ts ON market_tape(ticker, ts);
 CREATE INDEX IF NOT EXISTS market_history_series_close ON market_history(series, close_ts);
@@ -191,11 +216,11 @@ CREATE INDEX IF NOT EXISTS settlements_strategy_ticker ON settlements(strategy, 
 # below only runs when this differs from what the database records, because
 # ALTER TABLE takes a full-table lock even when there's nothing to change, and
 # running it every 2 minutes can pile up behind a slow query.
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 
 TABLES = ("accounts", "fills", "settlements", "equity", "events", "status", "backtests", "transfers",
           "employees", "settings", "tuning_runs", "market_history", "price_history", "decisions", "market_tape",
-          "runs")
+          "runs", "orders")
 SEASONED = ("fills", "settlements", "equity")
 # Fill reality check: what the employee saw vs. what the paper fill got
 FILL_REALISM = (("seen_price", "REAL"), ("book_depth", "REAL"), ("latency_ms", "INTEGER"),
@@ -415,6 +440,21 @@ class Ledger:
         rows = self._rows("SELECT ts, season, seconds, warnings, summary FROM runs WHERE ts >= ? ORDER BY ts DESC LIMIT ?",
                           (since, limit))
         return [{**dict(r), "summary": json.loads(r["summary"])} for r in reversed(rows)]
+
+    def record_order(self, env: str, strategy: str, ticker: str, side: str, kind: str, price: float, count: float,
+                     status: str, order_id: Optional[str] = None, client_order_id: Optional[str] = None,
+                     filled: float = 0.0, fees: float = 0.0, error: Optional[str] = None) -> None:
+        """A real order sent to Kalshi (kind: taker or maker)."""
+        now = _now()
+        self._write(
+            "INSERT INTO orders(ts, season, env, strategy, order_id, client_order_id, ticker, side, kind, price, count,"
+            " filled, fees, status, error, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (now, self.season, env, strategy, order_id, client_order_id, ticker, side, kind, price, count, filled,
+             fees, status, error, now))
+
+    def update_order(self, order_id: str, filled: float, fees: float, status: str) -> None:
+        self._write("UPDATE orders SET filled = ?, fees = ?, status = ?, updated_at = ? WHERE order_id = ?",
+                    (filled, fees, status, _now(), order_id))
 
     def record_event(self, kind: str, detail: dict | str, strategy: Optional[str] = None) -> None:
         text = detail if isinstance(detail, str) else json.dumps(detail, default=str)

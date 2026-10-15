@@ -12,6 +12,8 @@ Command line for the desk.
     python -m desk new-season --level nickel_picker=Senior ...   fresh start: split the office pool
     python -m desk log --hours 6 what the bot did each run (bets, skips and why, warnings)
     python -m desk health        is the hosted bot running? (exit 1 if it has gone quiet)
+    python -m desk live-check [--order]   test the Kalshi API key; --order places and cancels a tiny bid
+    python -m desk halt "why" / resume    the real-money kill switch
     python -m desk employees     who works here
     python -m desk whoami        check your Kalshi API key (read-only)
 """
@@ -47,7 +49,12 @@ def _setup_logging(verbose: bool) -> None:
 
 
 def _make_desk(cfg: DeskConfig, ledger: Ledger, record: str | None = None) -> Desk:
-    client = KalshiClient(env=cfg.env, requests_per_second=cfg.requests_per_second)
+    if cfg.trading == "live":
+        from desk.live import live_client
+
+        client = live_client(cfg)
+    else:
+        client = KalshiClient(env=cfg.env, requests_per_second=cfg.requests_per_second)
     feed = CryptoFeed(tuple(cfg.crypto_symbols))
     # None = staff from the HR roster (desk.yaml + website overrides, minus fired employees)
     return Desk(cfg, client, None, ledger, feed=feed, record_path=record)
@@ -362,6 +369,56 @@ def cmd_health(cfg: DeskConfig, max_quiet_minutes: float = 15) -> int:
     return 0
 
 
+async def cmd_live_check(cfg: DeskConfig, order: bool) -> int:
+    """Check the API key, balance and positions; with --order, place and cancel one tiny resting bid."""
+    import time
+
+    signer = KalshiSigner.from_env()
+    if not signer:
+        print("No API key: set KALSHI_API_KEY_ID and KALSHI_PRIVATE_KEY_PATH (or KALSHI_PRIVATE_KEY) in .env")
+        return 1
+    async with KalshiClient(env=cfg.env, signer=signer, allow_trading=order,
+                            requests_per_second=cfg.requests_per_second) as client:
+        print(f"Exchange: {cfg.env} ({client.base_url})")
+        print(f"Balance: ${await client.get_balance():,.2f}")
+        positions = [p for p in await client.get_positions() if abs(float(p.get('position_fp') or 0)) > 0.005]
+        print(f"Open positions: {len(positions)}; resting orders: {len(await client.get_orders(status='resting'))}")
+        if not order:
+            print("Read-only checks passed. Add --order to place and cancel a tiny test bid.")
+            return 0
+        series = (cfg.crypto_series or ["KXBTC15M"])[0]
+        events = await client.get_events(series_ticker=series, status="open", with_markets=True, max_items=5)
+        market = next((m for e in events for m in e.markets if m.is_tradeable), None)
+        if not market:
+            print(f"No open {series} market to test on right now.")
+            return 1
+        # Half a contract at the lowest price: tests fractional counts; post-only so it can't buy anything now
+        price = market.price_ranges[0][0] if market.price_ranges and market.price_ranges[0][0] > 0 else 0.01
+        print(f"Placing a post-only bid: 0.5 YES contracts at ${price:.4f} on {market.ticker} ...")
+        resp = await client.create_order(market.ticker, Side.YES, 0.5, price, time_in_force="good_till_canceled",
+                                         post_only=True, expiration_ts=int(time.time()) + 120)
+        print(f"  accepted: order {resp.get('order_id')}, filled {resp.get('fill_count')}, "
+              f"resting {resp.get('remaining_count')}")
+        got = await client.get_order(resp["order_id"])
+        print(f"  Kalshi shows: status {got.get('status')}, count {got.get('initial_count_fp')}, "
+              f"price {got.get('yes_price_dollars')}")
+        print(f"  cancelled: {(await client.cancel_order(resp['order_id'], market.ticker)).get('reduced_by')} contracts")
+        print("Order checks passed: fractional counts, post-only, expiry and cancel all work.")
+        return 0
+
+
+def cmd_halt(cfg: DeskConfig, reason: str, resume: bool) -> None:
+    from desk.live.guard import Guard
+
+    guard = Guard(Ledger(cfg.db_path), cfg.live)
+    if resume:
+        guard.resume(by="command line")
+        print("Real trading may resume on the bot's next run (books re-checked against Kalshi from scratch).")
+    else:
+        guard.halt(reason or "stopped from the command line", by="command line")
+        print("Halted: no new real orders, and waiting ones are cancelled on the bot's next run (~2 minutes).")
+
+
 def cmd_employees() -> None:
     for key, cls in REGISTRY.items():
         p = cls.persona
@@ -385,6 +442,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--config", default="desk.yaml")
     parser.add_argument("-v", "--verbose", action="store_true")
     sub = parser.add_subparsers(dest="cmd", required=True)
+    # --config / -v also work after the command (python -m desk paper --config desk.demo.yaml)
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--config", default=argparse.SUPPRESS)
+    common.add_argument("-v", "--verbose", action="store_true", default=argparse.SUPPRESS)
+    _add = sub.add_parser
+    sub.add_parser = lambda *a, **kw: _add(*a, parents=[common], **kw)  # type: ignore[method-assign]
     sub.add_parser("scan")
     paper = sub.add_parser("paper")
     paper.add_argument("--record", help="also save market snapshots to this .jsonl.gz file")
@@ -427,6 +490,11 @@ def main(argv: list[str] | None = None) -> int:
     lg.add_argument("--employee", help="only this employee key")
     lg.add_argument("--all", action="store_true", help="every run in detail, not just totals")
     sub.add_parser("health", help="is the hosted bot running? exit 1 if it has gone quiet")
+    lc = sub.add_parser("live-check", help="check the Kalshi API key; --order places and cancels a tiny bid")
+    lc.add_argument("--order", action="store_true")
+    ht = sub.add_parser("halt", help="kill switch: stop all real trading")
+    ht.add_argument("reason", nargs="?", default="")
+    sub.add_parser("resume", help="allow real trading again after a halt")
     sub.add_parser("employees")
     sub.add_parser("whoami")
     args = parser.parse_args(argv)
@@ -461,6 +529,10 @@ def main(argv: list[str] | None = None) -> int:
             cmd_log(cfg, args.hours, args.all, args.employee)
         elif args.cmd == "health":
             return cmd_health(cfg)
+        elif args.cmd == "live-check":
+            return asyncio.run(cmd_live_check(cfg, args.order))
+        elif args.cmd in ("halt", "resume"):
+            cmd_halt(cfg, getattr(args, "reason", ""), args.cmd == "resume")
         elif args.cmd == "employees":
             cmd_employees()
         elif args.cmd == "whoami":

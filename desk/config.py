@@ -18,6 +18,7 @@ class DeskConfig:
     # SQLite file, or a postgres:// URL. The DATABASE_URL environment variable
     # (e.g. from .env) overrides this so the hosted bot writes to Postgres.
     db_path: str = "data/desk.db"
+    use_database_url: bool = True  # set false to keep a test run off the shared database
     starting_cash: float = 1000.0  # paper dollars for each control-group employee
     pool_cash: float = 1000.0  # the office pool, split across its members when a season starts
 
@@ -56,6 +57,12 @@ class DeskConfig:
 
     requests_per_second: float = 6.0
 
+    # Real money (desk/live). "paper" never sends an order. "live" sends the office
+    # pool's bets to Kalshi, and only if KALSHI_LIVE_TRADING=yes is also set where
+    # the bot runs. `live` holds the hard limits (desk/live/guard.py DEFAULT_LIMITS).
+    trading: str = "paper"
+    live: dict[str, Any] = field(default_factory=dict)
+
     strategies: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     @classmethod
@@ -63,11 +70,18 @@ class DeskConfig:
         raw = {}
         if path is not None and Path(path).exists():
             raw = yaml.safe_load(Path(path).read_text()) or {}
+        if raw.get("extends"):
+            # e.g. desk.demo.yaml: everything from desk.yaml, with a few keys changed
+            base_path = Path(path).parent / raw.pop("extends")
+            base = yaml.safe_load(base_path.read_text()) or {}
+            raw = {**base, **raw}
         known = {f.name for f in fields(cls)}
         unknown = set(raw) - known
         if unknown:
             raise ValueError(f"Unknown keys in {path}: {sorted(unknown)}")
         cfg = cls(**raw)
-        if os.getenv("DATABASE_URL"):
+        if cfg.trading not in ("paper", "live"):
+            raise ValueError(f"trading must be paper or live, not {cfg.trading!r}")
+        if cfg.use_database_url and os.getenv("DATABASE_URL"):
             cfg.db_path = os.environ["DATABASE_URL"]
         return cfg

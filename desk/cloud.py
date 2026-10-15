@@ -177,7 +177,13 @@ async def run_cloud_tick(ledger: Optional[Ledger] = None, config_path: Optional[
 
         feed = feed or CryptoFeed(tuple(cfg.crypto_symbols))
         load_feed(feed, state.get("feed") or {})
-        client = client or KalshiClient(env=cfg.env, requests_per_second=cfg.requests_per_second)
+        if client is None:
+            if cfg.trading == "live":
+                from desk.live import live_client
+
+                client = live_client(cfg)  # refuses (and the run fails loudly) unless safely set up
+            else:
+                client = KalshiClient(env=cfg.env, requests_per_second=cfg.requests_per_second)
         # strategies=None: staff the desk from the HR roster (desk.yaml + website overrides)
         desk = Desk(cfg, client, None, ledger, feed=feed, accounts=accounts)
         from desk.paper.broker import RestingOrder

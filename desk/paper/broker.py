@@ -71,6 +71,8 @@ class RestingOrder:
     # The tape has been checked up to here: a trade already matched in one run
     # must not fill the bid again in the next (resting bids outlive a run)
     matched_until: Optional[str] = None
+    # Live orders: Kalshi fill ids already applied to the books
+    fill_ids: list = field(default_factory=list)
 
     @property
     def remaining(self) -> float:
