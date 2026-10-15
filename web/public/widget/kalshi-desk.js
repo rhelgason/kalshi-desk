@@ -16,9 +16,12 @@ const G = {
   mid: new Color("#5fd38d"),
   dim: new Color("#2a7a4b"),
   faint: new Color("#0f2e1c"),
+  loss: new Color("#ff4d5e"),
   alert: new Color("#ffb000"),
 };
-const HEX = { bright: "#3dff8a", dim: "#2a7a4b", faint: "#0f2e1c" };
+const HEX = { bright: "#3dff8a", loss: "#ff4d5e", dim: "#2a7a4b", faint: "#0f2e1c" };
+// Money lost is red; everything else stays green
+const tone = (v, gain = G.mid) => (v < 0 ? G.loss : gain);
 
 const money = (v, sign = false) =>
   (sign ? (v >= 0 ? "+" : "−") : v < 0 ? "−" : "") +
@@ -50,6 +53,7 @@ function chart(d, w, h, labels = true) {
   let lo = Math.min(...pts.map((p) => p[1])), hi = Math.max(...pts.map((p) => p[1]));
   if (hi - lo < 4) { const m = (hi + lo) / 2; lo = m - 2; hi = m + 2; } // small wiggles shouldn't look like cliffs
   const top = labels ? 12 : 3, bottom = 3, left = 2, right = 6;
+  const ink = d.chart.change < 0 ? HEX.loss : HEX.bright;
   const x = (t) => left + ((t - t0) / (t1 - t0 || 1)) * (w - left - right);
   const y = (v) => top + (1 - (v - lo) / (hi - lo)) * (h - top - bottom);
 
@@ -71,22 +75,22 @@ function chart(d, w, h, labels = true) {
   area.addLine(new Point(x(t1), h - bottom));
   area.closeSubpath();
   ctx.addPath(area);
-  ctx.setFillColor(new Color(HEX.bright, 0.12));
+  ctx.setFillColor(new Color(ink, 0.12));
   ctx.fillPath();
 
   const line = new Path();
   line.move(new Point(x(pts[0][0]), y(pts[0][1])));
   for (const [t, v] of pts.slice(1)) line.addLine(new Point(x(t), y(v)));
   ctx.addPath(line);
-  ctx.setStrokeColor(new Color(HEX.bright));
+  ctx.setStrokeColor(new Color(ink));
   ctx.setLineWidth(1.6);
   ctx.strokePath();
 
   // The latest value, glowing
   const ex = x(t1), ey = y(pts[pts.length - 1][1]);
-  ctx.setFillColor(new Color(HEX.bright, 0.25));
+  ctx.setFillColor(new Color(ink, 0.25));
   ctx.fillEllipse(new Rect(ex - 5, ey - 5, 10, 10));
-  ctx.setFillColor(new Color(HEX.bright));
+  ctx.setFillColor(new Color(ink));
   ctx.fillEllipse(new Rect(ex - 2, ey - 2, 4, 4));
 
   if (labels) {
@@ -136,7 +140,7 @@ function build(d, family) {
     const side = pool.addStack();
     side.layoutVertically();
     text(side, "SEASON", 8, G.dim, "medium");
-    text(side, money(d.pnl, true), 11, G.mid, "medium");
+    text(side, money(d.pnl, true), 11, tone(d.pnl), "medium");
   }
 
   w.addSpacer(small ? 6 : 6);
@@ -145,14 +149,14 @@ function build(d, family) {
   w.addSpacer(small ? 6 : 6);
 
   if (small) {
-    text(w, `TODAY ${money(d.today.dollars, true)}`, 10, G.mid, "medium");
+    text(w, `TODAY ${money(d.today.dollars, true)}`, 10, tone(d.today.dollars), "medium");
     const sub = d.today.settled ? `${d.today.won}/${d.today.settled} WON` : "NO BETS SETTLED";
     text(w, d.stale ? "BOT OFFLINE" : sub, 9, d.stale ? G.alert : G.dim);
     return w;
   }
 
   const t = text(w, `> ${large ? d.today.text : d.today.brief || d.today.text}`, large ? 12 : 10,
-    d.safety === "clear" ? G.mid : G.alert);
+    d.safety === "clear" ? tone(d.today.dollars) : G.alert);
   t.lineLimit = large ? 5 : 2;
 
   if (large) {
@@ -160,7 +164,7 @@ function build(d, family) {
     const status = d.safety === "stopped" ? "STOPPED FOR TODAY" : d.safety === "braked" ? "BETS HALVED" : "ALL CLEAR";
     text(w, `STATUS   ${status}`, 10, d.safety === "clear" ? G.dim : G.alert, "medium");
     text(w, `IN PLAY  ${money(d.in_play)} on ${d.open_bets} bet${d.open_bets === 1 ? "" : "s"}`, 10, G.dim, "medium");
-    text(w, `CHANGE   ${money(d.chart.change, true)} over the chart`, 10, G.dim, "medium");
+    text(w, `CHANGE   ${money(d.chart.change, true)} over the chart`, 10, d.chart.change < 0 ? G.loss : G.dim, "medium");
     w.addSpacer();
   }
   return w;
