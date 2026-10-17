@@ -12,12 +12,14 @@ pool_cash: 1000           # split across the pool's members when a season starts
 starting_cash: 1000       # paper dollars for each control-group employee (Dan, Lenny)
 
 tick_seconds: 15          # how often everyone looks at the market
-# Bitcoin only (since Season 3): "will BTC be up in 15 minutes?" markets settle
-# 96x a day, the only market family that made money in Seasons 1-2, and the one
-# with months of history to backtest on.
-crypto_series: [KXBTC15M]
+# Bitcoin since Season 3: "will BTC be up in 15 minutes?" markets settle 96x a
+# day, the only market family that made money in Seasons 1-2, and the one with
+# months of history to backtest on. ETH's 15-minute markets joined 2026-10-17
+# (pretend money): same rules, fees and exchange shard, about 1/15th the trading.
+# Tuning and backtests still use bitcoin only (desk/autotune.py TUNE_SERIES).
+crypto_series: [KXBTC15M, KXETH15M]
 slow_series: []
-crypto_symbols: [BTC]
+crypto_symbols: [BTC, ETH]
 crypto_horizon_hours: 1
 
 broad_scan: false         # no sports, weather, or other non-bitcoin markets
@@ -36,10 +38,12 @@ liquidity_share: 0.5      # assume faster bots take half of every displayed orde
 # training period and the unseen test period. PROBATION means no tested
 # setting made money, so the employee only bets on rare, very strong signals.
 strategies:
-  sniper:                 # 🎯 The Sniper - TUNED: only 97%+ sure, last 5 minutes
-    min_win_prob: 0.97
-    max_seconds: 300
-    vol_multiplier: 1.5
+  sniper:                 # 🎯 The Sniper - LOOSENED 10-17 (pretend money): 90%+ sure, last 10 minutes.
+    min_win_prob: 0.90    # was 0.97 / last 5 min: one idea in 6 hours, no bets all season
+    max_seconds: 600
+    vol_multiplier: 1.25
+    min_edge: 0.01
+    min_price: 0.75
     max_bet: 50
   longshot_fade:          # 🧊 Buzzkill Bill - TUNED: fade 5-15c long shots, never in the last 10 minutes
     min_yes: 0.05

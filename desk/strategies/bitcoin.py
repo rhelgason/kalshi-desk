@@ -29,6 +29,8 @@ from desk.kalshi.models import Market, Side
 from desk.strategies.base import AccountView, Leg, Persona, Snapshot, Strategy, TradeIntent
 from desk.strategies.behavioral import BandBettor, NickelNick
 
+COIN = {"BTC": "bitcoin", "ETH": "ether", "SOL": "solana"}  # for the reason text
+
 
 class BreakoutBetty(Strategy):
     key = "breakout"
@@ -75,7 +77,7 @@ class BreakoutBetty(Strategy):
             cash -= count * price
             out.append(TradeIntent(
                 strategy=self.key, legs=[Leg(m.ticker, side, price, count)],
-                reason=f"bitcoin {'up' if move > 0 else 'down'} {abs(move) * 100:.2f}% in {self.window} min; "
+                reason=f"{COIN.get(q.symbol, q.symbol)} {'up' if move > 0 else 'down'} {abs(move) * 100:.2f}% in {self.window} min; "
                        f"{side.value.upper()} still only {price:.2f} with {secs / 60:.0f} min left",
             ))
         return out
