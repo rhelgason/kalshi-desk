@@ -273,13 +273,14 @@ export async function getBtcSeries(hours = 3): Promise<Point[]> {
 
 /** Bets settled and won by the pool's members, today (in the pool's time zone) and all season. */
 export async function getPoolRecord(season: number, members: string[], tz: string) {
-  if (!members.length) return { today: { n: 0, won: 0 }, season: { n: 0, won: 0 } };
+  // Grouped by employee and filtered here: with fetch_types off, postgres.js can't send an array parameter
   const rows = await db()`
-    SELECT count(*)::int AS n, coalesce(sum(CASE WHEN pnl > 0 THEN 1 ELSE 0 END), 0)::int AS won,
+    SELECT strategy, count(*)::int AS n, coalesce(sum(CASE WHEN pnl > 0 THEN 1 ELSE 0 END), 0)::int AS won,
            count(*) FILTER (WHERE (ts::timestamptz AT TIME ZONE ${tz})::date = (now() AT TIME ZONE ${tz})::date)::int AS n_today,
            coalesce(sum(CASE WHEN pnl > 0 AND (ts::timestamptz AT TIME ZONE ${tz})::date = (now() AT TIME ZONE ${tz})::date
                         THEN 1 ELSE 0 END), 0)::int AS won_today
-    FROM settlements WHERE season = ${season} AND strategy = ANY(${members})`;
-  const r = rows[0];
-  return { today: { n: r.n_today, won: r.won_today }, season: { n: r.n, won: r.won } };
+    FROM settlements WHERE season = ${season} GROUP BY strategy`;
+  const mine = rows.filter((r) => members.includes(r.strategy));
+  const sum = (k: string) => mine.reduce((s, r) => s + Number(r[k]), 0);
+  return { today: { n: sum("n_today"), won: sum("won_today") }, season: { n: sum("n"), won: sum("won") } };
 }

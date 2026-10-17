@@ -39,7 +39,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
 
   const employees = withRoster(live.employees, roster);
   const record = live.pool
-    ? await getPoolRecord(policy.season, poolKeys(live), live.pool.settings?.timezone || "America/Vancouver").catch(() => undefined)
+    ? await getPoolRecord(policy.season, poolKeys(live), live.pool.settings?.timezone || "America/Vancouver")
+      .catch((e) => { console.error("pool record failed:", e); return undefined; })
     : undefined;
   // "Your money" is the office pool: the control group's paper money isn't part of it
   const members = new Set(poolKeys(live));
