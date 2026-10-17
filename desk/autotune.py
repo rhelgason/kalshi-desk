@@ -38,7 +38,7 @@ SEARCH_SPACES: dict[str, dict[str, list[Any]]] = {
                       "min_seconds": [300, 600, 900]},
     "longshot_fade": {"min_yes": [0.03, 0.05, 0.08], "max_yes": [0.12, 0.15, 0.20],
                       "min_seconds": [300, 600, 900]},
-    "sniper": {"min_win_prob": [0.85, 0.90, 0.95], "max_seconds": [300, 600, 900],
+    "sniper": {"min_win_prob": [0.85, 0.90, 0.95], "max_seconds": [120, 180, 300],  # a closer: last 5 minutes
                "vol_multiplier": [1.0, 1.25, 1.5]},
     "fair_value": {"market_weight": [0.7, 0.8, 0.9], "min_edge": [0.04, 0.06, 0.08, 0.12]},
     "momentum": {"momentum_window": [5, 15, 60], "market_weight": [0.8, 0.9], "min_edge": [0.04, 0.08]},

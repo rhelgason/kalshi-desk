@@ -155,7 +155,7 @@ async def run_cloud_tick(ledger: Optional[Ledger] = None, config_path: Optional[
     cfg = DeskConfig.load(config_path or str(Path(__file__).resolve().parent.parent / "desk.yaml"))
     for k, v in CLOUD_OVERRIDES.items():
         setattr(cfg, k, v)
-    ledger = ledger or Ledger(cfg.db_path)
+    ledger = ledger or Ledger(cfg.db_path, cfg.schema)
 
     if not ledger.try_lease(LEASE, LEASE_SECONDS):
         return {"ok": False, "skipped": "another run is in progress"}
@@ -270,3 +270,26 @@ async def run_cloud_tick(ledger: Optional[Ledger] = None, config_path: Optional[
         }
     finally:
         ledger.release_lease(LEASE)
+
+
+async def run_all_books(config_path: Optional[str] = None) -> dict:
+    """One run of every book: the real-money book first (if desk.yaml names one), then the pretend
+    pool. Each has its own ledger schema and lease; one failing never stops the other."""
+    from desk.live.guard import ENV_SWITCH, env_allows_live
+
+    path = Path(config_path or Path(__file__).resolve().parent.parent / "desk.yaml")
+    cfg = DeskConfig.load(path)
+    out: dict = {}
+    if cfg.real_book:
+        real_path = path.parent / cfg.real_book
+        if DeskConfig.load(real_path).trading == "live" and not env_allows_live():
+            # Not set up on this host yet: wait quietly rather than fail every run
+            out["real"] = {"ok": True, "skipped": f"{ENV_SWITCH}=yes isn't set on the bot"}
+        else:
+            try:
+                out["real"] = await run_cloud_tick(config_path=str(real_path))
+            except Exception as e:  # e.g. the API key is missing: report it, keep the pretend pool running
+                logger.exception("real book failed")
+                out["real"] = {"ok": False, "error": f"{type(e).__name__}: {e}"}
+    out["pretend"] = await run_cloud_tick(config_path=str(path))
+    return {"ok": all(r.get("ok") for r in out.values()), **out}

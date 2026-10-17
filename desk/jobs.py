@@ -92,7 +92,7 @@ def nightly_backtest(ledger: Ledger, cfg: DeskConfig, data, fees, depth: float =
 
 
 async def run_jobs(cfg: DeskConfig, backfill_seconds: float = 600, force_tune: bool = False) -> dict:
-    ledger = Ledger(cfg.db_path)
+    ledger = Ledger(cfg.db_path, cfg.schema)
     policy = hr.load_policy(ledger)
     lookback = float(policy["autotune"]["lookback_days"])
     now = datetime.now(timezone.utc)

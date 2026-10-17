@@ -63,6 +63,16 @@ class DeskConfig:
     trading: str = "paper"
     live: dict[str, Any] = field(default_factory=dict)
 
+    # Books: the pretend pool (training data, every employee) and the real-money
+    # pool run side by side, each with its own roster, levels and records.
+    # `schema` keeps a book's tables apart in Postgres; `real_book` (on the
+    # pretend book's config) names the real book's config file so the hosted bot
+    # runs both every tick. While its `env` is demo, the "real" book is practice.
+    book: str = "pretend"
+    schema: str = "public"
+    real_book: str | None = None
+    auto_hr: bool = True  # automatic reviews and promotions; off for real money (the manager decides)
+
     strategies: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     @classmethod
@@ -71,17 +81,31 @@ class DeskConfig:
         if path is not None and Path(path).exists():
             raw = yaml.safe_load(Path(path).read_text()) or {}
         if raw.get("extends"):
-            # e.g. desk.demo.yaml: everything from desk.yaml, with a few keys changed
+            # e.g. desk.real.yaml: everything from desk.yaml, with a few keys changed.
+            # Nested settings merge one level down, so `strategies: {dart_monkey: {enabled: false}}`
+            # switches one employee off without dropping everyone else's settings.
             base_path = Path(path).parent / raw.pop("extends")
             base = yaml.safe_load(base_path.read_text()) or {}
-            raw = {**base, **raw}
+            raw = {**base, **{k: _merge(base.get(k), v) for k, v in raw.items()}}
         known = {f.name for f in fields(cls)}
         unknown = set(raw) - known
         if unknown:
             raise ValueError(f"Unknown keys in {path}: {sorted(unknown)}")
         cfg = cls(**raw)
+        if cfg.book not in ("pretend", "real"):
+            raise ValueError(f"book must be pretend or real, not {cfg.book!r}")
         if cfg.trading not in ("paper", "live"):
             raise ValueError(f"trading must be paper or live, not {cfg.trading!r}")
         if cfg.use_database_url and os.getenv("DATABASE_URL"):
             cfg.db_path = os.environ["DATABASE_URL"]
         return cfg
+
+
+def _merge(base: Any, over: Any) -> Any:
+    """`over` on top of `base`; for a dict of dicts (strategies), each inner dict merges too."""
+    if not (isinstance(base, dict) and isinstance(over, dict)):
+        return over
+    out = dict(base)
+    for k, v in over.items():
+        out[k] = {**base[k], **v} if isinstance(base.get(k), dict) and isinstance(v, dict) else v
+    return out

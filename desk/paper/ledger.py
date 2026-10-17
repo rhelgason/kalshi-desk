@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -222,6 +223,19 @@ TABLES = ("accounts", "fills", "settlements", "equity", "events", "status", "bac
           "employees", "settings", "tuning_runs", "market_history", "price_history", "decisions", "market_tape",
           "runs", "orders")
 SEASONED = ("fills", "settlements", "equity")
+# Market data both books read; everything else belongs to one book (see Ledger's `schema`)
+SHARED_TABLES = ("backtests", "tuning_runs", "market_history", "price_history")
+BOOK_TABLES = tuple(t for t in TABLES if t not in SHARED_TABLES)
+# A book table right after a keyword that names a table (not `equity.ts`-style column references)
+_BOOK_TABLE_RE = re.compile(r"\b(FROM|INTO|UPDATE|JOIN|TABLE|EXISTS|ON)(\s+)(" + "|".join(BOOK_TABLES) + r")\b(?!\.)",
+                            re.IGNORECASE)
+
+
+def qualify(sql: str, schema: Optional[str]) -> str:
+    """Point a query's book tables at `schema` (real money lives in its own); shared tables stay in public."""
+    if not schema or schema == "public":
+        return sql
+    return _BOOK_TABLE_RE.sub(lambda m: f"{m.group(1)}{m.group(2)}{schema}.{m.group(3)}", sql)
 # Fill reality check: what the employee saw vs. what the paper fill got
 FILL_REALISM = (("seen_price", "REAL"), ("book_depth", "REAL"), ("latency_ms", "INTEGER"),
                 # JSON: what the employee saw when deciding (prices, bitcoin, time left, settings)
@@ -239,14 +253,17 @@ def is_postgres(url: str) -> bool:
 class _Postgres:
     """Thin adapter so Ledger can speak SQLite-flavored SQL to Postgres."""
 
-    def __init__(self, url: str):
+    def __init__(self, url: str, schema: Optional[str] = None):
         import psycopg
         from psycopg.rows import dict_row
 
         self._psycopg = psycopg
         self._url = url
         self._dict_row = dict_row
+        self.schema = schema
         self._connect()
+        if schema and schema != "public":
+            self.conn.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
 
     def _connect(self) -> None:
         # prepare_threshold=None: Supabase's pooler doesn't support prepared statements
@@ -264,7 +281,7 @@ class _Postgres:
         return sql.replace("%", "%%").replace("?", "%s")
 
     def execute(self, sql: str, params: tuple = ()):
-        sql = self.translate(sql)
+        sql = self.translate(qualify(sql, self.schema))
         for attempt in range(2):
             try:
                 return self.conn.execute(sql, params)
@@ -287,10 +304,15 @@ class _Postgres:
 
 
 class Ledger:
-    def __init__(self, path: str | Path = ":memory:"):
+    def __init__(self, path: str | Path = ":memory:", schema: Optional[str] = None):
+        """`schema` keeps a book's tables apart on Postgres (the real-money book uses "real");
+        on SQLite each book simply uses its own file."""
         self.url = str(path)
+        if schema and not re.fullmatch(r"[a-z_]+", schema):
+            raise ValueError(f"bad schema name {schema!r}")
+        self.schema = schema if is_postgres(self.url) and schema != "public" else None
         if is_postgres(self.url):
-            self.db = _Postgres(self.url)
+            self.db = _Postgres(self.url, self.schema)
         else:
             if self.url != ":memory:":
                 Path(self.url).parent.mkdir(parents=True, exist_ok=True)
@@ -329,7 +351,7 @@ class Ledger:
         return isinstance(self.db, _Postgres)
 
     def _schema_is_current(self) -> bool:
-        if self.db.execute("SELECT to_regclass('public.settings') AS t").fetchone()["t"] is None:
+        if self.db.execute(f"SELECT to_regclass('{self.schema or 'public'}.settings') AS t").fetchone()["t"] is None:
             return False
         row = self.db.execute("SELECT data FROM settings WHERE key = 'schema'").fetchone()
         return bool(row) and json.loads(row["data"]).get("version") == SCHEMA_VERSION

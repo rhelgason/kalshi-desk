@@ -1,0 +1,35 @@
+# The real-money book. It runs beside the pretend pool on every hosted run
+# (desk.yaml `real_book`), with its own roster, levels, records and kill switch,
+# kept in the database's "real" schema.
+#
+# While `env: demo` it trades Kalshi's DEMO exchange (practice money): the
+# website labels it "Practice". For real money:
+#   1. Kalshi API key from kalshi.com (not demo) in the bot's KALSHI_API_KEY_ID /
+#      KALSHI_PRIVATE_KEY; deposit and `python -m desk live-check --config desk.real.yaml --fund`
+#   2. env: prod below, then `python -m desk new-season --config desk.real.yaml --pool <deposit> --level ...`
+#
+# Live orders also need KALSHI_LIVE_TRADING=yes on the bot; without it this book stops with an error.
+extends: desk.yaml
+book: real
+schema: real
+real_book: null
+env: demo
+trading: live
+auto_hr: false            # no automatic reviews or promotions with real money: the manager decides
+pool_cash: 100
+starting_cash: 100
+
+# Bitcoin only until ETH proves itself on pretend money
+crypto_series: [KXBTC15M]
+crypto_symbols: [BTC]
+
+live:
+  max_order_dollars: 10   # no single order above this
+  max_orders_per_day: 200
+  max_daily_loss: 20      # dollars down since midnight: halt until resumed
+  max_drift: 1            # dollars the books may differ from Kalshi's balance
+
+strategies:
+  # The control group stays on pretend money: they're there to lose
+  dart_monkey: {enabled: false}
+  longshot_buy: {enabled: false}

@@ -695,7 +695,8 @@ class Desk:
         if self.guard:
             with j.phase("reconcile"):
                 await self.reconcile_live()
-        if hr.review_due(self.policy, now):
+        # The real-money book has no automatic reviews: the manager hires, fires and levels by hand
+        if self.config.auto_hr and hr.review_due(self.policy, now):
             with j.phase("review"):
                 for a in hr.run_review(self.ledger, self.roster, self.accounts, self.policy, now,
                                        evidence=self.compute_evidence(), pool=self.pool.equity or None):
@@ -854,6 +855,7 @@ class Desk:
             "started_at": self.started_at.isoformat(),
             "tick_count": self.tick_count,
             "env": self.config.env,
+            "book": self.config.book,
             "tick_seconds": self.config.tick_seconds,
             "season": self.ledger.season,
             "hr": {

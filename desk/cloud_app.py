@@ -49,10 +49,10 @@ async def app(scope, receive, send):
     if not secret or not hmac.compare_digest(auth, f"Bearer {secret}"):
         return await _send(send, 401, {"error": "unauthorized"})
 
-    from desk.cloud import run_cloud_tick
+    from desk.cloud import run_all_books
 
     try:
-        result = await run_cloud_tick()
+        result = await run_all_books()
         await _send(send, 200, result)
     except Exception as e:  # report, don't crash the worker
         logging.exception("tick failed")

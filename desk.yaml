@@ -22,6 +22,9 @@ slow_series: []
 crypto_symbols: [BTC, ETH]
 crypto_horizon_hours: 1
 
+# The real-money book (its own roster and records) runs beside this one every hosted run
+real_book: desk.real.yaml
+
 broad_scan: false         # no sports, weather, or other non-bitcoin markets
 
 liquidity_share: 0.5      # assume faster bots take half of every displayed order
@@ -38,9 +41,9 @@ liquidity_share: 0.5      # assume faster bots take half of every displayed orde
 # training period and the unseen test period. PROBATION means no tested
 # setting made money, so the employee only bets on rare, very strong signals.
 strategies:
-  sniper:                 # 🎯 The Sniper - LOOSENED 10-17 (pretend money): 90%+ sure, last 10 minutes.
-    min_win_prob: 0.90    # was 0.97 / last 5 min: one idea in 6 hours, no bets all season
-    max_seconds: 600
+  sniper:                 # 🎯 The Sniper - LOOSENED 10-17 (pretend money): 90%+ sure, last 5 minutes only.
+    min_win_prob: 0.90    # was 0.97: one idea in 6 hours, no bets all season
+    max_seconds: 300
     vol_multiplier: 1.25
     min_edge: 0.01
     min_price: 0.75

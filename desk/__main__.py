@@ -25,6 +25,7 @@ import argparse
 import asyncio
 import logging
 import sys
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -111,7 +112,7 @@ async def cmd_scan(cfg: DeskConfig) -> None:
 
 
 async def cmd_paper(cfg: DeskConfig, record: str | None) -> None:
-    ledger = Ledger(cfg.db_path)
+    ledger = Ledger(cfg.db_path, cfg.schema)
     desk = _make_desk(cfg, ledger, record)
     try:
         await desk.run_forever()
@@ -139,7 +140,7 @@ async def live_marks(cfg: DeskConfig, tickers: list[str]) -> dict[str, float]:
 
 
 def cmd_report(cfg: DeskConfig, offline: bool) -> None:
-    ledger = Ledger(cfg.db_path)
+    ledger = Ledger(cfg.db_path, cfg.schema)
     strategies = build_strategies(cfg.strategies)
     accounts = ledger.load_accounts(cfg.starting_cash, [s.key for s in strategies])
     personas = {s.key: f"{s.persona.emoji} {s.persona.name} ({s.key})" for s in strategies}
@@ -160,7 +161,7 @@ def cmd_report(cfg: DeskConfig, offline: bool) -> None:
 def cmd_accuracy(cfg: DeskConfig, db: str | None, detail: str | None) -> None:
     from desk.paper.accuracy import accuracy_report, format_accuracy
 
-    ledger = Ledger(db or cfg.db_path)
+    ledger = Ledger(db or cfg.db_path, cfg.schema)
     strategies = build_strategies(cfg.strategies)
     personas = {s.key: f"{s.persona.emoji} {s.persona.name} ({s.key})" for s in strategies}
     summaries = accuracy_report(ledger, [s.key for s in strategies])
@@ -224,7 +225,7 @@ async def cmd_backtest(cfg: DeskConfig, days: float, series: list[str], fill_del
                                 for s in strategies]
         (out / f"{stamp}.json").write_text(json.dumps(summary, indent=1, default=str))
         if is_postgres(cfg.db_path):
-            Ledger(cfg.db_path).save_backtest(stamp, summary)
+            Ledger(cfg.db_path, cfg.schema).save_backtest(stamp, summary)
             print("Uploaded summary to the dashboard database.")
         print(f"\nSaved to data/backtests/{stamp}.db and .json "
               f"(try: python -m desk accuracy --db data/backtests/{stamp}.db --employee fair_value)")
@@ -237,7 +238,7 @@ def cmd_migrate(cfg: DeskConfig, source: str, upload_backtests: bool) -> None:
     if not is_postgres(cfg.db_path):
         print("Set DATABASE_URL (in .env) to your Postgres connection string first.")
         return
-    dest = Ledger(cfg.db_path)
+    dest = Ledger(cfg.db_path, cfg.schema)
     if Path(source).exists():
         if dest.fills():
             print("Destination already has fills; skipping ledger copy to avoid duplicates.")
@@ -300,7 +301,7 @@ def cmd_review(cfg: DeskConfig, days: float, out: str | None) -> None:
 
     from desk.review import build_review
 
-    text = build_review(Ledger(cfg.db_path), days)
+    text = build_review(Ledger(cfg.db_path, cfg.schema), days)
     if out:
         Path(out).parent.mkdir(parents=True, exist_ok=True)
         Path(out).write_text(text)
@@ -312,7 +313,7 @@ def cmd_review(cfg: DeskConfig, days: float, out: str | None) -> None:
 def cmd_new_season(cfg: DeskConfig, pool: float | None, levels: list[str], why: str) -> None:
     from desk import hr
 
-    ledger = Ledger(cfg.db_path)
+    ledger = Ledger(cfg.db_path, cfg.schema)
     titles = {t.lower(): i for i, (t, _) in enumerate(hr.LEVELS)}
     wanted = {}
     for item in levels:
@@ -334,12 +335,12 @@ def cmd_log(cfg: DeskConfig, hours: float, verbose: bool, employee: str | None) 
     from desk.journal import format_runs
 
     since = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
-    rows = Ledger(cfg.db_path).recent_runs(since)
+    rows = Ledger(cfg.db_path, cfg.schema).recent_runs(since)
     if employee:
         for r in rows:
             r["summary"]["employees"] = {k: v for k, v in (r["summary"].get("employees") or {}).items() if k == employee}
     print(format_runs(rows, verbose=verbose))
-    errors = Ledger(cfg.db_path)._rows("SELECT ts, detail FROM events WHERE kind = 'error' AND ts >= ? ORDER BY id",
+    errors = Ledger(cfg.db_path, cfg.schema)._rows("SELECT ts, detail FROM events WHERE kind = 'error' AND ts >= ? ORDER BY id",
                                        (since,))
     if errors:
         print("\nErrors:")
@@ -347,12 +348,15 @@ def cmd_log(cfg: DeskConfig, hours: float, verbose: bool, employee: str | None) 
             print(f"  {e['ts'][:19]} {e['detail'][:300]}")
 
 
-def cmd_health(cfg: DeskConfig, max_quiet_minutes: float = 15) -> int:
+def cmd_health(cfg: DeskConfig, config_path: str = "desk.yaml", max_quiet_minutes: float = 15) -> int:
     from datetime import datetime, timedelta, timezone
 
-    ledger = Ledger(cfg.db_path)
+    ledger = Ledger(cfg.db_path, cfg.schema)
     live = ledger.get_status("live")
     if not live:
+        if cfg.book == "real":
+            print("not running yet (waiting for its Kalshi key on the bot)")
+            return 0
         print("The bot has never reported.")
         return 1
     quiet = (datetime.now(timezone.utc) - datetime.fromisoformat(live["updated_at"])).total_seconds() / 60
@@ -367,6 +371,12 @@ def cmd_health(cfg: DeskConfig, max_quiet_minutes: float = 15) -> int:
     if quiet > max_quiet_minutes:
         print(f"UNHEALTHY: no report for {quiet:.0f} minutes")
         return 1
+    if cfg.real_book:
+        # The real-money book runs on the same schedule: it has to be reporting too
+        real_path = Path(config_path).parent / cfg.real_book
+        real = DeskConfig.load(real_path)
+        print(f"{real.book.title()} book ({real.env}): ", end="")
+        return cmd_health(real, str(real_path), max_quiet_minutes)
     return 0
 
 
@@ -447,7 +457,7 @@ async def cmd_live_check(cfg: DeskConfig, order: bool, fund: bool = False) -> in
 def cmd_halt(cfg: DeskConfig, reason: str, resume: bool) -> None:
     from desk.live.guard import Guard
 
-    guard = Guard(Ledger(cfg.db_path), cfg.live)
+    guard = Guard(Ledger(cfg.db_path, cfg.schema), cfg.live)
     if resume:
         guard.resume(by="command line")
         print("Real trading may resume on the bot's next run (books re-checked against Kalshi from scratch).")
@@ -479,7 +489,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--config", default="desk.yaml")
     parser.add_argument("-v", "--verbose", action="store_true")
     sub = parser.add_subparsers(dest="cmd", required=True)
-    # --config / -v also work after the command (python -m desk paper --config desk.demo.yaml)
+    # --config / -v also work after the command (python -m desk live-check --config desk.real.yaml)
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument("--config", default=argparse.SUPPRESS)
     common.add_argument("-v", "--verbose", action="store_true", default=argparse.SUPPRESS)
@@ -566,7 +576,7 @@ def main(argv: list[str] | None = None) -> int:
         elif args.cmd == "log":
             cmd_log(cfg, args.hours, args.all, args.employee)
         elif args.cmd == "health":
-            return cmd_health(cfg)
+            return cmd_health(cfg, args.config)
         elif args.cmd == "live-check":
             return asyncio.run(cmd_live_check(cfg, args.order, args.fund))
         elif args.cmd in ("halt", "resume"):
