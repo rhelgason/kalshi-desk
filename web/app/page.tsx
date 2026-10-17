@@ -12,7 +12,7 @@ import TeamList from "@/components/TeamList";
 import TradeFeed from "@/components/TradeFeed";
 import { isAdmin } from "@/lib/admin";
 import { advise, betsPerDay, light } from "@/lib/advice";
-import { getAnalysis, getHistory, getLive, getNews, getPolicy, getRecentFills, getRoster, withRoster } from "@/lib/db";
+import { getAnalysis, getHistory, getLive, getNews, getPolicy, getPoolRecord, getRecentFills, getRoster, withRoster } from "@/lib/db";
 import { dollars, pct } from "@/lib/format";
 import { only, parseRange, poolKeys, portfolioSeries, profitSeries } from "@/lib/portfolio";
 import { poolShare } from "@/lib/hr";
@@ -38,6 +38,9 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
   if (!live) return <Setup error="The bot hasn't published a status yet. Is it running?" />;
 
   const employees = withRoster(live.employees, roster);
+  const record = live.pool
+    ? await getPoolRecord(policy.season, poolKeys(live), live.pool.settings?.timezone || "America/Vancouver").catch(() => undefined)
+    : undefined;
   // "Your money" is the office pool: the control group's paper money isn't part of it
   const members = new Set(poolKeys(live));
   const team = employees.filter((e) => members.has(e.key));
@@ -90,7 +93,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
           {team.length} employees share one pool. An Associate&apos;s bet is {poolShare(1, pool?.settings.bet_pct)} of it
           {pool ? <> ({dollars(pool.bet)} right now)</> : null}.
         </div>
-        {pool && <PoolGauges pool={pool} />}
+        {pool && <PoolGauges pool={pool} record={record} />}
 
         <RangeTabs value={range} path="/" />
         <MoneyChart points={points} period={RANGE_WORDS[range]}

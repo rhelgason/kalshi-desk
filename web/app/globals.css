@@ -316,3 +316,16 @@ body { background: radial-gradient(ellipse at top, #1d1840 0%, var(--page) 60%) 
 .hero-quote { margin-top: 8px; font-size: 16px; font-style: italic; }
 .how-they-bet { margin: 8px 0 0; color: var(--text-secondary, var(--text-muted)); max-width: 60ch; line-height: 1.5; }
 .pool-gauges { margin: 10px 0 4px; }
+
+/* While a new time range loads, the chart under the tabs dims */
+.seg[data-pending] + * { opacity: 0.45; transition: opacity 0.15s; }
+
+/* Level chips on the team list: brighter as the level (and bet size) goes up */
+.team .name-line { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.lvl { flex: none; font-family: var(--pixel); font-size: 7px; line-height: 1; padding: 4px 5px 3px; border-radius: 2px;
+  text-transform: uppercase; letter-spacing: 0.04em; border: 1px solid var(--border); color: var(--text-secondary); }
+.lvl-0 { opacity: 0.75; }
+.lvl-1 { color: var(--text-primary); }
+.lvl-2 { background: var(--coin); border-color: var(--coin); color: #1b1733; }
+.lvl-3, .lvl-4 { background: var(--text-primary); border-color: var(--text-primary); color: var(--page); }
+.lvl-yard { border-style: dashed; }
