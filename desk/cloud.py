@@ -282,6 +282,9 @@ async def run_all_books(config_path: Optional[str] = None) -> dict:
     out: dict = {}
     if cfg.real_book:
         real_path = path.parent / cfg.real_book
+        if not real_path.exists():
+            # Never fall back to defaults: that would be a second, misconfigured pretend run
+            raise FileNotFoundError(f"real book config {real_path} is missing (is it in vercel.json includeFiles?)")
         if DeskConfig.load(real_path).trading == "live" and not env_allows_live():
             # Not set up on this host yet: wait quietly rather than fail every run
             out["real"] = {"ok": True, "skipped": f"{ENV_SWITCH}=yes isn't set on the bot"}
