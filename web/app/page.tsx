@@ -10,9 +10,12 @@ import Spotlight from "@/components/Spotlight";
 import StatusPill from "@/components/StatusPill";
 import TeamList from "@/components/TeamList";
 import TradeFeed from "@/components/TradeFeed";
+import { CoinSummary } from "@/components/CoinTabs";
 import { isAdmin } from "@/lib/admin";
 import { advise, betsPerDay, light } from "@/lib/advice";
-import { getAnalysis, getHistory, getLive, getNews, getPolicy, getPoolRecord, getRecentFills, getRoster, withRoster } from "@/lib/db";
+import CoinTabs, { coinByEmployee, coinTotal, parseCoin } from "@/components/CoinTabs";
+import { bookLabel, getRealBook, viewedBook } from "@/lib/book";
+import { getAnalysis, getCoinStats, getHistory, getLive, getNews, getPolicy, getPoolRecord, getRecentFills, getRoster, withRoster } from "@/lib/db";
 import { dollars, pct } from "@/lib/format";
 import { only, parseRange, poolKeys, portfolioSeries, profitSeries } from "@/lib/portfolio";
 import { poolShare } from "@/lib/hr";
@@ -22,24 +25,29 @@ export const dynamic = "force-dynamic";
 const RANGE_WORDS = { day: "Today", week: "This week", month: "This month", quarter: "Last 3 months", season: "Since the start" };
 
 export default async function Home({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
-  const range = parseRange((await searchParams).range);
+  const params = await searchParams;
+  const range = parseRange(params.range);
+  const coin = parseCoin(params.coin);
   let data;
   try {
-    const policy = await getPolicy();
-    const [live, fills, roster, news, analysis, history, season, admin] = await Promise.all([
-      getLive(), getRecentFills(policy.season, 25), getRoster(), getNews(40), getAnalysis(),
-      getHistory(policy.season, range), range === "season" ? null : getHistory(policy.season, "season"), isAdmin(),
+    const [book, realBook] = await Promise.all([viewedBook(), getRealBook()]);
+    const policy = await getPolicy(book);
+    const [live, fills, roster, news, analysis, history, season, admin, coins] = await Promise.all([
+      getLive(book), getRecentFills(book, policy.season, 25), getRoster(book), getNews(book, 40), getAnalysis(book),
+      getHistory(book, policy.season, range), range === "season" ? null : getHistory(book, policy.season, "season"), isAdmin(),
+      getCoinStats(book, policy.season),
     ]);
-    data = { live, fills, roster, news, policy, analysis, history, season: season ?? history, admin };
+    data = { book, realBook, live, fills, roster, news, policy, analysis, history, season: season ?? history, admin, coins };
   } catch (e) {
     return <Setup error={String(e)} />;
   }
-  const { live, fills, roster, news, policy, analysis, history, season, admin } = data;
+  const { book, realBook, live, fills, roster, news, policy, analysis, history, season, admin, coins } = data;
+  const label = bookLabel(book, realBook);
   if (!live) return <Setup error="The bot hasn't published a status yet. Is it running?" />;
 
   const employees = withRoster(live.employees, roster);
   const record = live.pool
-    ? await getPoolRecord(policy.season, poolKeys(live), live.pool.settings?.timezone || "America/Vancouver")
+    ? await getPoolRecord(book, policy.season, poolKeys(live), live.pool.settings?.timezone || "America/Vancouver")
       .catch((e) => { console.error("pool record failed:", e); return undefined; })
     : undefined;
   // "Your money" is the office pool: the control group's paper money isn't part of it
@@ -84,7 +92,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
       <section className="card money-hero">
         <div className="row-btns" style={{ justifyContent: "space-between" }}>
           <span className="label">Your money</span>
-          <span className="badge" title="The employees trade with pretend money against real Kalshi prices">🧪 Pretend money</span>
+          <span className={`badge book-${label.name.toLowerCase()}`} title={label.title}>{label.badge}</span>
         </div>
         <div className="big-number">{dollars(worth)}</div>
         <div className={`change ${profit >= 0 ? "up" : "down"}`}>
@@ -141,8 +149,12 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
       </section>
 
       <section className="card">
-        <h2>Your team</h2>
-        <TeamList rows={rows} />
+        <div className="row-btns" style={{ justifyContent: "space-between" }}>
+          <h2>Your team</h2>
+          <CoinTabs value={coin} coins={coins} params={params} />
+        </div>
+        {coin !== "all" && <CoinSummary coin={coin} total={coinTotal(coins, coin, members)} />}
+        <TeamList rows={rows} coin={coin === "all" ? undefined : { name: coin, stats: coinByEmployee(coins, coin) }} />
       </section>
 
       <Spotlight award={award} employees={employees} policy={policy} />

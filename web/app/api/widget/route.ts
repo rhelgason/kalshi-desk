@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { defaultBook } from "@/lib/book";
 import { db, getHistory, getKillSwitch, getLive, getPolicy, getSeasonStart } from "@/lib/db";
 import { only, poolKeys, portfolioSeries, type RangeKey } from "@/lib/portfolio";
 
@@ -8,6 +9,7 @@ import { only, poolKeys, portfolioSeries, type RangeKey } from "@/lib/portfolio"
  *
  * The office pool's value now, a line of it over the last `days`, and a short
  * plain-English summary of today: up or down, bets won, who led, what's riding.
+ * Real money once a real-money book exists (not the demo practice), the pretend pool until then.
  */
 export const dynamic = "force-dynamic";
 
@@ -65,7 +67,8 @@ export async function GET(req: NextRequest) {
   const hours = Math.min(Math.max(q.get("hours") ? Number(q.get("hours")) : (Number(q.get("days")) || 7) * 24, 1), 24 * 90);
   const range: RangeKey = hours <= 24 ? "day" : hours <= 24 * 7 ? "week" : hours <= 24 * 30 ? "month" : "quarter";
 
-  const [live, policy, kill] = await Promise.all([getLive(), getPolicy(), getKillSwitch()]);
+  const book = await defaultBook();
+  const [live, policy, kill] = await Promise.all([getLive(book), getPolicy(book), getKillSwitch(book)]);
   if (!live?.pool) return NextResponse.json({ ok: false, error: "the bot hasn't reported yet" }, { status: 503 });
   const pool = live.pool;
   const tz = pool.settings?.timezone || "America/Vancouver";
@@ -74,9 +77,9 @@ export async function GET(req: NextRequest) {
   const start = now - hours * 3_600_000;
 
   const [history, seasonStart, todayRows] = await Promise.all([
-    getHistory(policy.season, range),
-    getSeasonStart(policy.season),
-    db()`SELECT strategy, count(*)::int AS n, sum(CASE WHEN pnl > 0 THEN 1 ELSE 0 END)::int AS won, sum(pnl) AS pnl
+    getHistory(book, policy.season, range),
+    getSeasonStart(book, policy.season),
+    db(book)`SELECT strategy, count(*)::int AS n, sum(CASE WHEN pnl > 0 THEN 1 ELSE 0 END)::int AS won, sum(pnl) AS pnl
          FROM settlements
          WHERE season = ${policy.season}
            AND (ts::timestamptz AT TIME ZONE ${tz})::date = (now() AT TIME ZONE ${tz})::date
@@ -108,6 +111,7 @@ export async function GET(req: NextRequest) {
     updated_at: live.updated_at,
     stale: now - Date.parse(live.updated_at) > STALE_MS,
     season: policy.season,
+    book, // "real" (real money) or "pretend"
     equity: pool.equity,
     capital: pool.capital,
     pnl: pool.pnl,

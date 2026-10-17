@@ -2,6 +2,7 @@ import PolicyForm from "@/components/PolicyForm";
 import RealMoney from "@/components/RealMoney";
 import Setup from "@/components/Setup";
 import { isAdmin } from "@/lib/admin";
+import { viewedBook } from "@/lib/book";
 import { getCoverage, getJobs, getKillSwitch, getLive, getPolicy } from "@/lib/db";
 import { ago } from "@/lib/format";
 import { LEVELS, awardName, poolShare } from "@/lib/hr";
@@ -11,8 +12,10 @@ export const dynamic = "force-dynamic";
 export default async function Handbook() {
   let data;
   try {
+    const book = await viewedBook();
+    // The rules are the viewed book's; the real-money panel is always about the real book
     const [policy, jobs, coverage, admin, live, killSwitch] = await Promise.all([
-      getPolicy(), getJobs(), getCoverage(), isAdmin(), getLive(), getKillSwitch(),
+      getPolicy(book), getJobs(), getCoverage(), isAdmin(), getLive("real").catch(() => null), getKillSwitch("real").catch(() => ({ halted: false })),
     ]);
     data = { policy, jobs, coverage, admin, trading: live?.trading ?? { mode: "paper" as const }, killSwitch };
   } catch (e) {

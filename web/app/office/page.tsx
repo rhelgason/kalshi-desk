@@ -1,6 +1,7 @@
 import AutoRefresh from "@/components/AutoRefresh";
 import Office from "@/components/Office";
 import Setup from "@/components/Setup";
+import { viewedBook } from "@/lib/book";
 import { getActivity, getBtcSeries, getHistory, getLive, getPolicy, getRoster, withRoster } from "@/lib/db";
 import { only, poolKeys, portfolioSeries } from "@/lib/portfolio";
 
@@ -9,9 +10,11 @@ export const dynamic = "force-dynamic";
 export default async function OfficePage() {
   let data;
   try {
-    const policy = await getPolicy();
+    const book = await viewedBook();
+    const policy = await getPolicy(book);
     const [live, roster, activity, history, btcSeries] = await Promise.all([
-      getLive(), getRoster(), getActivity(policy.season), getHistory(policy.season, "season"), getBtcSeries(),
+      getLive(book), getRoster(book), getActivity(book, policy.season), getHistory(book, policy.season, "season"),
+      getBtcSeries(book),
     ]);
     data = { policy, live, roster, activity, history, btcSeries };
   } catch (e) {

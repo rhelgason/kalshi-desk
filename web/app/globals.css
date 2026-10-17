@@ -329,3 +329,23 @@ body { background: radial-gradient(ellipse at top, #1d1840 0%, var(--page) 60%) 
 .lvl-2 { background: var(--coin); border-color: var(--coin); color: #1b1733; }
 .lvl-3, .lvl-4 { background: var(--text-primary); border-color: var(--text-primary); color: var(--page); }
 .lvl-yard { border-style: dashed; }
+
+/* Coin tabs on the team list: small, inline with the heading */
+.seg.seg-mini { margin: 0; flex: 0 1 auto; }
+.seg.seg-mini a { flex: none; padding: 6px 8px; }
+.coin-summary { margin: 4px 0 8px; }
+
+/* Which book this is: real money stands out */
+.badge.book-real { border-color: var(--up, #3ddc84); color: var(--up, #3ddc84); }
+.badge.book-practice { border-style: dashed; }
+.coin-split { list-style: none; margin: 10px 0 0; padding: 0; }
+.coin-split li { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; border-top: 1px solid var(--grid); }
+
+/* Real / Pretend tabs in the top bar */
+.book-tabs { gap: 2px; }
+.book-tabs button { font: inherit; font-family: var(--pixel); font-size: 8px; padding: 9px 8px; border: 0; border-radius: 2px;
+  background: transparent; color: var(--text-secondary); cursor: pointer; }
+.book-tabs button[aria-current="true"] { background: var(--coin); color: #1b1733; }
+.book-tabs button.book-real[aria-current="true"] { background: #3ddc84; }
+.book-tabs[data-pending] { opacity: 0.6; }
+@media (max-width: 600px) { .book-tabs button { padding: 8px 5px; font-size: 7px; } }

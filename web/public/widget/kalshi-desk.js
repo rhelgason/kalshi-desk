@@ -4,6 +4,7 @@
 // fetches this file from the dashboard and runs it, so the design can change
 // without pasting anything again. It runs with DASHBOARD and KEY passed in.
 //
+// Shows real money once a real-money book exists, the pretend pool until then.
 // Black and green, terminal style: the office pool's total, a line of it over
 // the last 7 days (the widget's Parameter sets the days), and a sentence about
 // today. Tap to open the dashboard.
@@ -107,7 +108,9 @@ function chart(d, w, h, labels = true) {
 function header(w, d, size) {
   const row = w.addStack();
   row.centerAlignContent();
-  text(row, d && d.mode === "live" ? "KALSHI DESK · LIVE" : "KALSHI DESK", size, G.dim, "bold");
+  // Real money once it exists; until then the pretend pool, labelled so it's never mistaken for real
+  const which = !d ? "" : d.book === "real" ? " · REAL" : " · PRETEND";
+  text(row, `KALSHI DESK${which}`, size, d && d.book === "real" ? G.mid : G.dim, "bold");
   row.addSpacer();
   if (!d) return;
   if (d.stale) text(row, `● OFFLINE ${fmt(d.updated_at, "h:mm a")}`, size, G.alert, "bold");
