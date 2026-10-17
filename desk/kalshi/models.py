@@ -104,6 +104,8 @@ class Market:
 
     # Filled in from the parent event / series when known
     series_ticker: str = ""
+    # Which exchange shard trades it; orders are paid from that shard's cash (crypto is 2)
+    exchange_index: int = 0
 
     @classmethod
     def from_api(cls, d: dict, series_ticker: str = "") -> "Market":
@@ -138,6 +140,7 @@ class Market:
             close_time=_ts(d.get("close_time")),
             expected_expiration_time=_ts(d.get("expected_expiration_time")),
             settlement_value=_f(settlement) if settlement not in (None, "") else None,
+            exchange_index=int(d.get("exchange_index") or 0),
             expiration_value=d.get("expiration_value") or "",
             rules_primary=d.get("rules_primary", ""),
             tick_size=tick,

@@ -71,7 +71,7 @@ class FakeKalshi:
         if float(o["fill_count_fp"]) >= o["count"] - 1e-9:
             o["status"] = "executed"
 
-    async def get_order(self, oid):
+    async def get_order(self, oid, ticker=None):
         return dict(self.orders[oid])
 
     async def get_fills(self, order_id=None, **kw):

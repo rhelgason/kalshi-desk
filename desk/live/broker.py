@@ -189,7 +189,7 @@ class LiveBroker(PaperBroker):
                 keep.append(o)  # paper bids are matched against the tape by match()
                 continue
             try:
-                order = await self.client.get_order(o.order_id)
+                order = await self.client.get_order(o.order_id, o.ticker)
             except KalshiAPIError as e:
                 logger.warning("Couldn't check bid %s on %s: %s", o.order_id, o.ticker, e)
                 keep.append(o)

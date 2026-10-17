@@ -13,6 +13,7 @@ Command line for the desk.
     python -m desk log --hours 6 what the bot did each run (bets, skips and why, warnings)
     python -m desk health        is the hosted bot running? (exit 1 if it has gone quiet)
     python -m desk live-check [--order]   test the Kalshi API key; --order places and cancels a tiny bid
+                      [--fund]    move the cash to the crypto shard, where bitcoin bets are paid from
     python -m desk halt "why" / resume    the real-money kill switch
     python -m desk employees     who works here
     python -m desk whoami        check your Kalshi API key (read-only)
@@ -369,8 +370,12 @@ def cmd_health(cfg: DeskConfig, max_quiet_minutes: float = 15) -> int:
     return 0
 
 
-async def cmd_live_check(cfg: DeskConfig, order: bool) -> int:
-    """Check the API key, balance and positions; with --order, place and cancel one tiny resting bid."""
+CRYPTO_SHARD = 2  # Kalshi trades crypto markets on exchange shard 2
+
+
+async def cmd_live_check(cfg: DeskConfig, order: bool, fund: bool = False) -> int:
+    """Check the API key, balance and positions; with --order, place and cancel one tiny resting bid.
+    With --fund, move the account's cash onto the crypto shard (and keep it there)."""
     import time
 
     signer = KalshiSigner.from_env()
@@ -381,6 +386,20 @@ async def cmd_live_check(cfg: DeskConfig, order: bool) -> int:
                             requests_per_second=cfg.requests_per_second) as client:
         print(f"Exchange: {cfg.env} ({client.base_url})")
         print(f"Balance: ${await client.get_balance():,.2f}")
+        shards = await client.get_shard_balances()
+        if len([v for v in shards.values() if v > 0.005]) > 1 or not shards.get(CRYPTO_SHARD, 0) > 0.005:
+            print("  by shard: " + ", ".join(f"#{k} ${v:,.2f}" for k, v in sorted(shards.items())))
+        target = await client.get_target_allocation()
+        if fund:
+            moved = sum(v for k, v in shards.items() if k != CRYPTO_SHARD)
+            for k, v in shards.items():
+                if k != CRYPTO_SHARD and v >= 0.01:
+                    await client.transfer_between_shards(v, k, CRYPTO_SHARD)
+            await client.set_target_allocation({CRYPTO_SHARD: 100})
+            print(f"Moved ${moved:,.2f} to shard {CRYPTO_SHARD} (crypto) and told Kalshi to keep new deposits there.")
+        elif shards.get(CRYPTO_SHARD, 0) < 0.005 or target != {CRYPTO_SHARD: 100}:
+            print(f"  Bitcoin markets are paid from shard {CRYPTO_SHARD}, which has "
+                  f"${shards.get(CRYPTO_SHARD, 0):,.2f}. Run with --fund to move the cash there.")
         positions = [p for p in await client.get_positions() if abs(float(p.get('position_fp') or 0)) > 0.005]
         print(f"Open positions: {len(positions)}; resting orders: {len(await client.get_orders(status='resting'))}")
         if not order:
@@ -402,12 +421,22 @@ async def cmd_live_check(cfg: DeskConfig, order: bool) -> int:
                                              post_only=True, expiration_ts=int(time.time()) + 120)
         except KalshiAPIError as e:
             print(f"  Kalshi refused the order: {e}")
-            if "balance" in str(e):
+            if "shard balance" in str(e):
+                print(f"  (The request itself was accepted; shard {market.exchange_index} has no cash. Try --fund.)")
+            elif "balance" in str(e):
                 print("  (The request itself was accepted; the account needs funds.)")
             return 1
         print(f"  accepted: order {resp.get('order_id')}, filled {resp.get('fill_count')}, "
               f"resting {resp.get('remaining_count')}")
-        got = await client.get_order(resp["order_id"])
+        got = {}
+        for _ in range(10):  # a new order takes Kalshi a few seconds to show up
+            try:
+                got = await client.get_order(resp["order_id"], market.ticker)
+                break
+            except KalshiAPIError as e:
+                if e.status != 404:
+                    raise
+                await asyncio.sleep(1)
         print(f"  Kalshi shows: status {got.get('status')}, count {got.get('initial_count_fp')}, "
               f"price {got.get('yes_price_dollars')}")
         print(f"  cancelled: {(await client.cancel_order(resp['order_id'], market.ticker)).get('reduced_by')} contracts")
@@ -500,6 +529,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("health", help="is the hosted bot running? exit 1 if it has gone quiet")
     lc = sub.add_parser("live-check", help="check the Kalshi API key; --order places and cancels a tiny bid")
     lc.add_argument("--order", action="store_true")
+    lc.add_argument("--fund", action="store_true", help="move the cash to the crypto shard and keep it there")
     ht = sub.add_parser("halt", help="kill switch: stop all real trading")
     ht.add_argument("reason", nargs="?", default="")
     sub.add_parser("resume", help="allow real trading again after a halt")
@@ -538,7 +568,7 @@ def main(argv: list[str] | None = None) -> int:
         elif args.cmd == "health":
             return cmd_health(cfg)
         elif args.cmd == "live-check":
-            return asyncio.run(cmd_live_check(cfg, args.order))
+            return asyncio.run(cmd_live_check(cfg, args.order, args.fund))
         elif args.cmd in ("halt", "resume"):
             cmd_halt(cfg, getattr(args, "reason", ""), args.cmd == "resume")
         elif args.cmd == "employees":

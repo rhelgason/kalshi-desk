@@ -133,3 +133,30 @@ async def test_fee_lookup_failure_is_not_remembered():
         assert not second.assumed and second.charges_maker_fees
         await c.get_fee_schedule("KXBTC15M")
     assert len(calls) == 2
+
+
+async def test_shard_balances_transfer_and_order_lookup():
+    """Crypto markets are paid from shard 2: read each shard, move cash there, and look orders up by market."""
+    seen = []
+
+    def handler(req):
+        seen.append((req.method, req.url.path, dict(req.url.params), json.loads(req.content or b"null")))
+        if req.url.path.endswith("/portfolio/balance"):
+            return httpx.Response(200, json={"balance": 100000, "balance_breakdown": [
+                {"balance": "1000.0000", "exchange_index": 0}, {"balance": "0.0000", "exchange_index": 2}]})
+        if "/portfolio/orders/" in req.url.path:
+            return httpx.Response(200, json={"order": {"order_id": "o1", "status": "resting"}})
+        return httpx.Response(200, json={"transfer_id": "t1"})
+
+    signer = KalshiSigner("kid", ed25519.Ed25519PrivateKey.generate())
+    async with client_with(handler, signer=signer) as c:
+        assert await c.get_shard_balances() == {0: 1000.0, 2: 0.0}
+        await c.transfer_between_shards(1000.0, 0, 2)
+        await c.set_target_allocation({2: 100})
+        assert (await c.get_order("o1", "KXBTC15M-X"))["status"] == "resting"
+    transfer = next(b for m, p, _, b in seen if p.endswith("/intra_exchange_instance_transfer"))
+    assert transfer["amount"] == 10_000_000  # centicents
+    assert (transfer["source_exchange_shard"], transfer["destination_exchange_shard"]) == (0, 2)
+    alloc = next(b for m, p, _, b in seen if p.endswith("/target_balance_allocation"))
+    assert alloc["allocations"] == [{"exchange_index": 2, "percent": 100}]
+    assert seen[-1][2] == {"market_ticker": "KXBTC15M-X"}

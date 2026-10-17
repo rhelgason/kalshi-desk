@@ -295,6 +295,31 @@ class KalshiClient:
             return float(data["balance_dollars"])
         return float(data.get("balance", 0)) / 100
 
+    async def get_shard_balances(self) -> dict[int, float]:
+        """Cash on each exchange shard, in dollars. Kalshi checks an order against its market's shard only
+        (crypto markets are on shard 2), so money on shard 0 can't buy bitcoin bets."""
+        data = await self.request("GET", "/portfolio/balance", auth=True)
+        return {int(b["exchange_index"]): float(b["balance"]) for b in data.get("balance_breakdown") or []}
+
+    async def get_target_allocation(self) -> dict[int, int]:
+        data = await self.request("GET", "/portfolio/target_balance_allocation", auth=True)
+        return {int(a["exchange_index"]): int(a["percent"]) for a in data.get("allocations") or []}
+
+    async def set_target_allocation(self, percents: dict[int, int]) -> dict:
+        """Have Kalshi keep cash split across shards like this (it rebalances every ~10 seconds).
+        Percentages must total 100; an empty dict turns rebalancing off."""
+        body = {"allocations": [{"exchange_index": k, "percent": v} for k, v in sorted(percents.items())],
+                "resting_margin_reservation": "sum"}
+        return await self.request("POST", "/portfolio/target_balance_allocation", json=body, auth=True)
+
+    async def transfer_between_shards(self, dollars: float, source: int, destination: int) -> dict:
+        """Move cash from one exchange shard to another (processed by Kalshi shortly after)."""
+        body = {"source": "event_contract", "destination": "event_contract",
+                "amount": int(round(dollars * 10_000)),  # centicents
+                "source_exchange_shard": source, "destination_exchange_shard": destination}
+        logger.info("Moving $%.2f from shard %d to shard %d on %s", dollars, source, destination, self.env)
+        return await self.request("POST", "/portfolio/intra_exchange_instance_transfer", json=body, auth=True)
+
     async def get_positions(self, settlement_status: Optional[str] = None) -> list[dict]:
         params = {"settlement_status": settlement_status, "limit": 1000}
         out = []
@@ -330,8 +355,10 @@ class KalshiClient:
             if not cursor:
                 return out
 
-    async def get_order(self, order_id: str) -> dict:
-        data = await self.request("GET", f"/portfolio/orders/{order_id}", auth=True)
+    async def get_order(self, order_id: str, ticker: Optional[str] = None) -> dict:
+        """One order. Pass its market's ticker: Kalshi only finds orders off shard 0 when told the market."""
+        params = {"market_ticker": ticker} if ticker else None
+        data = await self.request("GET", f"/portfolio/orders/{order_id}", params=params, auth=True)
         return data.get("order") or {}
 
     # ------------------------------------------------------------------
