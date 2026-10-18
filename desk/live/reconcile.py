@@ -28,13 +28,13 @@ from desk.paper.account import PaperAccount
 
 @dataclass
 class Reconciliation:
-    balance: float
+    balance: float  # Kalshi's cash
     expected: float
     drift: float
     baseline: float
     positions: dict[str, tuple[float, float]] = field(default_factory=dict)  # ticker -> (ours, Kalshi's)
     mismatches: dict[str, tuple[float, float]] = field(default_factory=dict)
-
+    held: float = 0.0  # what Kalshi says the open positions are worth
     @property
     def ok(self) -> bool:
         return not self.mismatches
@@ -71,11 +71,12 @@ async def reconcile(client: KalshiClient, accounts: dict[str, PaperAccount], mem
         n = float(p.get("position_fp") or p.get("position") or 0)
         if abs(n) > 0.005:
             theirs[p["ticker"]] = n
-    balance = await client.get_balance()
+    account = await client.get_account()
+    balance = account["cash"]
     ours, expected = our_books(accounts, members, resting)
     base = balance - expected if baseline is None else baseline
     both = {t: (ours.get(t, 0.0), theirs.get(t, 0.0)) for t in set(ours) | set(theirs)}
     mismatches = {t: v for t, v in both.items() if abs(v[0] - v[1]) > tolerance}
     return Reconciliation(balance=round(balance, 4), expected=round(expected, 4),
                           drift=round(balance - expected - base, 4), baseline=round(base, 4),
-                          positions=both, mismatches=mismatches)
+                          positions=both, mismatches=mismatches, held=round(account["positions"], 4))

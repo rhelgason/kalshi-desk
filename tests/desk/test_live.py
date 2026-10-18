@@ -96,6 +96,9 @@ class FakeKalshi:
     async def get_balance(self):
         return self.cash
 
+    async def get_account(self):
+        return {"cash": self.cash, "positions": 0.0}
+
 
 @pytest.fixture
 def live(monkeypatch):

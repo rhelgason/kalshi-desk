@@ -324,9 +324,29 @@ def cmd_new_season(cfg: DeskConfig, pool: float | None, levels: list[str], why: 
     roster = hr.load_roster(ledger, list(REGISTRY))
     config = hr.effective_strategy_config(cfg.strategies, roster)
     staff = [k for k in REGISTRY if (config.get(k) or {}).get("enabled", True) and roster[k].status != "fired"]
+    if cfg.trading == "live":
+        # Real-money book: the pool IS the Kalshi account, so its numbers are Kalshi's from the start
+        if pool is not None:
+            raise SystemExit("A live book's pool is whatever is in the Kalshi account: leave out --pool")
+        pool = asyncio.run(_kalshi_pool(cfg))
     detail = hr.start_season(ledger, staff, cfg.pool_cash if pool is None else pool, cfg.starting_cash, wanted, why)
     print(f"Season {detail['season']} started: ${detail['pool']:,.2f} office pool shared by "
           f"{len(detail['members'])} employees ({', '.join(detail['members'])})")
+
+
+async def _kalshi_pool(cfg: DeskConfig) -> float:
+    """The Kalshi account's cash, for a live season's pool. Refuses while bets are open or waiting."""
+    from desk.live import live_client
+
+    async with live_client(cfg) as client:
+        open_bets = [p for p in await client.get_positions() if abs(float(p.get("position_fp") or 0)) > 0.005]
+        waiting = await client.get_orders(status="resting")
+        if open_bets or waiting:
+            raise SystemExit(f"Kalshi still has {len(open_bets)} open bets and {len(waiting)} waiting orders: "
+                             "let them finish (or cancel them) before starting a new live season")
+        cash = await client.get_balance()
+    print(f"Kalshi ({cfg.env}) holds ${cash:,.2f}: that's the pool")
+    return cash
 
 
 def cmd_log(cfg: DeskConfig, hours: float, verbose: bool, employee: str | None) -> None:
@@ -529,7 +549,8 @@ def main(argv: list[str] | None = None) -> int:
     rv.add_argument("--days", type=float, default=30)
     rv.add_argument("--out", help="save the Markdown report here instead of printing it")
     ns = sub.add_parser("new-season", help="start everyone fresh with a new office pool")
-    ns.add_argument("--pool", type=float, help="dollars in the office pool (default: pool_cash in desk.yaml)")
+    ns.add_argument("--pool", type=float, help="dollars in the office pool (default: pool_cash in desk.yaml; "
+                    "a live book always uses the Kalshi balance)")
     ns.add_argument("--level", action="append", default=[], help="employee_key=Title, e.g. nickel_picker=Senior")
     ns.add_argument("--why", default="", help="the reason, for the HR log")
     lg = sub.add_parser("log", help="what the bot did each run: bets, skips and why, warnings, errors")

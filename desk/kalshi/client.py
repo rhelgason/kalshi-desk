@@ -290,10 +290,17 @@ class KalshiClient:
 
     async def get_balance(self) -> float:
         """Available cash in dollars."""
+        return (await self.get_account())["cash"]
+
+    async def get_account(self) -> dict[str, float]:
+        """The account as Kalshi values it: cash, and what its open positions are worth (dollars)."""
         data = await self.request("GET", "/portfolio/balance", auth=True)
-        if "balance_dollars" in data:
-            return float(data["balance_dollars"])
-        return float(data.get("balance", 0)) / 100
+        cash = float(data["balance_dollars"]) if "balance_dollars" in data else float(data.get("balance", 0)) / 100
+        if "portfolio_value_dollars" in data:
+            held = float(data["portfolio_value_dollars"])
+        else:
+            held = float(data.get("portfolio_value") or 0) / 100  # cents, like `balance`
+        return {"cash": cash, "positions": held}
 
     async def get_shard_balances(self) -> dict[int, float]:
         """Cash on each exchange shard, in dollars. Kalshi checks an order against its market's shard only
