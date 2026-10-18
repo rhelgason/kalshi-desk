@@ -37,7 +37,9 @@ const names = (ms: Member[]) =>
  * would have gone without their wins and losses, and whether that would really
  * be a reason to bench them (judged on the long run, not this stretch).
  */
-export default function MoneyChart({ points, team, period }: { points: PortfolioPoint[]; team: Member[]; period: string }) {
+export default function MoneyChart({ points, team, period, profitOnly }: {
+  points: PortfolioPoint[]; team: Member[]; period: string; profitOnly?: string;
+}) {
   const [benched, setBenched] = useState<string[]>([]);
 
   // Each employee's profit or loss over the period shown
@@ -61,7 +63,7 @@ export default function MoneyChart({ points, team, period }: { points: Portfolio
 
   return (
     <>
-      <PortfolioChart points={points} alt={alt} />
+      <PortfolioChart points={points} alt={alt} profitOnly={profitOnly} />
       <div className="whatif">
         <div className="whatif-head"><strong>🔮 What if…</strong></div>
         {benched.length ? (

@@ -161,7 +161,10 @@ export type TradingStatus = {
   at?: string;
   limits?: { max_order_dollars: number; max_orders_per_day: number; max_daily_loss: number; max_drift: number };
   books?: {
-    at: string; ok: boolean; balance: number; expected: number; drift: number;
+    at: string; ok: boolean;
+    balance: number; // Kalshi's cash
+    held?: number; // what Kalshi says the open positions are worth
+    expected: number; drift: number; baseline?: number;
     mismatches: Record<string, [number, number]>;
   } | null;
 };

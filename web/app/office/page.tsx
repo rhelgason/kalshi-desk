@@ -1,7 +1,7 @@
 import AutoRefresh from "@/components/AutoRefresh";
 import Office from "@/components/Office";
 import Setup from "@/components/Setup";
-import { viewedBook } from "@/lib/book";
+import { getRealBook } from "@/lib/book";
 import { getActivity, getBtcSeries, getHistory, getLive, getPolicy, getRoster, withRoster } from "@/lib/db";
 import { only, poolKeys, portfolioSeries } from "@/lib/portfolio";
 
@@ -10,7 +10,8 @@ export const dynamic = "force-dynamic";
 export default async function OfficePage() {
   let data;
   try {
-    const book = await viewedBook();
+    // The office always shows the Live book once there is one (training until then)
+    const book = (await getRealBook()) ? "real" : "pretend";
     const policy = await getPolicy(book);
     const [live, roster, activity, history, btcSeries] = await Promise.all([
       getLive(book), getRoster(book), getActivity(book, policy.season), getHistory(book, policy.season, "season"),

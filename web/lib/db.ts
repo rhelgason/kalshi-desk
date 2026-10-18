@@ -1,5 +1,6 @@
 import postgres from "postgres";
 import { LEVELS, mergePolicy } from "./hr";
+import { coinOfTicker } from "./coin";
 import { binFor, RANGES, type History, type RangeKey } from "./portfolio";
 import type {
   Accuracy, BacktestSummary, Evidence, Fill, LiveStatus, NewsItem, Point, Policy, Realism, RosterRow, TuningRun,
@@ -316,11 +317,14 @@ export async function getCoinStats(book: Book, season: number): Promise<CoinRow[
     SELECT strategy, split_part(ticker, '-', 1) AS series, count(*)::int AS n,
            coalesce(sum(CASE WHEN pnl > 0 THEN 1 ELSE 0 END), 0)::int AS won, coalesce(sum(pnl), 0) AS pnl
     FROM settlements WHERE season = ${season} GROUP BY 1, 2`;
-  return rows.map((r) => ({ strategy: r.strategy, coin: coinOf(r.series), n: r.n, won: r.won, pnl: Number(r.pnl) }));
+  return rows.map((r) => ({ strategy: r.strategy, coin: coinOfTicker(r.series), n: r.n, won: r.won, pnl: Number(r.pnl) }));
 }
 
-/** KXBTC15M -> BTC, KXETH15M -> ETH (anything else keeps its series name). */
-export function coinOf(series: string): string {
-  const m = /^KX(BTC|ETH|SOL)/.exec(series);
-  return m ? m[1] : series;
+/** Every settled bet this season since `sinceIso`, oldest first: what the coin views add up. */
+export async function getSettlements(book: Book, season: number, sinceIso = "1970-01-01"): Promise<
+  { t: number; strategy: string; coin: string; pnl: number }[]
+> {
+  const rows = await db(book)`SELECT ts, strategy, ticker, pnl FROM settlements
+    WHERE season = ${season} AND ts >= ${sinceIso} ORDER BY ts`;
+  return rows.map((r) => ({ t: Date.parse(r.ts), strategy: r.strategy, coin: coinOfTicker(r.ticker), pnl: Number(r.pnl) }));
 }

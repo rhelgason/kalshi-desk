@@ -2,9 +2,9 @@ import type { Metadata, Viewport } from "next";
 import { Press_Start_2P } from "next/font/google";
 import Link from "next/link";
 import Avatar from "@/components/Avatar";
-import BookTabs from "@/components/BookTabs";
 import NavButtons from "@/components/NavButtons";
-import { bookLabel, getRealBook, viewedBook } from "@/lib/book";
+import CoinSwitch from "@/components/CoinSwitch";
+import { getRealBook, viewedBook, viewedCoin } from "@/lib/book";
 import { isAdmin } from "@/lib/admin";
 import { logoutAction } from "./actions";
 import "./globals.css";
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = { themeColor: "#0f0d1f" };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const [admin, real, book] = await Promise.all([isAdmin(), getRealBook(), viewedBook()]);
+  const [admin, real, book, coin] = await Promise.all([isAdmin(), getRealBook(), viewedBook(), viewedCoin()]);
   return (
     <html lang="en" className={pixel.variable}>
       <body>
@@ -30,8 +30,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <span className="brand-name">KALSHI DESK</span>
             </Link>
             <nav className="nav">
-              {real && <BookTabs value={book} realName={bookLabel("real", real).name} />}
-              <NavButtons />
+              <NavButtons book={book} hasLive={!!real} />
+              <CoinSwitch value={coin} />
               <details className="menu">
                 <summary aria-label="More">☰</summary>
                 <div className="menu-list">

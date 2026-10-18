@@ -335,17 +335,20 @@ body { background: radial-gradient(ellipse at top, #1d1840 0%, var(--page) 60%) 
 .seg.seg-mini a { flex: none; padding: 6px 8px; }
 .coin-summary { margin: 4px 0 8px; }
 
-/* Which book this is: real money stands out */
-.badge.book-real { border-color: var(--up, #3ddc84); color: var(--up, #3ddc84); }
-.badge.book-practice { border-style: dashed; }
+/* Which view this is: Live stands out */
+.badge.book-live { border-color: var(--up, #3ddc84); color: var(--up, #3ddc84); }
 .coin-split { list-style: none; margin: 10px 0 0; padding: 0; }
 .coin-split li { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; border-top: 1px solid var(--grid); }
+.coin-split li.picked span:first-child { font-weight: 700; color: var(--text-primary); }
 
-/* Real / Pretend tabs in the top bar */
-.book-tabs { gap: 2px; }
-.book-tabs button { font: inherit; font-family: var(--pixel); font-size: 8px; padding: 9px 8px; border: 0; border-radius: 2px;
+/* Header: Live / Training / Office, then the coin switcher */
+.views { display: flex; gap: 8px; }
+.views[data-pending] { opacity: 0.6; }
+button.nav-btn { font-family: var(--pixel); line-height: inherit; }
+.nav-btn.view-live[aria-current="page"] { background: #3ddc84; }
+.coin-switch { gap: 2px; margin: 0; }
+.coin-switch button { font: inherit; font-family: var(--pixel); font-size: 8px; padding: 9px 7px; border: 0; border-radius: 2px;
   background: transparent; color: var(--text-secondary); cursor: pointer; }
-.book-tabs button[aria-current="true"] { background: var(--coin); color: #1b1733; }
-.book-tabs button.book-real[aria-current="true"] { background: #3ddc84; }
-.book-tabs[data-pending] { opacity: 0.6; }
-@media (max-width: 600px) { .book-tabs button { padding: 8px 5px; font-size: 7px; } }
+.coin-switch button[aria-current="true"] { background: var(--coin); color: #1b1733; }
+.coin-switch[data-pending] { opacity: 0.6; }
+@media (max-width: 600px) { .coin-switch button { padding: 8px 5px; font-size: 7px; } .views { gap: 6px; } }

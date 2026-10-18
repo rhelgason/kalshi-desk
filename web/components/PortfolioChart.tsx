@@ -17,8 +17,10 @@ const fmtWhen = (t: number, spanDays: number) =>
  * Drag a finger (or mouse) across to read any moment; the readout sits above
  * the chart so a finger never covers it.
  */
-export default function PortfolioChart({ points, alt, height = 220 }: {
+export default function PortfolioChart({ points, alt, height = 220, profitOnly }: {
   points: PortfolioPoint[];
+  /** a running profit line (one coin's settled bets) instead of the pool's value: what to call it */
+  profitOnly?: string;
   /** an alternative "what it would be worth" line (the what-if), same times as points */
   alt?: number[] | null;
   height?: number;
@@ -78,8 +80,14 @@ export default function PortfolioChart({ points, alt, height = 220 }: {
     <div className="chart" ref={ref}>
       <div className="readout" aria-live="polite">
         <span className="muted">{hover == null ? "Now" : fmtWhen(p.t, spanDays)}</span>
-        <span><strong>{dollars(p.worth)}</strong> <span className="muted">worth</span></span>
-        <span className={profit >= 0 ? "up" : "down"}>{profit >= 0 ? "▲ Up" : "▼ Down"} {dollars(Math.abs(profit))}</span>
+        {profitOnly ? (
+          <span><strong className={profit >= 0 ? "up" : "down"}>{dollars(profit, true)}</strong> <span className="muted">{profitOnly}</span></span>
+        ) : (
+          <>
+            <span><strong>{dollars(p.worth)}</strong> <span className="muted">worth</span></span>
+            <span className={profit >= 0 ? "up" : "down"}>{profit >= 0 ? "▲ Up" : "▼ Down"} {dollars(Math.abs(profit))}</span>
+          </>
+        )}
         {altNow != null && altProfit != null && (
           <span><span className="swatch" style={{ background: "var(--series-2)" }} /> what if: <strong>{dollars(altNow)}</strong>{" "}
             <span className="muted">({altProfit >= 0 ? "up" : "down"} {dollars(Math.abs(altProfit))})</span></span>
@@ -126,9 +134,9 @@ export default function PortfolioChart({ points, alt, height = 220 }: {
         <circle cx={x(p.t)} cy={y(p.worth)} r={4} fill="var(--series-1)" stroke="var(--surface-1)" strokeWidth={2} />
       </svg>
       <div className="legend">
-        <span><span className="key" style={{ background: "var(--series-1)" }} />What it&apos;s worth</span>
+        <span><span className="key" style={{ background: "var(--series-1)" }} />{profitOnly ?? "What it's worth"}</span>
         {alt && <span><span className="key" style={{ background: "var(--series-2)" }} />What if</span>}
-        <span><span className="key dashed" />Money put in: {dollars(p.putIn)}</span>
+        <span><span className="key dashed" />{profitOnly ? "Break-even" : `Money put in: ${dollars(p.putIn)}`}</span>
       </div>
     </div>
   );

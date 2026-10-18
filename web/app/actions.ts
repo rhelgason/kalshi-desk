@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { login, logout, requireAdmin } from "@/lib/admin";
 import { cookies } from "next/headers";
 import { BOOK_COOKIE, viewedBook, type Book } from "@/lib/book";
+import { COIN_COOKIE, parseCoin } from "@/lib/coin";
 import { db, getPolicy } from "@/lib/db";
 import { LEVELS, levelTitle } from "@/lib/hr";
 import type { Policy } from "@/lib/types";
@@ -191,6 +192,13 @@ export async function resumeTrading() {
 /** The Real / Pretend tabs: remember which book this visitor is looking at. */
 export async function pickBook(book: Book) {
   (await cookies()).set(BOOK_COOKIE, book === "real" ? "real" : "pretend",
+    { path: "/", maxAge: 365 * 86_400, sameSite: "lax", httpOnly: true, secure: true });
+  revalidatePath("/", "layout");
+}
+
+/** The header's coin switcher: All / BTC / ETH for every page. */
+export async function pickCoin(coin: string) {
+  (await cookies()).set(COIN_COOKIE, parseCoin(coin),
     { path: "/", maxAge: 365 * 86_400, sameSite: "lax", httpOnly: true, secure: true });
   revalidatePath("/", "layout");
 }

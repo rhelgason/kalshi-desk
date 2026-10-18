@@ -109,7 +109,7 @@ function header(w, d, size) {
   const row = w.addStack();
   row.centerAlignContent();
   // Real money once it exists; until then the pretend pool, labelled so it's never mistaken for real
-  const which = !d ? "" : d.book === "real" ? " · REAL" : " · PRETEND";
+  const which = !d ? "" : d.book === "real" ? " · REAL" : " · TRAINING";
   text(row, `KALSHI DESK${which}`, size, d && d.book === "real" ? G.mid : G.dim, "bold");
   row.addSpacer();
   if (!d) return;

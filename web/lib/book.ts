@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { cache } from "react";
+import { COIN_COOKIE, parseCoin, type Coin } from "./coin";
 import { db, type Book } from "./db";
 
 export type { Book };
@@ -40,12 +41,18 @@ export const viewedBook = cache(async (): Promise<Book> => {
   return defaultBook();
 });
 
-/** What to call a book on screen. */
+/** The coin this visitor picked in the header (all coins until they pick one). */
+export const viewedCoin = cache(async (): Promise<Coin> => parseCoin((await cookies()).get(COIN_COOKIE)?.value));
+
+/**
+ * What to call a book on screen: Live (orders on Kalshi, numbers from the Kalshi account)
+ * or Training (pretend money against real prices, for learning).
+ */
 export function bookLabel(book: Book, real: RealBook | null): { name: string; badge: string; title: string } {
   if (book === "pretend") {
-    return { name: "Pretend", badge: "🧪 Pretend money", title: "Training data: pretend money against real Kalshi prices" };
+    return { name: "Training", badge: "🧪 Training", title: "Pretend money against real Kalshi prices: training data" };
   }
   return real?.live
-    ? { name: "Real", badge: "💵 Real money", title: "Real orders on Kalshi with real money" }
-    : { name: "Practice", badge: "🎓 Practice", title: "The real-money setup, trading Kalshi's demo exchange with practice money" };
+    ? { name: "Live", badge: "💵 Live: real money", title: "Real orders on Kalshi with real money" }
+    : { name: "Live", badge: "🎓 Live: Kalshi demo", title: "Real orders on Kalshi's demo exchange (practice money) until the real-money switch" };
 }
