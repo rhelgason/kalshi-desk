@@ -22,7 +22,7 @@ import { getAnalysis, getHistory, getLive, getNews, getPolicy, getRecentFills, g
 import { viewedBook, viewedCoin } from "@/lib/book";
 import { COIN_NAMES, onCoin } from "@/lib/coin";
 import { cents, dollars, money, pct, tone } from "@/lib/format";
-import { parseRange, profitSeries } from "@/lib/portfolio";
+import { parseRange, poolKeys, profitSeries } from "@/lib/portfolio";
 import { poolShare } from "@/lib/hr";
 
 export const dynamic = "force-dynamic";
@@ -113,7 +113,8 @@ export default async function EmployeePage({ params, searchParams }: {
       <section className="card">
         <h2>Profit over time</h2>
         <RangeTabs value={range} path={`/employee/${key}`} />
-        <CompareChart series={series} focus={key} given={Object.fromEntries(everyone.map((x) => [x.key, x.starting_cash ?? 1000]))} />
+        <CompareChart series={series} focus={key} given={Object.fromEntries(everyone.map((x) => [x.key, x.starting_cash ?? 1000]))}
+          members={poolKeys(data.live)} />
       </section>
 
       <div className="grid three">

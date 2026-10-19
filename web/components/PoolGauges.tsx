@@ -7,8 +7,16 @@ import type { PoolSummary } from "@/lib/types";
  */
 export type PoolRecord = { today: { n: number; won: number }; season: { n: number; won: number } };
 
-export default function PoolGauges({ pool, record }: { pool: PoolSummary; record?: PoolRecord }) {
+/** What the what-if changes: the numbers with the benched employees' bets taken out. */
+export type PoolWhatIf = { inPlay: number; today: number; record: PoolRecord };
+
+export default function PoolGauges({ pool, record, whatIf }: { pool: PoolSummary; record?: PoolRecord; whatIf?: PoolWhatIf | null }) {
   const s = pool.settings;
+  const inPlay = whatIf ? whatIf.inPlay : pool.in_play;
+  const today = whatIf ? whatIf.today : pool.equity - pool.day_open;
+  const todayPct = today / (pool.day_open || 1);
+  record = whatIf?.record ?? record;
+  const tag = whatIf ? "what-if" : undefined;
   const safety = pool.stopped
     ? { text: "⏸ Stopped for today", note: `Down ${pct(-pool.today, false, 1)} since midnight; back tomorrow` }
     : pool.braked
@@ -18,22 +26,22 @@ export default function PoolGauges({ pool, record }: { pool: PoolSummary; record
   const rate = (r: { n: number; won: number }) => (r.n ? pct(r.won / r.n, false, 0) : "–");
   return (
     <div className="stat-row pool-gauges">
-      <div>
+      <div className={tag}>
         <span className="muted small">In play now</span>
-        <strong>{dollars(pool.in_play)}</strong>
+        <strong>{dollars(inPlay)}</strong>
         <span className="muted small">max {dollars(pool.window_cap).replace(".00", "")} per 15 min</span>
       </div>
-      <div>
+      <div className={tag}>
         <span className="muted small">Today</span>
-        <strong className={pool.today >= 0 ? "up" : "down"}>{pct(pool.today, true, 1)}</strong>
-        <span className="muted small">{dollars(pool.equity - pool.day_open, true)}</span>
+        <strong className={todayPct >= 0 ? "up" : "down"}>{pct(todayPct, true, 1)}</strong>
+        <span className="muted small">{dollars(today, true)}</span>
       </div>
       <div>
         <span className="muted small">Safety</span>
         <strong>{safety.text}</strong>
         <span className="muted small">{safety.note}</span>
       </div>
-      <div>
+      <div className={tag}>
         <span className="muted small">Bets won today</span>
         <strong>{record ? (record.today.n ? `${record.today.won} of ${record.today.n}` : "None yet") : "–"}</strong>
         <span className="muted small">{record ? `${rate(record.season)} all season (${record.season.n})` : ""}</span>

@@ -12,19 +12,23 @@ export type TeamRow = { e: Employee; light: Light; trend: Point[] };
 export type CoinView = { name: string; stats: Record<string, { n: number; won: number; pnl: number }> };
 
 /** Every employee as a tappable row: level, status, and how much they've made or lost. */
-export default function TeamList({ rows, coin }: { rows: TeamRow[]; coin?: CoinView }) {
+/** star: the current Employee of the Week, marked with a trophy in their row. */
+export default function TeamList({ rows, coin, star, starTitle = "Employee of the Week" }: {
+  rows: TeamRow[]; coin?: CoinView; star?: string; starTitle?: string;
+}) {
   return (
     <ul className="team">
       {rows.map(({ e, light, trend }) => {
         const c = coin ? coin.stats[e.key] ?? { n: 0, won: 0, pnl: 0 } : null;
         const pnl = c ? c.pnl : e.pnl ?? 0;
         return (
-          <li key={e.key} className={light.key === "benched" || light.key === "fired" ? "benched" : ""}>
+          <li key={e.key} className={[light.key === "benched" || light.key === "fired" ? "benched" : "", e.key === star ? "star" : ""].join(" ").trim() || undefined}>
             <Link href={`/employee/${e.key}`}>
               <Avatar k={e.key} emoji={e.emoji} size={36} />
               <span className="who-main">
                 <span className="name-line">
                   <span className="name">{e.name}</span>
+                  {e.key === star && <span className="lvl lvl-star" title={starTitle}>🏆</span>}
                   {e.control
                     ? <span className="lvl lvl-yard" title="Control group: bets at random, so the others have something to beat">Yardstick</span>
                     : <span className={`lvl lvl-${e.level ?? 1}`} title="Level: higher levels bet more of the pool">{levelTitle(e.level ?? 1)}</span>}

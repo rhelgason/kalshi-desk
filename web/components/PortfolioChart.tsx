@@ -14,6 +14,8 @@ const fmtWhen = (t: number, spanDays: number) =>
 /**
  * The whole desk's value over time (solid line) against the money put in
  * (dashed). The gap between them is the profit: shaded green above, red below.
+ * With a what-if line, that shading steps aside for one light band between the
+ * real line and the what-if (one color, so lines that cross don't turn to confetti).
  * Drag a finger (or mouse) across to read any moment; the readout sits above
  * the chart so a finger never covers it.
  */
@@ -62,6 +64,8 @@ export default function PortfolioChart({ points, alt, height = 220, profitOnly }
   const gap = `${worthPath}${[...points].reverse().map((p) => `L${x(p.t).toFixed(1)},${y(p.putIn).toFixed(1)}`).join("")}Z`;
   const top = `${putInPath}V${pad.t}H${pad.l}Z`;
   const bottom = `${putInPath}V${pad.t + h}H${pad.l}Z`;
+  const altPath = alt ? alt.map((v, j) => `${j ? "L" : "M"}${x(points[j].t).toFixed(1)},${y(v).toFixed(1)}`).join("") : null;
+  const band = alt ? `${worthPath}${[...alt].reverse().map((v, j) => `L${x(points[alt.length - 1 - j].t).toFixed(1)},${y(v).toFixed(1)}`).join("")}Z` : null;
 
   // The exact moment under the pointer, read off the lines as drawn (not snapped to a data point)
   const ht = hover ?? x1;
@@ -106,6 +110,7 @@ export default function PortfolioChart({ points, alt, height = 220, profitOnly }
         <defs>
           <clipPath id="pf-above"><path d={top} /></clipPath>
           <clipPath id="pf-below"><path d={bottom} /></clipPath>
+          <clipPath id="pf-plot"><rect x={pad.l} y={pad.t - 4} width={w} height={h + 8} /></clipPath>
         </defs>
         {ticks.map((v) => (
           <g key={v}>
@@ -120,14 +125,17 @@ export default function PortfolioChart({ points, alt, height = 220, profitOnly }
             {k && hover == null ? "now" : fmtWhen(t, spanDays)}
           </text>
         ))}
-        <path d={gap} fill="var(--up)" opacity={0.14} clipPath="url(#pf-above)" />
-        <path d={gap} fill="var(--down)" opacity={0.14} clipPath="url(#pf-below)" />
-        <path d={putInPath} fill="none" stroke="var(--text-muted)" strokeWidth={1.5} strokeDasharray="4 4" />
-        {alt && (
-          <path d={alt.map((v, j) => `${j ? "L" : "M"}${x(points[j].t).toFixed(1)},${y(v).toFixed(1)}`).join("")}
-            fill="none" stroke="var(--series-2)" strokeWidth={2} strokeDasharray="6 3" strokeLinejoin="round" />
-        )}
-        <path d={worthPath} fill="none" stroke="var(--series-1)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+        <g clipPath="url(#pf-plot)">
+          {band ? <path d={band} fill="var(--series-2)" opacity={0.18} /> : (
+            <>
+              <path d={gap} fill="var(--up)" opacity={0.14} clipPath="url(#pf-above)" />
+              <path d={gap} fill="var(--down)" opacity={0.14} clipPath="url(#pf-below)" />
+            </>
+          )}
+          <path d={putInPath} fill="none" stroke="var(--text-muted)" strokeWidth={1.5} strokeDasharray="4 4" />
+          {altPath && <path d={altPath} fill="none" stroke="var(--series-2)" strokeWidth={2} strokeDasharray="6 3" strokeLinejoin="round" />}
+          <path d={worthPath} fill="none" stroke="var(--series-1)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+        </g>
         {hover != null && <line x1={x(p.t)} x2={x(p.t)} y1={pad.t} y2={pad.t + h} stroke="var(--axis)" strokeWidth={1} />}
         {hover != null && <circle cx={x(p.t)} cy={y(p.putIn)} r={3} fill="var(--surface-1)" stroke="var(--text-muted)" strokeWidth={1.5} />}
         {altNow != null && <circle cx={x(p.t)} cy={y(altNow)} r={4} fill="var(--series-2)" stroke="var(--surface-1)" strokeWidth={2} />}
@@ -136,6 +144,7 @@ export default function PortfolioChart({ points, alt, height = 220, profitOnly }
       <div className="legend">
         <span><span className="key" style={{ background: "var(--series-1)" }} />{profitOnly ?? "What it's worth"}</span>
         {alt && <span><span className="key" style={{ background: "var(--series-2)" }} />What if</span>}
+        {alt && <span><span className="key band" />The difference they made</span>}
         <span><span className="key dashed" />{profitOnly ? "Break-even" : `Money put in: ${dollars(p.putIn)}`}</span>
       </div>
     </div>
