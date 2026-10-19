@@ -10,14 +10,19 @@ export type PoolRecord = { today: { n: number; won: number }; season: { n: numbe
 /** What the what-if changes: the numbers with the benched employees' bets taken out. */
 export type PoolWhatIf = { inPlay: number; today: number; record: PoolRecord };
 
-export default function PoolGauges({ pool, record, whatIf }: { pool: PoolSummary; record?: PoolRecord; whatIf?: PoolWhatIf | null }) {
+/** halted: the real-money kill switch is on (why), which outranks the pool's own stops. */
+export default function PoolGauges({ pool, record, whatIf, halted }: {
+  pool: PoolSummary; record?: PoolRecord; whatIf?: PoolWhatIf | null; halted?: string | null;
+}) {
   const s = pool.settings;
   const inPlay = whatIf ? whatIf.inPlay : pool.in_play;
   const today = whatIf ? whatIf.today : pool.equity - pool.day_open;
   const todayPct = today / (pool.day_open || 1);
   record = whatIf?.record ?? record;
   const tag = whatIf ? "what-if" : undefined;
-  const safety = pool.stopped
+  const safety = halted
+    ? { text: "⏸ Real trading paused", note: halted }
+    : pool.stopped
     ? { text: "⏸ Stopped for today", note: `Down ${pct(-pool.today, false, 1)} since midnight; back tomorrow` }
     : pool.braked
       ? { text: "🐢 Bets halved", note: `More than ${pct(s.brake_drawdown, false, 0)} below the high of ${dollars(pool.peak)}` }

@@ -60,7 +60,9 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
   const team = employees.filter((e) => members.has(e.key));
   const outside = employees.filter((e) => !members.has(e.key) && e.control).map((e) => e.name);
   const pool = live.pool;
-  const books = book === "real" ? live.trading?.books ?? null : null;
+  // Only a check from this season counts: an older one may be another account (the demo)
+  const lastCheck = book === "real" ? live.trading?.books ?? null : null;
+  const books = lastCheck && Date.parse(lastCheck.at) >= season.since ? lastCheck : null;
   // Live: the headline is the Kalshi account itself (cash + what Kalshi says open bets are worth)
   const kalshi = books ? books.balance + (books.held ?? 0) : null;
   const worth = kalshi ?? pool?.equity ?? team.reduce((s, e) => s + (e.equity ?? 0), 0);
@@ -163,6 +165,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
         }))}
         outside={outside}
         settled={mine} tz={tz}
+        halted={book === "real" && live.trading?.halted ? live.trading.reason || "Stopped by the manager" : null}
         positions={live.positions.filter((p) => members.has(p.strategy) && onCoin(p.ticker, coin))}
         view={coinView
           ? { kind: "coin", coin, coinName, since, wholePool: worth }

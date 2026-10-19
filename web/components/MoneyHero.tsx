@@ -54,6 +54,8 @@ export default function MoneyHero(props: {
   team: Member[]; outside: string[];
   /** the pool's finished bets (one coin's, in a coin view) and open bets, for the cards */
   settled: Settled[]; positions: Position[]; tz: string;
+  /** the real-money kill switch, when it's on: why */
+  halted?: string | null;
   view: { kind: "pool"; pool: PoolSummary | null; worth: number; putIn: number; profit: number; since: string }
     | { kind: "coin"; coin: Coin; coinName: string; since: string; wholePool: number };
 }) {
@@ -157,7 +159,7 @@ export default function MoneyHero(props: {
       {view.kind === "coin"
         ? <CoinGauges coin={view.coin} settled={settled} positions={positions} tz={tz} benched={benched}
             names={Object.fromEntries(team.map((m) => [m.key, m.name]))} />
-        : view.pool && <PoolGauges pool={view.pool} record={record(() => true)} whatIf={whatIf} />}
+        : view.pool && <PoolGauges pool={view.pool} record={record(() => true)} whatIf={whatIf} halted={props.halted} />}
       {benched.length > 0 && view.kind === "pool" && (
         <p className="muted small" style={{ margin: "4px 0 0" }}>Orange-edged cards are the what-if; the rest show what really happened.</p>
       )}
