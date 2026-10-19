@@ -174,7 +174,10 @@ class Desk:
             self.policy["last_review"] = _now().isoformat()  # first review one period from now
             hr.save_policy(self.ledger, self.policy)
 
-        keys = list(REGISTRY) if self.manage_roster else [s.key for s in self.strategies]
+        # `enabled: false` in this book's config means not on this book at all (e.g. the
+        # yardsticks on real money): no roster row, no pool share, nothing on its dashboard
+        keys = ([k for k in REGISTRY if (self.config.strategies.get(k) or {}).get("enabled", True)]
+                if self.manage_roster else [s.key for s in self.strategies])
         self.roster = hr.load_roster(self.ledger, keys)
         hr.reinstate_expired(self.ledger, self.roster)
 
@@ -704,6 +707,11 @@ class Desk:
                     j.count(a.get("strategy") or "desk", f"review: {a.get('action') or a['kind']}")
             self.inactive = {k for k, r in self.roster.items() if not r.is_working()}
             self.multipliers = {k: r.multiplier for k, r in self.roster.items()}
+        elif hr.review_due(self.policy, now):
+            # No automatic HR, but the weekly award still happens (it changes no levels or money)
+            with j.phase("review"):
+                for a in hr.run_award(self.ledger, self.roster, self.accounts, self.policy, now):
+                    logger.info("HR: %s", a)
 
         self.tick_count += 1
         # Reporting is best-effort: a bug in a dashboard summary must never stop

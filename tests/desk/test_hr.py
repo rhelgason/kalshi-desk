@@ -202,3 +202,24 @@ def test_twins_follow_their_siblings_settings():
     assert cfg["breakout_maker"] == {"min_move": 0.002, "max_price": 0.55}
     roster["nickel_picker"].status = "fired"
     assert "enabled" not in hr.effective_strategy_config(base, roster)["nickel_maker"]  # Nora keeps working
+
+
+def test_award_only_review_changes_no_levels_or_money():
+    """The real-money book: the weekly award still happens, nothing else does."""
+    led = Ledger(":memory:")
+    keys = ["star", "bad", "dart_monkey"]
+    roster = hr.load_roster(led, keys)
+    accounts = {k: PaperAccount(k, 1000) for k in keys}
+    policy = hr.load_policy(led)
+    policy["last_review"] = (NOW - timedelta(days=7)).isoformat()
+    when = (NOW - timedelta(days=1)).isoformat()
+    _settle(led, "star", 80, n=25, ts=when)
+    _settle(led, "bad", -50, n=25, ts=when)
+    _settle(led, "dart_monkey", 500, n=25, ts=when)
+    levels = {k: r.level for k, r in roster.items()}
+
+    actions = hr.run_award(led, roster, accounts, policy, NOW)
+    assert [(a["strategy"], a["kind"]) for a in actions] == [("star", "award")]
+    assert {k: r.level for k, r in roster.items()} == levels and roster["bad"].status == "active"
+    assert accounts["star"].cash == 1000 and roster["star"].awards == 1
+    assert hr.load_policy(led)["last_review"] == NOW.isoformat()

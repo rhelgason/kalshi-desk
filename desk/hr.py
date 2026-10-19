@@ -382,6 +382,32 @@ def run_review(ledger: Ledger, roster: dict[str, EmployeeRecord], accounts: dict
     return actions
 
 
+def run_award(ledger: Ledger, roster: dict[str, EmployeeRecord], accounts: dict[str, PaperAccount],
+              policy: dict, now: Optional[datetime] = None) -> list[dict]:
+    """
+    The award part of a review, alone: for a book without automatic HR (real money).
+    Same rule as run_review (best positive earner with enough settled bets, never
+    the control group), no bonus, no level changes. Schedules the next one.
+    """
+    now = now or _now()
+    since = datetime.fromisoformat(policy["last_review"]) if policy.get("last_review") else now - timedelta(
+        days=float(policy["review_days"]))
+    stats = period_stats(ledger, accounts, since)
+    eligible = [k for k, r in roster.items() if r.status != "fired" and not r.control and k in stats
+                and stats[k].settled >= policy["min_settled"] and stats[k].pnl > 0]
+    actions = []
+    if eligible:
+        winner = max(eligible, key=lambda k: stats[k].pnl)
+        roster[winner].awards += 1
+        ledger.upsert_employee(roster[winner].to_row())
+        detail = {"title": award_name(float(policy["review_days"])), "pnl": round(stats[winner].pnl, 2), "bonus": 0.0}
+        ledger.record_event("award", detail, strategy=winner)
+        actions.append({"strategy": winner, "kind": "award", **detail})
+    policy["last_review"] = now.isoformat()
+    save_policy(ledger, policy)
+    return actions
+
+
 def _suspend(rec: EmployeeRecord, now: datetime, days: float) -> None:
     rec.status = "suspended"
     rec.suspended_until = (now + timedelta(days=days)).isoformat()
