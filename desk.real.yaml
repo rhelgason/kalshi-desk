@@ -33,3 +33,8 @@ strategies:
   # The control group stays on pretend money: they're there to lose
   dart_monkey: {enabled: false}
   longshot_buy: {enabled: false}
+  # Betty and Bonnie (the breakout twins) stay on pretend money until the edge shows up:
+  # season 4 through Oct 18 they were 27 of 74 for -$92, and every other pool member was up.
+  # Their 15-minute "move" is mostly from before the window opened, when Kalshi has already priced it.
+  breakout: {enabled: false}
+  breakout_maker: {enabled: false}
