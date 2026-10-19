@@ -4,6 +4,8 @@
  * hand-drawing fourteen sprites. One letter per pixel, "." is transparent.
  */
 
+import { PORTRAITS } from "./portraits";
+
 export type Sprite = { rows: string[]; palette: Record<string, string> };
 
 export type Look = {
@@ -158,27 +160,29 @@ export const LOOKS: Record<string, Look | "monkey"> = {
   bucket_arb: { skin: SKIN.light, hair: "#c0471f", hairStyle: "long", shirt: "#7b3fa0", tie: null, mouth: "grin" },
   fair_value: { skin: SKIN.tan, hair: "#b8b8b8", hairStyle: "bald", eyes: "glasses", shirt: "#7a5230", tie: "#2e7d32", mouth: "flat" },
   vol_arb: { skin: SKIN.light, hair: "#111111", hairStyle: "slick", eyes: "shades", shirt: "#222631", tie: "#f5c542" },
-  sniper: { skin: SKIN.brown, hair: "#222222", hairStyle: "visor", hat: "#2e7d32", eyes: "shades", shirt: "#556b2f", tie: null, mouth: "flat" },
+  sniper: { skin: SKIN.brown, hair: "#222222", hairStyle: "cap", hat: "#56732f", shirt: "#56732f", tie: null, mouth: "flat", pants: "#36461f" },
   momentum: { skin: SKIN.tan, hair: "#f2c94c", hairStyle: "long", shirt: "#f2994a", tie: null, mouth: "grin" },
   mean_revert: { skin: SKIN.dark, hair: "#2b1a10", hairStyle: "afro", shirt: "#1abc9c", tie: null },
-  longshot_fade: { skin: SKIN.light, hair: "#8a8a8a", hairStyle: "bald", shirt: "#7f8c8d", tie: "#7fd3ff", mouth: "frown" },
-  longshot_buy: { skin: SKIN.tan, hair: "#3b2412", hairStyle: "cap", hat: "#d63031", shirt: "#6c3fa0", tie: "#f5c542", mouth: "grin" },
-  nickel_picker: { skin: SKIN.light, hair: "#9e9e9e", hairStyle: "short", shirt: "#a0a7b4", tie: "#27ae60", mouth: "flat" },
+  longshot_fade: { skin: SKIN.light, hair: "#6b6b6b", hairStyle: "bald", shirt: "#3f5d8a", tie: null, mouth: "frown" },
+  longshot_buy: { skin: SKIN.tan, hair: "#3b2412", hairStyle: "cap", hat: "#d63031", shirt: "#f39c12", tie: null, mouth: "grin" },
+  nickel_picker: { skin: SKIN.light, hair: "#c8c8c8", hairStyle: "visor", hat: "#1f7a4d", eyes: "glasses", shirt: "#6d4c2f", tie: "#c0392b", mouth: "flat" },
   favorite_sports: { skin: SKIN.brown, hair: "#f2d16b", hairStyle: "ponytail", shirt: "#c0392b", tie: null, mouth: "grin" },
   market_maker: { skin: SKIN.tan, hair: "#4a2c17", hairStyle: "short", headset: true, shirt: "#ecf0f1", tie: "#1f3a68" },
   whale_follow: { skin: SKIN.light, hair: "#eeeeee", hairStyle: "captain", hat: "#1f3a68", beard: true, shirt: "#1f3a68", tie: null },
-  breakout: { skin: SKIN.light, hair: "#e8a33d", hairStyle: "ponytail", eyes: "shades", shirt: "#1abc9c", tie: null, mouth: "grin", pants: "#2d5a87" },
-  early_favorite: { skin: SKIN.brown, hair: "#3b2412", hairStyle: "long", eyes: "glasses", shirt: "#f5c542", tie: null, mouth: "smile", pants: "#5d4037" },
+  breakout: { skin: SKIN.light, hair: "#f0b542", hairStyle: "ponytail", eyes: "shades", shirt: "#20242c", tie: null, mouth: "grin", pants: "#20242c" },
+  early_favorite: { skin: SKIN.brown, hair: "#e03c3c", hairStyle: "afro", shirt: "#f5c542", tie: null, mouth: "grin", pants: "#f5c542" },
   // the patient twins look like their siblings
-  nickel_maker: { skin: SKIN.light, hair: "#9e9e9e", hairStyle: "long", shirt: "#a0a7b4", tie: null, mouth: "smile" },
-  early_maker: { skin: SKIN.brown, hair: "#3b2412", hairStyle: "ponytail", eyes: "glasses", shirt: "#f5c542", tie: null, mouth: "flat", pants: "#5d4037" },
-  breakout_maker: { skin: SKIN.light, hair: "#e8a33d", hairStyle: "long", eyes: "shades", shirt: "#16a085", tie: null, mouth: "smile", pants: "#2d5a87" },
+  nickel_maker: { skin: SKIN.light, hair: "#c9ccd6", hairStyle: "afro", eyes: "glasses", shirt: "#e78fb3", tie: null, mouth: "smile" },
+  early_maker: { skin: SKIN.brown, hair: "#3b2412", hairStyle: "short", eyes: "glasses", shirt: "#9b8fd0", tie: null, mouth: "smile", pants: "#5d4037" },
+  breakout_maker: { skin: SKIN.light, hair: "#e8a33d", hairStyle: "cap", hat: "#e6c86e", shirt: "#16a085", tie: null, mouth: "smile", pants: "#16a085" },
   dart_monkey: "monkey",
 };
 
-export const SPRITES: Record<string, Sprite> = Object.fromEntries(
-  Object.entries(LOOKS).map(([k, l]) => [k, l === "monkey" ? MONKEY : person(l)]),
-);
+/** Portraits: the hand-drawn 24x24 ones for current staff, part-built 16x16 faces for the rest (and Dan). */
+export const SPRITES: Record<string, Sprite> = {
+  ...Object.fromEntries(Object.entries(LOOKS).map(([k, l]) => [k, l === "monkey" ? MONKEY : person(l)])),
+  ...PORTRAITS,
+};
 
 /** Runs of same-coloured pixels per row: far fewer SVG rects than one per pixel. */
 export function spriteRects(s: Sprite): { x: number; y: number; w: number; fill: string }[] {

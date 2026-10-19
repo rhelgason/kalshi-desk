@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import base64
 import os
+import re
 import time
 from pathlib import Path
 from typing import Optional, Union
@@ -27,8 +28,21 @@ from cryptography.hazmat.primitives.asymmetric import ed25519, padding, rsa
 PrivateKey = Union[rsa.RSAPrivateKey, ed25519.Ed25519PrivateKey]
 
 
+def _tidy_pem(data: bytes) -> bytes:
+    """Undo the usual copy-paste damage to a key pasted into a host's settings: surrounding
+    quotes or spaces, `\\n` typed as two characters, Windows line ends."""
+    text = data.decode(errors="replace").strip().strip("'\"").strip()
+    if "\\n" in text and "\n" not in text:
+        text = text.replace("\\n", "\n")
+    m = re.fullmatch(r"(-----BEGIN [A-Z ]+-----)\s*(.+?)\s*(-----END [A-Z ]+-----)", text, re.S)
+    if m and "\n" not in m.group(2).strip():  # squashed onto one line: put the line breaks back
+        body = "".join(m.group(2).split())
+        text = "\n".join([m.group(1), *(body[i:i + 64] for i in range(0, len(body), 64)), m.group(3)])
+    return (text.replace("\r\n", "\n") + "\n").encode()
+
+
 def load_private_key(pem: Union[str, bytes]) -> PrivateKey:
-    data = pem.encode() if isinstance(pem, str) else pem
+    data = _tidy_pem(pem.encode() if isinstance(pem, str) else pem)
     key = serialization.load_pem_private_key(data, password=None)
     if not isinstance(key, (rsa.RSAPrivateKey, ed25519.Ed25519PrivateKey)):
         raise ValueError("Kalshi keys must be RSA or Ed25519")
@@ -63,6 +77,14 @@ class KalshiSigner:
             "KALSHI-ACCESS-SIGNATURE": signature,
         }
 
+    def fingerprint(self) -> str:
+        """Safe to show: which key this is (the key ID's start and a hash of the PUBLIC key)."""
+        import hashlib
+
+        pub = self.private_key.public_key().public_bytes(serialization.Encoding.DER,
+                                                         serialization.PublicFormat.SubjectPublicKeyInfo)
+        return f"{self.key_id[:8]}…/{hashlib.sha256(pub).hexdigest()[:12]}"
+
     @classmethod
     def from_env(cls) -> Optional["KalshiSigner"]:
         """
@@ -72,7 +94,7 @@ class KalshiSigner:
             KALSHI_PRIVATE_KEY_PATH  path to the downloaded .pem / .key file
             (or KALSHI_PRIVATE_KEY   the PEM contents directly)
         """
-        key_id = os.getenv("KALSHI_API_KEY_ID")
+        key_id = (os.getenv("KALSHI_API_KEY_ID") or "").strip().strip("'\"").strip()
         if not key_id:
             return None
         pem: Optional[bytes] = None

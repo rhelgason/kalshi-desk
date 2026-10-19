@@ -258,8 +258,8 @@ class Sniper(CryptoFairValue):
 
     key = "sniper"
     persona = Persona(
-        "The Sniper", "Closer", "🎯",
-        "Waits all hour, then takes one shot in the last few minutes.",
+        "Deadeye Dee", "Marksman", "🎯",
+        "Lies in the grass all window, then takes one shot in the last five minutes. Rarely misses. Rarely talks.",
     )
 
     def __init__(self, min_edge: float = 0.015, min_price: float = 0.80, max_price: float = 0.97,

@@ -84,7 +84,7 @@ const EVENT_KINDS = Object.keys(EVENT_SECS) as EventKind[];
 
 const CHATTER: Record<string, string[]> = {
   coffee: ["Coffee number four.", "Who used the last oat milk?", "Decaf is a scam.", "This tastes like fees."],
-  cooler: ["Did you see bitcoin just now?", "I'm basically a genius.", "Hydrate or die-drate.", "Heard Dan beat the Sniper today.", "Fifteen minutes is forever in crypto."],
+  cooler: ["Did you see bitcoin just now?", "I'm basically a genius.", "Hydrate or die-drate.", "Heard Dan beat Deadeye Dee today.", "Fifteen minutes is forever in crypto."],
   window: ["One day, a corner office.", "Bull or bear out there?", "Rain means volatility.", "Nice day to buy the dip."],
   board: ["Up, up, up!", "Come on, green candle…", "That chart is spicy.", "Read 'em and weep."],
   aquarium: ["Hi Gordon.", "The fish has better returns than me.", "Blub blub."],

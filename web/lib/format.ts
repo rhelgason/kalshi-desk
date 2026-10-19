@@ -51,5 +51,5 @@ export const dollars = (x: number | null | undefined, signed = false) => {
   return x > 0.004 ? `+${body}` : x < -0.004 ? `−${body}` : body;
 };
 
-/** What friends would call them: "Dart Monkey Dan" -> "Dan", "The Sniper" stays "The Sniper". */
+/** What friends would call them: "Dart Monkey Dan" -> "Dan", "The Professor" stays "The Professor". */
 export const shortName = (n: string) => (n.startsWith("The ") ? n : n.split(" ").slice(-1)[0]);

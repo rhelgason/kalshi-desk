@@ -160,3 +160,22 @@ async def test_shard_balances_transfer_and_order_lookup():
     alloc = next(b for m, p, _, b in seen if p.endswith("/target_balance_allocation"))
     assert alloc["allocations"] == [{"exchange_index": 2, "percent": 100}]
     assert seen[-1][2] == {"market_ticker": "KXBTC15M-X"}
+
+
+def test_pasted_keys_survive_common_paste_damage(monkeypatch):
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import ed25519
+
+    from desk.kalshi.auth import KalshiSigner
+
+    pem = ed25519.Ed25519PrivateKey.generate().private_bytes(
+        serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()).decode()
+    good = None
+    for pasted in (pem, f'"{pem}"', pem.replace("\n", "\\n"), " ".join(pem.split("\n")), f"  {pem}\r\n"):
+        monkeypatch.setenv("KALSHI_API_KEY_ID", " abc-123 \n")
+        monkeypatch.setenv("KALSHI_PRIVATE_KEY", pasted)
+        monkeypatch.delenv("KALSHI_PRIVATE_KEY_PATH", raising=False)
+        signer = KalshiSigner.from_env()
+        assert signer.key_id == "abc-123"
+        good = good or signer.fingerprint()
+        assert signer.fingerprint() == good

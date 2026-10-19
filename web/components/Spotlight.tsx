@@ -18,7 +18,7 @@ export default function Spotlight({ award, employees, policy }: { award: NewsIte
             <div>
               <div className="label">🏆 {award!.detail.title ?? title}</div>
               <Link href={`/employee/${winner.key}`} className="spot-name">{winner.name}</Link>
-              <div className="muted">{money(award!.detail.pnl)} {award!.detail.why ? "so far this season" : "last period"}{award!.detail.bonus ? ` · earned a ${money(award!.detail.bonus, false)} bonus` : ""}</div>
+              <div className="muted">{award!.detail.why ? <>{money(award!.detail.pnl)} · {award!.detail.why}</> : <>{money(award!.detail.pnl)} last period</>}{award!.detail.bonus ? ` · earned a ${money(award!.detail.bonus, false)} bonus` : ""}</div>
             </div>
           </>
         ) : (

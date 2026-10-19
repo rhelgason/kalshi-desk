@@ -35,8 +35,8 @@ COIN = {"BTC": "bitcoin", "ETH": "ether", "SOL": "solana"}  # for the reason tex
 class BreakoutBetty(Strategy):
     key = "breakout"
     persona = Persona(
-        "Breakout Betty", "Trend Rider", "🏄‍♀️",
-        "Sees bitcoin running and jumps on before Kalshi catches up.",
+        "Breakout Betty", "Big-Wave Surfer", "🏄‍♀️",
+        "Sees bitcoin swell and paddles like mad to catch it before Kalshi notices. Wipes out loudly.",
     )
 
     def __init__(self, min_move: float = 0.002, window: int = 15, min_seconds: float = 600,
@@ -86,8 +86,8 @@ class BreakoutBetty(Strategy):
 class EarlyBirdEdie(BandBettor):
     key = "early_favorite"
     persona = Persona(
-        "Early Bird Edie", "Morning Person", "🐦",
-        "Picks the favorite the moment a window opens, before the price catches up.",
+        "Early Bird Edie", "The Rooster", "🐓",
+        "In at 5am, three coffees deep. Grabs the favorite the second a window opens, at full volume.",
     )
 
     def __init__(self, min_price: float = 0.75, max_price: float = 0.85, min_seconds: float = 600,
@@ -178,8 +178,8 @@ class PatientTwin:
 class NickelNora(PatientTwin, NickelNick):
     key = "nickel_maker"
     persona = Persona(
-        "Nickel Nora", "Patient Twin", "🐢",
-        "Nick's twin sister. Same picks, but she names her price and waits.",
+        "Nickel Nora", "Coupon Queen", "🏷️",
+        "Nick's twin sister. Has never paid full price in her life: names her price and waits for the market to blink.",
     )
     backtestable = False  # fills depend on other traders
 
@@ -190,8 +190,8 @@ class NickelNora(PatientTwin, NickelNick):
 class EarlyBirdEllie(PatientTwin, EarlyBirdEdie):
     key = "early_maker"
     persona = Persona(
-        "Early Bird Ellie", "Patient Twin", "🐣",
-        "Edie's twin. Spots the same favorites, then makes the market come to her.",
+        "Early Bird Ellie", "Tea & Knitting", "🧶",
+        "Edie's calm twin. Spots the same favorites, posts her price, and knits until someone sells.",
     )
     backtestable = False
 
@@ -202,8 +202,8 @@ class EarlyBirdEllie(PatientTwin, EarlyBirdEdie):
 class BreakoutBonnie(PatientTwin, BreakoutBetty):
     key = "breakout_maker"
     persona = Persona(
-        "Breakout Bonnie", "Patient Twin", "🛶",
-        "Betty's twin. Sees the same waves but waits for one to come to her.",
+        "Breakout Bonnie", "Pool Floater", "🛟",
+        "Betty's twin. Same waves, but she lies on an inflatable flamingo and waits for one to drift under her.",
     )
     backtestable = False
 

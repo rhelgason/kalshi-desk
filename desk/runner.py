@@ -732,6 +732,9 @@ class Desk:
     async def check_guard(self) -> None:
         """Re-read the kill switch; while it's on, nothing real stays on the book."""
         self.guard.refresh()
+        signer = getattr(self.client, "signer", None)
+        if hasattr(signer, "fingerprint"):  # which key is in use, safe to show (see KalshiSigner.fingerprint)
+            self.journal.info["key"] = signer.fingerprint()
         if self.guard.halted:
             real = [o for o in self.broker.resting if o.strategy in self.pool.members]
             if real:

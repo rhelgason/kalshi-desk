@@ -117,7 +117,7 @@ class LongshotFade(BandBettor):
     key = "longshot_fade"
     persona = Persona(
         "Buzzkill Bill", "Party Pooper", "🧊",
-        "Bets against every long shot. Smug most days, devastated on others.",
+        "Bets against every long shot and explains, at length, why it'll never happen. Smug most days, devastated on others.",
     )
 
     def __init__(self, min_yes: float = 0.03, max_yes: float = 0.12, max_days: float = 7, **kw):
@@ -142,7 +142,7 @@ class LongshotLenny(LongshotFade):
     key = "longshot_buy"
     persona = Persona(
         "Long Shot Lenny", "Dreamer", "🎰",
-        "Buys every lottery ticket under 12 cents. 'It only has to hit once.'",
+        "Pockets full of scratch-offs and a lucky toothpick. Buys every ticket under 12¢. 'It only has to hit once.'",
     )
 
     def __init__(self, stake: float = 2.0, **kw):
@@ -164,8 +164,8 @@ class NickelNick(BandBettor):
 
     key = "nickel_picker"
     persona = Persona(
-        "Nickel Nick", "Penny Collector", "🪙",
-        "Picks up nickels in front of a steamroller.",
+        "Nickel Nick", "Penny Pincher", "🪙",
+        "Reuses tea bags, counts his change twice, and picks up nickels in front of a steamroller.",
     )
 
     def __init__(self, min_price: float = 0.92, max_price: float = 0.97, max_hours: float = 12,

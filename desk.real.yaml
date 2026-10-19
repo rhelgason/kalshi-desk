@@ -13,7 +13,7 @@ extends: desk.yaml
 book: real
 schema: real
 real_book: null
-env: demo
+env: prod                 # REAL MONEY since 2026-10-18 (was demo)
 trading: live
 auto_hr: false            # no automatic reviews or promotions with real money: the manager decides
 pool_cash: 100
