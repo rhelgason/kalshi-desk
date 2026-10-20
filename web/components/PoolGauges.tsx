@@ -2,22 +2,31 @@ import { dollars, pct } from "@/lib/format";
 import type { PoolSummary } from "@/lib/types";
 
 /**
- * The pool at a glance: what's riding now, today vs the daily stop, the brake, bets won,
- * how far it is below its high, and the cash free for new bets.
+ * The pool at a glance: what's riding now, the change over the chart's range, the safety
+ * switches, bets won in the range (and ever), how far it is below its high, and free cash.
+ * The range cards follow the chart's tabs; the rest are about right now.
  */
-export type PoolRecord = { today: { n: number; won: number }; season: { n: number; won: number } };
+type Count = { n: number; won: number };
+export type PoolRecord = { range: Count; lifetime: Count };
 
 /** What the what-if changes: the numbers with the benched employees' bets taken out. */
-export type PoolWhatIf = { inPlay: number; today: number; record: PoolRecord };
+export type PoolWhatIf = { inPlay: number; change: number; record: PoolRecord };
 
-/** halted: the real-money kill switch is on (why), which outranks the pool's own stops. */
-export default function PoolGauges({ pool, record, whatIf, halted }: {
+/**
+ * halted: the real-money kill switch is on (why), which outranks the pool's own stops.
+ * change / start: the chart's change over its range and the pool's value at its start.
+ * scope: that range in words ("today", "this week", "lifetime").
+ */
+export default function PoolGauges({ pool, record, whatIf, halted, change, start, scope }: {
   pool: PoolSummary; record?: PoolRecord; whatIf?: PoolWhatIf | null; halted?: string | null;
+  change: number; start: number; scope: string;
 }) {
   const s = pool.settings;
   const inPlay = whatIf ? whatIf.inPlay : pool.in_play;
-  const today = whatIf ? whatIf.today : pool.equity - pool.day_open;
-  const todayPct = today / (pool.day_open || 1);
+  const moved = whatIf ? whatIf.change : change;
+  const movedPct = moved / (start || 1);
+  const Scope = scope.charAt(0).toUpperCase() + scope.slice(1);
+  const lifetime = scope === "lifetime";
   record = whatIf?.record ?? record;
   const tag = whatIf ? "what-if" : undefined;
   const safety = halted
@@ -37,9 +46,9 @@ export default function PoolGauges({ pool, record, whatIf, halted }: {
         <span className="muted small">max {dollars(pool.window_cap).replace(".00", "")} per 15 min</span>
       </div>
       <div className={tag}>
-        <span className="muted small">Today</span>
-        <strong className={todayPct >= 0 ? "up" : "down"}>{pct(todayPct, true, 1)}</strong>
-        <span className="muted small">{dollars(today, true)}</span>
+        <span className="muted small">{Scope}</span>
+        <strong className={moved >= 0 ? "up" : "down"}>{pct(movedPct, true, 1)}</strong>
+        <span className="muted small">{dollars(moved, true)}</span>
       </div>
       <div>
         <span className="muted small">Safety</span>
@@ -47,9 +56,9 @@ export default function PoolGauges({ pool, record, whatIf, halted }: {
         <span className="muted small">{safety.note}</span>
       </div>
       <div className={tag}>
-        <span className="muted small">Bets won today</span>
-        <strong>{record ? (record.today.n ? `${record.today.won} of ${record.today.n}` : "None yet") : "–"}</strong>
-        <span className="muted small">{record ? `${rate(record.season)} all season (${record.season.n})` : ""}</span>
+        <span className="muted small">Bets won ({scope})</span>
+        <strong>{record ? (record.range.n ? `${record.range.won} of ${record.range.n}` : "None yet") : "–"}</strong>
+        <span className="muted small">{record ? (lifetime ? `${rate(record.lifetime)} won` : `lifetime: ${record.lifetime.won} of ${record.lifetime.n} (${rate(record.lifetime)})`) : ""}</span>
       </div>
       <div>
         <span className="muted small">From the high</span>

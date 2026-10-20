@@ -18,20 +18,14 @@ import {
   getAnalysis, getBonusPot, getHistory, getLive, getNews, getPolicy, getRecentFills, getRoster, getSettlements, withRoster,
 } from "@/lib/db";
 import { dollars } from "@/lib/format";
-import { lerpAt } from "@/lib/interp";
 import { only, parseRange, poolKeys, portfolioSeries, profitSeries, RANGES } from "@/lib/portfolio";
 import { poolShare } from "@/lib/hr";
 
 export const dynamic = "force-dynamic";
 
-/** The latest midnight in a time zone (when "today" started for the pool). */
-function midnight(tz: string, now = Date.now()): number {
-  const [h, m, sec] = new Intl.DateTimeFormat("en-US", { timeZone: tz, hourCycle: "h23", hour: "2-digit", minute: "2-digit", second: "2-digit" })
-    .format(now).split(":").map(Number);
-  return now - ((h * 60 + m) * 60 + sec) * 1000;
-}
-
 const RANGE_WORDS = { day: "Today", week: "This week", month: "This month", quarter: "Last 3 months", season: "Since the start" };
+// The same ranges for the stat cards ("Bets won (this week)"); a book's season is its whole life
+const RANGE_SCOPE = { day: "today", week: "this week", month: "this month", quarter: "last 3 months", season: "lifetime" };
 
 export default async function Home({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const params = await searchParams;
@@ -128,13 +122,10 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
   const best = working[0];
   const worst = working[working.length - 1];
   const award = news.find((n) => n.kind === "award") ?? null;
-  const dayStart = midnight(tz, now);
-  const seasonProfit = profitSeries(season);
   const since = new Date(seasonStart).toLocaleDateString("en-US", { month: "short", day: "numeric" });
   const coinName = COIN_NAMES[coin].toLowerCase();
   const on = coinView ? ` on ${coinName}` : "";
   const end = points[points.length - 1].t;
-  const at = (pts: { t: number; v: number }[] | undefined, t: number) => (pts?.length ? lerpAt(pts, t, (p) => p.t, (p) => p.v) ?? 0 : 0);
 
   return (
     <div className="stack">
@@ -157,12 +148,11 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
           </>
         )}
         tabs={<RangeTabs value={range} path="/" />}
-        points={points} period={RANGE_WORDS[range]} showChange={range !== "season"}
+        points={points} period={RANGE_WORDS[range]} scope={RANGE_SCOPE[range]} showChange={range !== "season"}
         team={rows.filter(({ e }) => members.has(e.key)).map(({ e, light: l }) => ({
           key: e.key, name: e.name, emoji: e.emoji, light: l.key, bets: analysis.evidence[e.key]?.bets ?? 0,
           profit: [...(rangeProfits[e.key] ?? []), { t: end, v: pnlOf(e.key, e.pnl) }],
           season: pnlOf(e.key, e.pnl),
-          today: (e.pnl ?? 0) - at(seasonProfit[e.key], dayStart),
         }))}
         outside={outside}
         settled={mine} tz={tz}

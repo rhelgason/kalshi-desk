@@ -12,12 +12,11 @@ import PortfolioChart from "./PortfolioChart";
 
 /**
  * One pool member. profit: their running profit over the range shown; season: their
- * profit since the start; today: their change since midnight; light: the long-run
- * verdict; bets: how many have finished.
+ * profit since the start; light: the long-run verdict; bets: how many have finished.
  */
 export type Member = {
   key: string; name: string; emoji: string; light: string; bets: number;
-  profit: Point[]; season: number; today: number;
+  profit: Point[]; season: number;
 };
 type Settled = { t: number; strategy: string; coin: string; pnl: number };
 
@@ -51,6 +50,8 @@ const names = (ms: Member[]) =>
 export default function MoneyHero(props: {
   top: ReactNode; under?: ReactNode; tabs: ReactNode; footer?: ReactNode;
   points: PortfolioPoint[]; period: string; showChange: boolean;
+  /** the chart's range in a few words for the cards ("today", "this week", "lifetime") */
+  scope: string;
   team: Member[]; outside: string[];
   /** the pool's finished bets (one coin's, in a coin view) and open bets, for the cards */
   settled: Settled[]; positions: Position[]; tz: string;
@@ -59,7 +60,7 @@ export default function MoneyHero(props: {
   view: { kind: "pool"; pool: PoolSummary | null; worth: number; putIn: number; profit: number; since: string }
     | { kind: "coin"; coin: Coin; coinName: string; since: string; wholePool: number };
 }) {
-  const { points, team, view, settled, positions, tz } = props;
+  const { points, team, view, settled, positions } = props;
   const [benched, setBenched] = useState<string[]>([]);
   const out = team.filter((m) => benched.includes(m.key));
   const minus = (f: (m: Member) => number) => out.reduce((s, m) => s + f(m), 0);
@@ -71,8 +72,9 @@ export default function MoneyHero(props: {
   }, [points, team]);
   const ordered = [...team].filter((m) => Math.abs(change[m.key]) >= 0.01).sort((a, b) => change[a.key] - change[b.key]);
   const last = points[points.length - 1], first = points[0];
-  const actual = last && first ? last.worth - last.putIn - (first.worth - first.putIn) : 0;
-  const altResult = actual - benched.reduce((s, k) => s + (change[k] ?? 0), 0);
+  const cents = (v: number) => Math.round(v * 100) / 100 || 0; // no "−$0.00" from float dust
+  const actual = cents(last && first ? last.worth - last.putIn - (first.worth - first.putIn) : 0);
+  const altResult = cents(actual - benched.reduce((s, k) => s + (change[k] ?? 0), 0));
 
   const alt = useMemo(() => {
     if (!benched.length || !points.length) return null;
@@ -81,17 +83,19 @@ export default function MoneyHero(props: {
     return points.map((p) => p.worth - gone.reduce((s, m) => s + valueAt(m.profit, p.t) - valueAt(m.profit, t0), 0));
   }, [benched, points, team]);
 
-  // The cards' numbers without the benched employees' bets
-  const day = (t: number) => new Date(t).toLocaleDateString("en-CA", { timeZone: tz });
+  // The cards follow the chart: bets that finished in its range, plus the lifetime count;
+  // the what-if versions leave the benched employees' bets out
+  const t0 = first?.t ?? 0;
   const record = (keep: (k: string) => boolean): PoolRecord => {
-    const today = day(Date.now());
     const rows = settled.filter((s) => keep(s.strategy));
-    const td = rows.filter((s) => day(s.t) === today);
-    return { today: { n: td.length, won: td.filter((s) => s.pnl > 0).length }, season: { n: rows.length, won: rows.filter((s) => s.pnl > 0).length } };
+    const inRange = rows.filter((s) => s.t >= t0);
+    return { range: { n: inRange.length, won: inRange.filter((s) => s.pnl > 0).length },
+      lifetime: { n: rows.length, won: rows.filter((s) => s.pnl > 0).length } };
   };
+  const startWorth = first ? first.worth : 0;
   const whatIf = view.kind === "pool" && view.pool && benched.length ? {
     inPlay: positions.filter((p) => !benched.includes(p.strategy)).reduce((s, p) => s + p.cost, 0),
-    today: view.pool.equity - view.pool.day_open - minus((m) => m.today),
+    change: altResult,
     record: record((k) => !benched.includes(k)),
   } : null;
 
@@ -157,9 +161,10 @@ export default function MoneyHero(props: {
       </div>
 
       {view.kind === "coin"
-        ? <CoinGauges coin={view.coin} settled={settled} positions={positions} tz={tz} benched={benched}
+        ? <CoinGauges coin={view.coin} settled={settled} positions={positions} benched={benched} from={t0} scope={props.scope}
             names={Object.fromEntries(team.map((m) => [m.key, m.name]))} />
-        : view.pool && <PoolGauges pool={view.pool} record={record(() => true)} whatIf={whatIf} halted={props.halted} />}
+        : view.pool && <PoolGauges pool={view.pool} record={record(() => true)} whatIf={whatIf} halted={props.halted}
+            change={actual} start={startWorth} scope={props.scope} />}
       {benched.length > 0 && view.kind === "pool" && (
         <p className="muted small" style={{ margin: "4px 0 0" }}>Orange-edged cards are the what-if; the rest show what really happened.</p>
       )}
