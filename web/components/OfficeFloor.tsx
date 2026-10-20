@@ -34,7 +34,7 @@ type Kind =
   | "printer" | "servers" | "pingpong" | "couch" | "tv" | "arcade" | "beanbag" | "bench" | "restroom" | "visit"
   | "pace" | "bell" | "bull" | "boss" | "meeting" | "present" | "island" | "pushups" | "toss" | "highfive"
   | "party" | "huddle" | "dance" | "rush" | "chase" | "leave" | "skate" | "stage" | "cheer" | "fetch" | "conga"
-  | "nerf" | "gawk";
+  | "nerf" | "gawk" | "game";
 
 type Agent = {
   key: string;
@@ -104,6 +104,7 @@ const CHATTER: Record<string, string[]> = {
   arcade: ["New high score!", "One more credit…", "This is research."],
   beanbag: ["I live here now.", "Ahh."],
   bench: ["Put me in, coach!", "This bench is cold.", "I'll be back."],
+  game: ["King me!", "Your move.", "That's not how the knight moves.", "Best of three?", "Do Monopoly dollars count?", "No take-backs!"],
   visit: ["Nice trade!", "You're up how much?", "Lend me five bucks?", "Teach me your ways."],
   bull: ["Rub the bull for luck.", "Shiny."],
   boss: ["About that raise…", "Got a minute, boss?", "I have an idea."],
@@ -119,7 +120,7 @@ const ACTIVITY: Record<Kind, string> = {
   desk: "at their desk", phone: "on the phone", coffee: "making coffee", cooler: "at the water cooler", window: "staring out the window",
   board: "watching the big board", aquarium: "visiting Gordon the goldfish", vending: "at the vending machine", fridge: "raiding the fridge",
   snacks: "at the snack shelf", printer: "fighting the printer", servers: "poking the servers", pingpong: "playing ping pong",
-  couch: "on the couch", tv: "watching TV", arcade: "playing arcade games", beanbag: "in a beanbag", bench: "on the bench",
+  couch: "on the couch", game: "playing a board game in the conference room", tv: "watching TV", arcade: "playing arcade games", beanbag: "in a beanbag", bench: "on the bench",
   restroom: "on a break", visit: "visiting a coworker", pace: "pacing", bell: "ringing the bell", bull: "rubbing the golden bull",
   boss: "in your office", meeting: "in a meeting", present: "presenting in a meeting", island: "at the kitchen island",
   pushups: "doing push-ups", toss: "shooting paper balls", highfive: "high-fiving", party: "celebrating", huddle: "in the hype huddle",
@@ -227,9 +228,37 @@ export default function OfficeFloor({ people, total, btc, series, btcSeries }: {
     const hour = new Date().getHours();
     const late = hour >= 23 || hour < 6;
     if (m === "benched") {
-      add(8, () => { const [seat, kind] = benchSeat(a, others); send(a, seat, kind, rand(30, 60)); });
+      // Off the trading floor: no desk, no phone, no big board. Breaks, games and snacks instead
+      add(2, () => { const [seat, kind] = benchSeat(a, others); send(a, seat, kind, rand(20, 40)); });
+      add(2, () => send(a, SPOTS.coffee, "coffee", rand(6, 10)));
+      add(2, () => send(a, pick(SPOTS.cooler), "cooler", rand(8, 14)));
+      add(1, () => send(a, pick(SPOTS.island), "island", rand(8, 14)));
       add(1, () => send(a, SPOTS.vending, "vending", rand(5, 9)));
-      add(1, () => send(a, pick(SPOTS.arcade), "arcade", rand(10, 20)));
+      add(0.6, () => send(a, SPOTS.snacks, "snacks", rand(4, 7)));
+      add(0.5, () => send(a, SPOTS.fridge, "fridge", rand(4, 7)));
+      add(1, () => send(a, pick(SPOTS.aquarium), "aquarium", rand(6, 10)));
+      add(1, () => send(a, pick(SPOTS.tv), "tv", rand(10, 20)));
+      add(1.2, () => send(a, pick(SPOTS.arcade), "arcade", rand(10, 20)));
+      add(1, () => send(a, pick(SPOTS.beanbags), "beanbag", rand(12, 25)));
+      add(0.8, () => send(a, pick(SPOTS.windows), "window", rand(6, 12)));
+      add(0.4, () => send(a, pick(SPOTS.elevator), "restroom", rand(8, 14)));
+      // Games with another benchwarmer: a board game at the conference table, or ping pong
+      const mates = others.filter((b) => b.mood === "benched" && b.arrived && !["game", "pingpong"].includes(b.kind));
+      add(mates.length && !w.agents.some((b) => b.kind === "game") && !w.event ? 3 : 0, () => {
+        const b = pick(mates);
+        const dur = rand(30, 50);
+        send(a, SPOTS.conference[1], "game", dur);
+        send(b, SPOTS.conference[5], "game", dur);
+        a.partner = b.key; b.partner = a.key;
+        say(a, pick(["Board game?", "Checkers. Now.", "Loser buys coffee."]), 3);
+      });
+      add(mates.length && !w.agents.some((b) => b.kind === "pingpong") ? 1.5 : 0, () => {
+        const b = pick(mates);
+        const dur = rand(14, 22);
+        send(a, SPOTS.pingpong[0], "pingpong", dur);
+        send(b, SPOTS.pingpong[1], "pingpong", dur);
+        a.partner = b.key; b.partner = a.key;
+      });
     } else {
       const atDesk = { trading: 7, watching: 4, celebrating: 1, stressed: 2, coffee: 2, sleeping: 3, fired: 0, benched: 0 }[m];
       const chill = m === "coffee" || m === "sleeping" ? 2 : 1;
@@ -874,6 +903,18 @@ export default function OfficeFloor({ people, total, btc, series, btcSeries }: {
       }
       layers.sort((a, b) => a.y - b.y || a.k - b.k);
       for (const l of layers) l.draw();
+      const game = w.agents.filter((a) => a.kind === "game" && a.arrived);
+      if (game.length === 2) {
+        // a checkerboard on the conference table, with a few pieces that shuffle now and then
+        const bx = 3 * TILE + 2, by = 5 * TILE + 9;
+        rect(ctx, bx - 1, by - 1, 14, 14, "#3b2412");
+        for (let i = 0; i < 6; i++) for (let j = 0; j < 6; j++) rect(ctx, bx + i * 2, by + j * 2, 2, 2, (i + j) % 2 ? "#1a1a1a" : "#e8d5b0");
+        const turn = Math.floor(t / 3);
+        for (let n = 0; n < 4; n++) {
+          const i = (n * 2 + turn + (n > 1 ? 1 : 0)) % 6, j = n < 2 ? n % 2 : 4 + (n % 2);
+          rect(ctx, bx + i * 2, by + j * 2, 2, 2, n < 2 ? "#d63031" : "#f5f5f5");
+        }
+      }
       const pp = w.agents.filter((a) => a.kind === "pingpong" && a.arrived);
       if (pp.length === 2) {
         const k = (t % 1.1) / 1.1, there = k < 0.5 ? k * 2 : 2 - k * 2;
