@@ -566,6 +566,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("resume", help="allow real trading again after a halt")
     sub.add_parser("employees")
     sub.add_parser("whoami")
+    sub.add_parser("notify-test", help="send a test phone notification (needs PUSHOVER_TOKEN and PUSHOVER_USER)")
     args = parser.parse_args(argv)
 
     _setup_logging(args.verbose)
@@ -604,6 +605,14 @@ def main(argv: list[str] | None = None) -> int:
             cmd_halt(cfg, getattr(args, "reason", ""), args.cmd == "resume")
         elif args.cmd == "employees":
             cmd_employees()
+        elif args.cmd == "notify-test":
+            from desk import notify
+
+            if not notify.configured():
+                print("Set PUSHOVER_TOKEN and PUSHOVER_USER first (in .env, or on the bot's Vercel project).")
+                return 1
+            ok = notify.daily(1.42, 6, 5, ("Nickel Nora", 0.88), 103.21, 2.10, 3)
+            print("Sent: check your phone." if ok else "Pushover refused it (see the warning above).")
         elif args.cmd == "whoami":
             asyncio.run(cmd_whoami(cfg))
     except KeyboardInterrupt:
