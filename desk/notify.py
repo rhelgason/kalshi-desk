@@ -54,10 +54,11 @@ def money(v: float) -> str:
 
 def paused(reason: str, by: str) -> bool:
     who = "the bot's safety check" if by == "bot" else by
+    until = ("it restarts by itself at midnight" if "daily stop" in by
+             else "you resume it on the dashboard")
     return send("⏸ Live trading paused",
                 f'<font color="{AMBER}"><b>{reason}</b></font>\n'
-                f"Paused by {who}. No new real bets until you resume it on the dashboard; "
-                "bets already placed still settle.",
+                f"Paused by {who}. No new real bets until {until}; bets already placed still settle.",
                 priority=1, sound="falling")
 
 

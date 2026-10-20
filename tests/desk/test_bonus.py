@@ -110,3 +110,19 @@ def test_nothing_is_sent_without_pushover_keys(monkeypatch):
     monkeypatch.delenv("PUSHOVER_TOKEN", raising=False)
     monkeypatch.delenv("PUSHOVER_USER", raising=False)
     assert notify.send("t", "m") is False
+
+
+def test_the_daily_stop_on_real_money_pings_the_phone_once(desk_and_client, monkeypatch):
+    import asyncio
+    desk, _ = desk_and_client
+    desk.guard = Guard(desk.ledger)
+    desk.strategies = []
+    monkeypatch.setattr("desk.runner._now", lambda: NOW)
+    sent = []
+    monkeypatch.setattr(notify, "send", lambda title, msg, **k: sent.append(msg) or True)
+    desk.pool.update(200, NOW)
+    for k in desk.pool.members:
+        desk.accounts[k].cash *= 0.8  # the pool loses 20% today
+    asyncio.run(desk.run_strategies(None))
+    asyncio.run(desk.run_strategies(None))
+    assert len(sent) == 1 and "daily stop" in sent[0] and "midnight" in sent[0]

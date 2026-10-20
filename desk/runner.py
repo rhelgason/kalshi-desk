@@ -339,7 +339,12 @@ class Desk:
 
     async def run_strategies(self, snap: Snapshot) -> list[ExecutionResult]:
         results = []
+        was_stopped = bool(self.pool.state.stopped_at)
         self.pool.update(self.pool.total_equity(self.accounts, self.marks), _now(), self.pool.capital(self.accounts))
+        if self.guard and self.pool.state.stopped_at and not was_stopped:
+            # Real money: the daily stop is a pause too (until midnight), so it pings the phone
+            notify.paused(f"the pool is down {-self.pool.today:.1%} today (daily stop at "
+                          f"{float(self.pool.settings['daily_stop']):.0%}); bets resume at midnight", "the pool's daily stop")
         if self.pool.stopped:
             logger.info("Daily stop: the pool is down %.1f%% today, no new bets until midnight", -self.pool.today * 100)
             for o in await _done(self.broker.cancel(self.pool.members)):  # bids waiting come down too
