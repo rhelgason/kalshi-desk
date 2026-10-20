@@ -73,6 +73,8 @@ class RestingOrder:
     matched_until: Optional[str] = None
     # Live orders: Kalshi fill ids already applied to the books
     fill_ids: list = field(default_factory=list)
+    # Share of the bid paid from the bonus pot (refunded if it expires unfilled)
+    bonus: float = 0.0
 
     @property
     def remaining(self) -> float:

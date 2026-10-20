@@ -72,6 +72,8 @@ class DeskConfig:
     schema: str = "public"
     real_book: str | None = None
     auto_hr: bool = True  # automatic reviews and promotions; off for real money (the manager decides)
+    # The weekly bonus pot (desk/bonus.py): this share of the week's office profit, once the pool is this big
+    bonus_pot: dict[str, Any] = field(default_factory=lambda: {"share": 0.10, "min_pool": 0.0})
 
     strategies: dict[str, dict[str, Any]] = field(default_factory=dict)
 

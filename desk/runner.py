@@ -23,6 +23,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from dataclasses import replace
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 from desk.config import DeskConfig
 from desk.feeds.crypto import CryptoFeed
@@ -34,7 +35,7 @@ from desk.paper.broker import ExecutionResult, PaperBroker, RestingOrder
 from desk.paper.ledger import Ledger
 from desk.paper.pool import Pool, PoolAccountView, PoolState, event_of
 from desk.paper.scoreboard import format_scoreboard, scoreboard_rows
-from desk import hr
+from desk import bonus, hr, notify
 from desk.strategies import REGISTRY, strategy_params
 from desk.strategies.base import Snapshot, Strategy, TradeIntent
 
@@ -50,7 +51,9 @@ async def _done(x):
     return await x if inspect.isawaitable(x) else x
 
 
-MIN_BET_DOLLARS = 0.25  # smallest bet the pool places (Kalshi's own step is 0.01 contracts)
+MIN_BET_DOLLARS = 0.25
+NOTIFY = "_notify"  # status row: when the last daily phone summary went out
+DAILY_HOUR = 21  # 9 PM  # smallest bet the pool places (Kalshi's own step is 0.01 contracts)
 
 
 class Desk:
@@ -93,6 +96,7 @@ class Desk:
             self.broker = PaperBroker(ledger, accounts or {}, liquidity_share=config.liquidity_share)
         # The office pool everyone but the control group bets out of (desk.paper.pool)
         self.pool = Pool(self.policy["pool"], ())
+        self.bonus: dict = {}  # the Employee of the Week's bonus pot (desk/bonus.py), reloaded each run
         if accounts:
             # A saved account that disagrees with the records about its starting money is stale
             # (e.g. re-added empty while it was off the roster): drop it so it's rebuilt below
@@ -223,6 +227,7 @@ class Desk:
 
         self.inactive = {k for k, r in self.roster.items() if not r.is_working()}
         self.multipliers = {k: r.multiplier for k, r in self.roster.items()}
+        self.bonus = bonus.load(self.ledger)
         self.pool.settings = self.policy["pool"]
         self.pool.members = self.broker.pool_members = {k for k, r in self.roster.items() if not r.control}
         if self.manage_roster and self.broker.accounts:
@@ -374,6 +379,8 @@ class Desk:
                 result = await self.execute(bet, snap)
                 if result:
                     results.append(result)
+                    if bet.bonus and result.filled:
+                        bonus.spend(self.ledger, self.bonus, bet.bonus * result.total_cost)
         return results
 
     async def post_bid(self, strat: Strategy, intent: TradeIntent, snap: Snapshot) -> list[RestingOrder]:
@@ -389,6 +396,9 @@ class Desk:
             return []
         who = self.personas.get(strat.key, strat.key)
         for o in placed:
+            if bet.bonus:
+                o.bonus = bet.bonus
+                bonus.spend(self.ledger, self.bonus, bet.bonus * o.price * o.count)
             self.journal.count(strat.key, "bids posted")
             logger.info("%s BID %s %gx %s @ %.3f (until %s) | %s", who, o.side.upper(), o.count, o.ticker, o.price,
                         o.expires_at[11:19], o.reason)
@@ -408,6 +418,8 @@ class Desk:
 
     def _bid_ended(self, o: RestingOrder, outcome: str) -> None:
         self.journal.count(o.strategy, outcome)
+        if o.bonus and o.remaining >= 0.01:  # the unfilled part of a bonus bid goes back to the bonus
+            bonus.spend(self.ledger, self.bonus, -o.bonus * o.price * o.remaining)
         logger.info("%s %s: %s %s @ %.3f, filled %g of %g", self.personas.get(o.strategy, o.strategy), outcome,
                     o.ticker, o.side.upper(), o.price, o.filled, o.count)
         self._safely("log decision", lambda: self.ledger.record_decision(
@@ -459,7 +471,8 @@ class Desk:
         picks the market, side and price; the pool decides how much.
         Returns (bet or None, why not).
         """
-        dollars = self.pool.bet_dollars(self.multipliers.get(intent.strategy, 1.0))
+        dollars = base = self.pool.bet_dollars(self.multipliers.get(intent.strategy, 1.0))
+        dollars += bonus.extra(self.bonus, intent.strategy, base)  # Employee of the Week: bigger bets, same pool
         capped = False
         if intent.strategy in self.pool.members:
             room = min(self.pool.window_room(event_of(leg.ticker), self.accounts, self.broker.resting)
@@ -473,10 +486,11 @@ class Desk:
             return None, "window cap full" if capped else "the pool is empty"
         # Kalshi takes contracts in 0.01 steps, so a small pool's $0.50 bet is still a bet
         legs = [replace(leg, count=math.floor(leg.count * dollars / cost * 100) / 100) for leg in intent.legs]
-        if any(leg.count < 0.01 for leg in legs) or sum(leg.count * leg.limit_price for leg in legs) < MIN_BET_DOLLARS:
+        spend = sum(leg.count * leg.limit_price for leg in legs)
+        if any(leg.count < 0.01 for leg in legs) or spend < MIN_BET_DOLLARS:
             # crumbs left under the cap aren't worth an order
             return None, "window cap full" if capped else f"bet under ${MIN_BET_DOLLARS:.2f}"
-        return replace(intent, legs=legs), ""
+        return replace(intent, legs=legs, bonus=max(spend - base, 0.0) / spend), ""
 
     async def match_resting(self) -> None:
         """Fill maker orders from the live trade tape since they were last checked, then expire stale ones."""
@@ -713,24 +727,36 @@ class Desk:
             with j.phase("reconcile"):
                 await self.reconcile_live()
         # The real-money book has no automatic reviews: the manager hires, fires and levels by hand
-        if self.config.auto_hr and hr.review_due(self.policy, now):
+        review = hr.review_due(self.policy, now)
+        week = self.office_pnl_since_review() if review else 0.0
+        winner: Optional[str] = None  # this week's Employee of the Week, if a review runs
+        if self.config.auto_hr and review:
             with j.phase("review"):
                 for a in hr.run_review(self.ledger, self.roster, self.accounts, self.policy, now,
                                        evidence=self.compute_evidence(), pool=self.pool.equity or None):
                     logger.info("HR: %s", a)
                     j.count(a.get("strategy") or "desk", f"review: {a.get('action') or a['kind']}")
+                    if a["kind"] == "award":
+                        winner = a["strategy"]
             self.inactive = {k for k, r in self.roster.items() if not r.is_working()}
             self.multipliers = {k: r.multiplier for k, r in self.roster.items()}
-        elif hr.review_due(self.policy, now):
+        elif review:
             # No automatic HR, but the weekly award still happens (it changes no levels or money)
             with j.phase("review"):
                 for a in hr.run_award(self.ledger, self.roster, self.accounts, self.policy, now):
                     logger.info("HR: %s", a)
+                    winner = a["strategy"]
+        if review:
+            self.bonus = bonus.hand_out(self.ledger, self.config.bonus_pot, week, self.pool.equity,
+                                        winner, now)
+            logger.info("Bonus pot: %s", self.bonus)
 
         self.tick_count += 1
         # Reporting is best-effort: a bug in a dashboard summary must never stop
         # trading or settlement (the timer still advances, so it isn't retried every run)
         with j.phase("report"):
+            if self.guard:
+                self._safely("daily summary", lambda: self.daily_summary(now))
             if self._due(self._last_status, self.config.status_every_seconds, now):
                 self._safely("publish status", lambda: self.publish_status(snap))
                 self._last_status = now
@@ -788,6 +814,40 @@ class Desk:
                 for o in await self.broker.cancel_everything():
                     self._bid_ended(o, "bid pulled: trading halted")
         self.guard.save_books(books)
+
+    def office_pnl_since_review(self) -> float:
+        """The office pool's settled profit since the last review (the bonus pot takes a share)."""
+        since = self.policy.get("last_review")
+        if not since:
+            return 0.0
+        stats = hr.period_stats(self.ledger, self.accounts, datetime.fromisoformat(since))
+        return sum(st.pnl for k, st in stats.items() if k in self.pool.members)
+
+    def daily_summary(self, now: datetime) -> None:
+        """Real money only: at 9 PM (the pool's time zone), a phone summary since the last one."""
+        if not notify.configured():
+            return
+        local = now.astimezone(ZoneInfo(self.policy["pool"].get("timezone") or "America/Vancouver"))
+        sent = self.ledger.get_status(NOTIFY) or {}
+        if local.hour < DAILY_HOUR or sent.get("day") == local.date().isoformat():
+            return
+        since = sent.get("at") or (local.replace(hour=DAILY_HOUR, minute=0, second=0, microsecond=0)
+                                   - timedelta(days=1)).astimezone(timezone.utc).isoformat()
+        rows = self.ledger._rows("SELECT strategy, pnl FROM settlements WHERE ts >= ? AND ts < ?",
+                                 (since, now.isoformat()))
+        by: dict[str, float] = {}
+        for r in rows:
+            by[r["strategy"]] = by.get(r["strategy"], 0.0) + float(r["pnl"])
+        leader = max(by.items(), key=lambda kv: kv[1]) if by else None
+        open_tickers = {t for k in self.pool.members if k in self.accounts for t in self.accounts[k].open_tickers}
+        riding = sum(p.yes_cost + p.no_cost for k in self.pool.members if k in self.accounts
+                     for p in self.accounts[k].positions.values())
+        ok = notify.daily(sum(by.values()), len(rows), sum(1 for r in rows if float(r["pnl"]) > 0),
+                          (self.personas.get(leader[0], leader[0]), leader[1]) if leader else None,
+                          self.pool.equity, riding, len(open_tickers),
+                          halted=(self.guard.state.get("reason") or "by the manager") if self.guard.halted else None)
+        if ok:
+            self.ledger.set_status(NOTIFY, {"day": local.date().isoformat(), "at": now.isoformat()})
 
     def record_run(self) -> None:
         """Save this run's journal (and, about hourly, drop journals older than two weeks)."""

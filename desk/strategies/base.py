@@ -81,6 +81,8 @@ class TradeIntent:
     # the current ask. Filled later only if other traders trade into it.
     post_only: bool = False
     ttl_seconds: float = 0.0
+    # Share of the cost paid from the Employee of the Week's bonus (desk/bonus.py)
+    bonus: float = 0.0
     intent_id: str = field(default_factory=lambda: uuid.uuid4().hex[:12])
 
     @property

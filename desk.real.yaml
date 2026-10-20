@@ -29,6 +29,9 @@ live:
   max_daily_loss: 20      # dollars down since midnight: halt until resumed
   max_drift: 1            # dollars the books may differ from Kalshi's balance
 
+bonus_pot:
+  min_pool: 500           # the Employee of the Week's bonus starts once the real pool passes $500
+
 strategies:
   # The control group stays on pretend money: they're there to lose
   dart_monkey: {enabled: false}

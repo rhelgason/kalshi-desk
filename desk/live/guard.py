@@ -71,6 +71,9 @@ class Guard:
         self.ledger.set_setting(SETTING, self.state)
         self.ledger.record_event("trading", {"action": "halted", "reason": reason, "by": by})
         logger.error("REAL TRADING HALTED by %s: %s", by, reason)
+        from desk import notify
+
+        notify.paused(reason, by)
 
     def resume(self, by: str = "manager") -> None:
         """Trade again. The books are re-baselined against Kalshi on the next run."""
