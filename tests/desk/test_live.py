@@ -245,3 +245,16 @@ def test_live_trading_needs_both_switches_and_a_key(monkeypatch, tmp_path):
     bad.write_text("trading: real\n")
     with pytest.raises(ValueError, match="paper or live"):
         DeskConfig.load(bad)
+
+
+async def test_waiting_bids_dont_count_as_missing_cash(live):
+    """Real Kalshi leaves a waiting bid's money in the balance (the 2026-10-19 false halt)."""
+    broker, client, ledger, accounts = live
+    first = await reconcile(client, accounts, broker.pool_members, broker.resting)
+    [o] = await broker.place(bet(price=0.92, count=1.65, post_only=True, ttl_seconds=110), NOW)
+    waiting = await reconcile(client, accounts, broker.pool_members, broker.resting, baseline=first.baseline)
+    assert abs(waiting.drift) < 1e-6
+    client.trade_into(o.order_id, 1.65)
+    await broker.poll(NOW + timedelta(seconds=30))
+    filled = await reconcile(client, accounts, broker.pool_members, broker.resting, baseline=first.baseline)
+    assert abs(filled.drift) < 1e-6 and filled.ok

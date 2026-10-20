@@ -5,10 +5,12 @@ Each run compares two things for the office pool's members:
 
   positions  Kalshi keeps one net number per market (+ YES, - NO). Ours is the
              sum over every employee of YES minus NO contracts held.
-  cash       Kalshi's available balance against our cash. Kalshi pays out a
-             YES+NO pair as $1 right away even when two different employees hold
-             the halves, and sets aside money for bids that are waiting, so:
-                 expected = our cash + pairs across employees - money in waiting bids
+  cash       Kalshi's balance against our cash. Kalshi pays out a YES+NO pair as
+             $1 right away even when two different employees hold the halves, so:
+                 expected = our cash + pairs across employees
+             Kalshi does NOT take money out of the balance for bids that are still
+             waiting (seen on the real exchange 2026-10-19: each waiting bid showed
+             up as exactly that much "extra" cash), and neither do we.
              The first reading sets a baseline (money in the account that isn't
              the pool's); after that, drift is any change in the difference.
 
@@ -58,9 +60,8 @@ def our_books(accounts: dict[str, PaperAccount], members: set[str], resting: lis
             yes[t] += p.yes
             no[t] += p.no
     pairs = sum(min(yes[t], no[t]) for t in set(yes) | set(no))
-    waiting = sum(o.price * o.remaining for o in resting if o.strategy in members)
     net = {t: round(yes[t] - no[t], 2) for t in set(yes) | set(no) if abs(yes[t] - no[t]) > 0.005}
-    return net, cash + pairs - waiting
+    return net, cash + pairs
 
 
 async def reconcile(client: KalshiClient, accounts: dict[str, PaperAccount], members: set[str], resting: list,
