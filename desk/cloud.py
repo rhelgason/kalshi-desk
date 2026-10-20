@@ -296,3 +296,27 @@ async def run_all_books(config_path: Optional[str] = None) -> dict:
                 out["real"] = {"ok": False, "error": f"{type(e).__name__}: {e}"}
     out["pretend"] = await run_cloud_tick(config_path=str(path))
     return {"ok": all(r.get("ok") for r in out.values()), **out}
+
+
+def reset_pool_day(ledger: Ledger, equity: float) -> Optional[dict]:
+    """
+    Start the pool's day (and its high-water mark) over at `equity`: for when the saved
+    day-open or peak is wrong (e.g. money that left and came back counted twice), which
+    would otherwise hold a false daily stop until midnight. Waits its turn with the bot's runs.
+    Returns the new pool state, or None if a run is in progress (try again in a minute).
+    """
+    from desk.paper.pool import PoolState
+
+    if not ledger.try_lease(LEASE, LEASE_SECONDS):
+        return None
+    try:
+        state = ledger.get_status(STATE_KEY) or {}
+        pool = PoolState.from_dict(state.get("pool"))
+        pool.day_open = pool.peak = equity
+        pool.stopped_at = None
+        state["pool"] = pool.to_dict()
+        ledger.set_status(STATE_KEY, state)
+        ledger.record_event("trading", {"action": "pool day reset", "equity": round(equity, 2)})
+        return state["pool"]
+    finally:
+        ledger.release_lease(LEASE)

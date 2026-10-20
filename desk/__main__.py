@@ -566,6 +566,8 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("resume", help="allow real trading again after a halt")
     sub.add_parser("employees")
     sub.add_parser("whoami")
+    reset = sub.add_parser("pool-reset", help="restart the pool's day and high-water mark at its current value")
+    reset.add_argument("equity", type=float, help="the pool's true value now, in dollars")
     sub.add_parser("notify-test", help="send a test phone notification (needs PUSHOVER_TOKEN and PUSHOVER_USER)")
     args = parser.parse_args(argv)
 
@@ -605,6 +607,11 @@ def main(argv: list[str] | None = None) -> int:
             cmd_halt(cfg, getattr(args, "reason", ""), args.cmd == "resume")
         elif args.cmd == "employees":
             cmd_employees()
+        elif args.cmd == "pool-reset":
+            from desk.cloud import reset_pool_day
+
+            done = reset_pool_day(Ledger(cfg.db_path, cfg.schema), args.equity)
+            print(f"Pool day restarted: {done}" if done else "A bot run is in progress; try again in a minute.")
         elif args.cmd == "notify-test":
             from desk import notify
 

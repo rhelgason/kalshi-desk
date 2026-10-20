@@ -117,3 +117,19 @@ async def test_cloud_app_health_and_auth(monkeypatch):
     assert await _call("/api/tick") == 401
     assert await _call("/api/tick", [(b"authorization", b"Bearer wrong")]) == 401
     assert await _call("/nope") == 404
+
+
+def test_pool_reset_clears_a_false_daily_stop():
+    from desk.cloud import STATE_KEY, reset_pool_day
+    from desk.paper.pool import Pool
+
+    led = Ledger(":memory:")
+    led.set_status(STATE_KEY, {"pool": {"day": "2026-10-20", "day_open": 118.46, "peak": 118.46,
+                                        "stopped_at": "2026-10-20T19:06:02+00:00", "capital": 100.0}, "other": 1})
+    assert reset_pool_day(led, 101.79)["day_open"] == 101.79
+    state = led.get_status(STATE_KEY)
+    pool = Pool({"daily_stop": 0.1, "brake_drawdown": 0.25}, ())
+    from desk.paper.pool import PoolState
+    pool.state = PoolState.from_dict(state["pool"])
+    pool.equity = 101.79
+    assert not pool.stopped and state["pool"]["peak"] == 101.79 and state["other"] == 1
