@@ -37,6 +37,5 @@ deployed from `web/`). Notifications go through Pushover.
 ## Credits
 
 Started as a fork of [ImMike/polymarket-arbitrage](https://github.com/ImMike/polymarket-arbitrage)
-(MIT; see [LICENSE](LICENSE)). Its original README is in
-[docs/ORIGINAL_README.md](docs/ORIGINAL_README.md); `core/`, `polymarket_client/`,
-`kalshi_client/`, `dashboard/` and `run_with_dashboard.py` are left over from it.
+(MIT; see [LICENSE](LICENSE)). `core/`, `polymarket_client/`, `kalshi_client/`,
+`dashboard/` and `run_with_dashboard.py` are left over from it.

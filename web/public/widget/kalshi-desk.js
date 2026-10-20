@@ -113,7 +113,8 @@ function header(w, d, size) {
   text(row, `KALSHI DESK${which}`, size, d && d.book === "real" ? G.mid : G.dim, "bold");
   row.addSpacer();
   if (!d) return;
-  if (d.stale) text(row, `● OFFLINE ${fmt(d.updated_at, "h:mm a")}`, size, G.alert, "bold");
+  if (d.cached) text(row, `● SAVED ${fmt(d.updated_at, "h:mm a")}`, size, G.alert, "medium");
+  else if (d.stale) text(row, `● OFFLINE ${fmt(d.updated_at, "h:mm a")}`, size, G.alert, "bold");
   else text(row, `● ${fmt(d.updated_at, "h:mm a")}`, size, G.dim, "medium");
 }
 
@@ -121,7 +122,8 @@ function build(d, family) {
   const w = new ListWidget();
   w.backgroundColor = G.bg;
   w.url = DASHBOARD;
-  w.refreshAfterDate = new Date(Date.now() + 15 * 60_000);
+  // a saved copy is on screen: try again sooner
+  w.refreshAfterDate = new Date(Date.now() + (d && d.cached ? 5 : 15) * 60_000);
   const small = family === "small", large = family === "large";
   w.setPadding(12, 14, 12, 14);
   header(w, d, small ? 9 : 10);
@@ -175,6 +177,9 @@ function build(d, family) {
 
 const param = parseFloat(args.widgetParameter);
 const days = param > 0 ? param : DEFAULT_DAYS;
+// The last good numbers, shown (marked SAVED) when the desk can't be reached for a moment
+const files = FileManager.local();
+const saved = files.joinPath(files.documentsDirectory(), `kalshi-desk-data-${days}.json`);
 let data = null;
 try {
   const req = new Request(`${DASHBOARD}/api/widget?key=${encodeURIComponent(KEY)}&days=${days}`);
@@ -182,6 +187,10 @@ try {
   data = await req.loadJSON();
 } catch (e) {
   data = null;
+}
+if (data && data.ok) files.writeString(saved, JSON.stringify(data));
+else if (!(data && data.error === "unauthorized") && files.fileExists(saved)) {
+  data = { ...JSON.parse(files.readString(saved)), cached: true };
 }
 const widget = build(data, config.widgetFamily || "medium");
 if (config.runsInWidget) Script.setWidget(widget);
