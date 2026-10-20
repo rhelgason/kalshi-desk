@@ -38,5 +38,5 @@ strategies:
   # Their 15-minute "move" is mostly from before the window opened, when Kalshi has already priced it.
   breakout: {enabled: false}
   breakout_maker: {enabled: false}
-  # Deadeye Dee: every last-5-minute setting lost in a 30-day replay; she practices on pretend money
+  # The Sniper: every last-5-minute setting lost in a 30-day replay; she practices on pretend money
   sniper: {enabled: false}

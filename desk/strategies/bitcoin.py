@@ -35,7 +35,7 @@ COIN = {"BTC": "bitcoin", "ETH": "ether", "SOL": "solana"}  # for the reason tex
 class BreakoutBetty(Strategy):
     key = "breakout"
     persona = Persona(
-        "Breakout Betty", "Big-Wave Surfer", "🏄‍♀️",
+        "Wipeout", "Big-Wave Surfer", "🏄‍♀️",
         "Sees bitcoin swell and paddles like mad to catch it before Kalshi notices. Wipes out loudly.",
     )
 
@@ -206,7 +206,7 @@ class BreakoutBonnie(PatientTwin, BreakoutBetty):
     key = "breakout_maker"
     persona = Persona(
         "Breakout Bonnie", "Pool Floater", "🛟",
-        "Betty's twin. Same waves, but she lies on an inflatable flamingo and waits for one to drift under her.",
+        "Wipeout's twin sister. Same waves, but she lies on an inflatable flamingo and waits for one to drift under her.",
     )
     backtestable = False
 

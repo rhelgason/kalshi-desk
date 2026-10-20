@@ -9,7 +9,7 @@ db_path: data/desk.db     # the ledger: every paper trade and payout
 # 15-minute window, no new bets after a 10% down day, and half-size bets while
 # the pool is 25% below its high. These live in the HR settings (website).
 pool_cash: 1000           # split across the pool's members when a season starts
-starting_cash: 1000       # paper dollars for each control-group employee (Dan, Lenny)
+starting_cash: 1000       # paper dollars for each control-group employee (Dan, Lucky)
 
 tick_seconds: 15          # how often everyone looks at the market
 # Bitcoin since Season 3: "will BTC be up in 15 minutes?" markets settle 96x a
@@ -41,20 +41,20 @@ liquidity_share: 0.5      # assume faster bots take half of every displayed orde
 # training period and the unseen test period. PROBATION means no tested
 # setting made money, so the employee only bets on rare, very strong signals.
 strategies:
-  sniper:                 # 🎯 Deadeye Dee - LOOSENED again 10-20 (pretend money only; benched on real)
+  sniper:                 # 🎯 The Sniper - LOOSENED again 10-20 (pretend money only; benched on real)
     min_win_prob: 0.80    # 30-day replay: every last-5-minute setting loses (-5 to -14c per $1), and at
     max_seconds: 300      # 90% she had 4 ideas in 6 days, none filled. This lets her fire so HR can judge
     vol_multiplier: 1.25  # her on real evidence. (Training's roster row holds the same settings,
     min_edge: 0.0         # with autotune paused for her.)
     min_price: 0.60
     max_bet: 50
-  longshot_fade:          # 🧊 Buzzkill Bill - TUNED: fade 5-15c long shots, never in the last 10 minutes
+  longshot_fade:          # 🧊 The Wet Blanket - TUNED: fade 5-15c long shots, never in the last 10 minutes
     min_yes: 0.05
     max_yes: 0.15
     min_seconds: 600
     max_days: 2
     stake: 5
-  longshot_buy:           # 🎰 Long Shot Lenny - control group: buys the long shots Bill fades
+  longshot_buy:           # 🐦 Lucky the Pigeon - control group: buys the long shots the Wet Blanket fades
     max_days: 2
     stake: 2
   nickel_picker:          # 🪙 Nickel Nick - TUNED: 88-95c favorites, never in the last 10 minutes
@@ -62,7 +62,7 @@ strategies:
     max_price: 0.95
     min_seconds: 600
     stake: 10
-  breakout:               # 🏄‍♀️ Breakout Betty - RETUNED 10-20: bitcoin only, 0.3%+ moves early in a window
+  breakout:               # 🏄‍♀️ Wipeout - RETUNED 10-20: bitcoin only, 0.3%+ moves early in a window
     min_move: 0.003       # 30-day replay: +$54 train / +$110 test (0.2% was +$147 / +$11, fading)
     max_price: 0.60
     coins: [BTC]          # ether lost in the first 20 days at every threshold (Bonnie went 2 of 12 on it)

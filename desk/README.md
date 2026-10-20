@@ -26,8 +26,8 @@ pytest tests/desk            # offline test suite
 | 🎯 | The Sniper | Final 10 minutes only: near-certain outcomes still trading a few cents under $1 | Rarely, but big when it does |
 | 🏄 | Momentum Mo | Pricing model that assumes the last 15 minutes' trend continues | Yes |
 | 🪀 | Rubber Band Randy | Pricing model that assumes the last 5 minutes' move reverses | Yes (Mo and Randy can't both be right) |
-| 🧊 | Buzzkill Bill | Bets against long shots (the favorite-longshot bias) | Yes. Many small wins, occasional big loss |
-| 🎰 | Long Shot Lenny | Buys the long shots Bill bets against | Yes. Mostly small losses, occasional jackpot |
+| 🧊 | The Wet Blanket | Bets against long shots (the favorite-longshot bias) | Yes. Many small wins, occasional big loss |
+| 🐦 | Lucky the Pigeon | Buys the long shots the Wet Blanket bets against | Yes. Mostly small losses, occasional jackpot |
 | 🪙 | Nickel Nick | Buys 92-97c near-sure things settling within 12 hours | Yes. Steady, until a surprise |
 | 🐋 | Whale Watcher Walt | Follows unusually large trades | Yes |
 | 🐒 | Dart Monkey Dan | Random bets | Yes. He's the benchmark: beat Dan or you're not skilled |

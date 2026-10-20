@@ -116,7 +116,7 @@ class BandBettor(Strategy):
 class LongshotFade(BandBettor):
     key = "longshot_fade"
     persona = Persona(
-        "Buzzkill Bill", "Party Pooper", "🧊",
+        "The Wet Blanket", "Party Pooper", "🧊",
         "Bets against every long shot and explains, at length, why it'll never happen. Smug most days, devastated on others.",
     )
 
@@ -141,8 +141,8 @@ class LongshotLenny(LongshotFade):
 
     key = "longshot_buy"
     persona = Persona(
-        "Long Shot Lenny", "Dreamer", "🎰",
-        "Pockets full of scratch-offs and a lucky toothpick. Buys every ticket under 12¢. 'It only has to hit once.'",
+        "Lucky the Pigeon", "Scratch-Off Addict", "🐦",
+        "A city pigeon who found a lottery ticket on the sidewalk and never looked back. Pecks at every long shot under 12¢.",
     )
 
     def __init__(self, stake: float = 2.0, **kw):

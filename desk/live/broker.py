@@ -9,7 +9,7 @@ dashboard, reviews and pool rules all work unchanged. The differences:
                  (read back from /portfolio/fills), nothing more.
   resting bids   a post-only order that expires on Kalshi at the bid's deadline.
                  Each run asks Kalshi how much filled; each fill is booked once.
-  control group  Dart Monkey Dan and Long Shot Lenny stay on paper: they're the
+  control group  Dart Monkey Dan and Lucky the Pigeon stay on paper: they're the
                  yardstick, not part of the real pool.
 
 Every order is checked by the guard (desk/live/guard.py) and recorded in the

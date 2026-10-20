@@ -19,7 +19,7 @@ function art(rows: string[], palette: Record<string, string>, extra: [number, nu
 const NECK = [".........SSSSSS.........", "..........SSSS.........."];
 
 export const PORTRAITS: Record<string, Sprite> = {
-  // 🎯 Deadeye Dee: camo boonie hat with leaves, face paint, one eye squinting down the scope
+  // 🎯 The Sniper: camo boonie hat with leaves, face paint, one eye squinting down the scope
   sniper: art([
     "........................",
     "..........L..L..........",
@@ -103,7 +103,7 @@ export const PORTRAITS: Record<string, Sprite> = {
   ], { S: "#f2d0b1", s: "#d9a98a", H: "#c9ccd6", h: "#eef0f5", P: "#e75a9b", R: "#d0213b", C: "#e78fb3", c: "#d06f98", T: "#f5c542" },
   [[1, 16, "T"], [1, 17, "T"], [2, 16, "T"], [2, 17, "T"], [2, 15, "k"]]),
 
-  // 🧊 Buzzkill Bill: comb-over, one long unibrow, a frown, argyle sweater vest, arms crossed
+  // 🧊 The Wet Blanket: comb-over, one long unibrow, a frown, argyle sweater vest, arms crossed
   longshot_fade: art([
     "........................",
     "........................",
@@ -130,35 +130,35 @@ export const PORTRAITS: Record<string, Sprite> = {
     "...VVvYvVVVVVVVVvYvVV...",
   ], { S: "#f2d0b1", s: "#d9a98a", H: "#6b6b6b", M: "#7a2e2e", V: "#3f5d8a", v: "#2c4366", Y: "#e6c86e" }),
 
-  // 🎰 Long Shot Lenny: backwards cap, toothpick, stubble, gold chain, loud shirt, a scratch-off in hand
+  // 🐦 Lucky the Pigeon: not a person. Iridescent neck, orange eye, his old backwards cap, a scratch-off in his beak
   longshot_buy: art([
     "........................",
-    "........................",
-    "........RRRRRRRR........",
-    ".......RRRRRRRRRR.......",
-    "...RRRRRRRRRRRRRRR......",
-    "......HSSSSSSSSSSH......",
-    "......SSSSSSSSSSSS......",
-    ".....SSSwkSSSSkwSSS.....",
-    "......SSSSSSSSSSSS......",
-    "......SSSSSssSSSSS......",
-    "......SSsSsSSsSsSS......",
-    "......SsMMMMMMMMsS......",
-    ".......SMwwwwwwMS.......",
-    ...NECK,
-    ".....OOOOOYSSYOOOOO.....",
-    "....OOFOOOOYYOOOOFOO....",
-    "...OFFFOOLOOOOLOOFFFO...",
-    "...OOFOOLLOOFOOLLOOFO...",
-    "...OOOOOOOOFFFOOOOOOO...",
-    "...OLOOFOOOOOFOOOOFLO...",
-    "...OOOFFFOOLOOOFFFOOO...",
-    "...OOOOFOOLLOOOOFOOOO...",
-    "...OFOOOOOOOOOOOOOOFO...",
-  ], { S: "#d9a77c", s: "#b5875e", H: "#3b2412", R: "#d63031", M: "#7a2e2e", O: "#f39c12", F: "#fff3e0", L: "#27ae60", Y: "#f5c542", Q: "#c0c6cf", T: "#e6c86e" },
-  [[11, 18, "T"], [10, 19, "T"], [9, 20, "T"], [19, 0, "Q"], [19, 1, "Q"], [19, 2, "Q"], [20, 0, "Q"], [20, 1, "Y"], [20, 2, "Q"], [21, 0, "Q"], [21, 1, "Q"], [21, 2, "Q"], [22, 1, "S"], [22, 2, "S"]]),
+    "..........RRRRRR........",
+    ".........RRRRRRRR.......",
+    "........GGGGGGGRRRRR....",
+    ".......GGGGGGGGGG.......",
+    "......GGOOGGGGGGGG......",
+    "......GOkOGGGGGGGG......",
+    "....BBWGOOGGGGGGGG......",
+    "..QQQBGGGGGGGGGGGG......",
+    "..QYQ.GGGGGGGGGGG.......",
+    "..QQQ..NNNNNNNNNN.......",
+    ".......NPPNNNPPNNN......",
+    "......NNNPPPNNNPPNGG....",
+    ".....GGGGGGGGGGGGGGGG...",
+    "....GGGGGGGGGGGGgggggg..",
+    "...GGGGGGGGGGGgggggggg..",
+    "...GGGGGGGGGGGgkkgkkggg.",
+    "...GGGGGGGGGGGGgggggggg.",
+    "...GGGGGGGGGGGGGgkkgkkgg",
+    "....GGGGGGGGGGGGGgggggg.",
+    ".....GGGGGGGGGGGGG......",
+    ".......GGGGGGGGGG.......",
+    "........LL...LL.........",
+    ".......LLLL.LLLL........",
+  ], { G: "#a3abb6", g: "#6d7681", N: "#2e8b6e", P: "#8a5aa8", O: "#f39c12", B: "#4a4a4a", W: "#ffffff", R: "#d63031", Q: "#c0c6cf", Y: "#f5c542", L: "#e07a5f" }),
 
-  // 🏄‍♀️ Breakout Betty: windswept hair, bandana, big shades, zinc on the nose, wetsuit, board over her shoulder
+  // 🏄‍♀️ Wipeout: windswept hair, bandana, big shades, zinc on the nose, wetsuit, board over her shoulder
   breakout: art([
     "........................",
     "........HHHHHHH.........",
