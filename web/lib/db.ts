@@ -56,6 +56,11 @@ async function status<T>(book: Book, key: string): Promise<T | null> {
 
 export const getLive = (book: Book) => status<LiveStatus>(book, "live");
 
+/** The weekly bonus pot (desk/bonus.py): money saved up, and what the Employee of the Week has left to bet. */
+export type BonusPot = { pot: number; winner: string | null; given: number; left: number; since: string | null };
+export const getBonusPot = async (book: Book): Promise<BonusPot> =>
+  (await status<BonusPot>(book, "_bonus_pot")) ?? { pot: 0, winner: null, given: 0, left: 0, since: null };
+
 /** The kill switch straight from the table (the bot's status lags a run behind a press of the button). */
 export async function getKillSwitch(book: Book): Promise<{ halted: boolean; reason?: string; by?: string; at?: string }> {
   const rows = await db(book)`SELECT data FROM settings WHERE key = 'trading'`;

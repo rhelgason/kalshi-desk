@@ -15,6 +15,7 @@ export type { Mood };
 /** What an employee is doing right now, from their real activity, and what their speech bubble says. */
 export function mood(e: Employee, a: Activity | undefined): { mood: Mood; line: string } {
   if (e.status === "fired") return { mood: "fired", line: "Packed up their desk." };
+  if (e.practicing) return { mood: "benched", line: "Practicing on pretend money." };
   if (e.status === "suspended") {
     const until = e.suspended_until && !e.suspended_until.startsWith("9999")
       ? new Date(e.suspended_until).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : null;

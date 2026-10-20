@@ -17,12 +17,21 @@ export default async function OfficePage() {
       getLive(book), getRoster(book), getActivity(book, policy.season), getHistory(book, policy.season, "season"),
       getBtcSeries(book),
     ]);
-    data = { policy, live, roster, activity, history, btcSeries };
+    // Everyone works here, even staff who aren't on the Live book (Dan, Lucky, the twins in training):
+    // they sit on the bench, practicing on pretend money
+    const [training, trainingRoster] = book === "real"
+      ? await Promise.all([getLive("pretend"), getRoster("pretend")]) : [null, {}];
+    data = { policy, live, roster, activity, history, btcSeries, training, trainingRoster };
   } catch (e) {
     return <Setup error={String(e)} />;
   }
   if (!data.live) return <Setup error="The bot hasn't published a status yet. Is it running?" />;
-  const employees = withRoster(data.live.employees, data.roster);
+  const here = withRoster(data.live.employees, data.roster);
+  const onBook = new Set(here.map((e) => e.key));
+  const practicing = withRoster(data.training?.employees ?? [], data.trainingRoster)
+    .filter((e) => !onBook.has(e.key) && e.status !== "fired")
+    .map((e) => ({ ...e, pnl: 0, practicing: true }));
+  const employees = [...here, ...practicing];
   const pool = new Set(poolKeys(data.live));
   const total = data.live.pool?.pnl ?? employees.filter((e) => pool.has(e.key)).reduce((s, e) => s + (e.pnl ?? 0), 0);
   return (

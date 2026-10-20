@@ -197,6 +197,16 @@ export default function OfficeFloor({ people, total, btc, series, btcSeries }: {
     return tileSpot(t.x, t.y, pick(["down", "left", "right", "up"] as const));
   };
 
+  // Bench seats first, then the beanbags and couch: more people can be benched than the bench seats
+  const BENCHES: [Spot, Kind][] = [
+    ...SPOTS.bench.map((s): [Spot, Kind] => [s, "bench"]),
+    ...SPOTS.beanbags.map((s): [Spot, Kind] => [s, "beanbag"]),
+    ...SPOTS.couch.map((s): [Spot, Kind] => [s, "couch"]),
+  ];
+  const benchSeat = (a: Agent | null, taken: Agent[]): [Spot, Kind] =>
+    BENCHES.find(([s]) => !taken.some((b) => b !== a && b.target?.tile.x === s.tile.x && b.target?.tile.y === s.tile.y))
+      ?? BENCHES[(a?.desk ?? 0) % BENCHES.length];
+
   const crewOf = (w: World) => w.agents.filter((a) => !a.npc && !a.gone && a.mood !== "benched" && a.mood !== "fired");
 
   const makeAgent = (key: string, name: string, desk: number, at: Spot, npc = false): Agent => ({
@@ -217,7 +227,7 @@ export default function OfficeFloor({ people, total, btc, series, btcSeries }: {
     const hour = new Date().getHours();
     const late = hour >= 23 || hour < 6;
     if (m === "benched") {
-      add(8, () => send(a, SPOTS.bench[a.desk % 3], "bench", rand(30, 60)));
+      add(8, () => { const [seat, kind] = benchSeat(a, others); send(a, seat, kind, rand(30, 60)); });
       add(1, () => send(a, SPOTS.vending, "vending", rand(5, 9)));
       add(1, () => send(a, pick(SPOTS.arcade), "arcade", rand(10, 20)));
     } else {
@@ -449,16 +459,18 @@ export default function OfficeFloor({ people, total, btc, series, btcSeries }: {
   useEffect(() => {
     const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
     const t = now();
-    const agents = live.current.people.filter((p) => p.mood !== "fired").map((p, i) => {
+    const agents: Agent[] = [];
+    live.current.people.filter((p) => p.mood !== "fired").forEach((p, i) => {
       const chair = chairSpot(i);
-      const start = p.mood === "benched" ? SPOTS.bench[i % 3] : p.mood === "sleeping" && i % 2 ? SPOTS.couch[i % 4] : Math.random() < 0.6 ? chair : openSpot();
+      const seat = p.mood === "benched" ? benchSeat(null, agents) : null;
+      const start = seat ? seat[0] : p.mood === "sleeping" && i % 2 ? SPOTS.couch[i % 4] : Math.random() < 0.6 ? chair : openSpot();
       const a = makeAgent(p.key, p.name, i, start);
       a.mood = p.mood;
       a.pnl = p.pnl;
-      a.kind = p.mood === "benched" ? "bench" : start === chair ? "desk" : start.sit ? "couch" : "pace";
+      a.kind = seat ? seat[1] : start === chair ? "desk" : start.sit ? "couch" : "pace";
       a.until = t + rand(2, 12);
       if (p.mood === "trading") a.busyUntil = t + 20;
-      return a;
+      agents.push(a);
     });
     world.current = {
       agents, particles: [], event: null, nextEvent: t + rand(20, 40), ringing: 0,

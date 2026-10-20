@@ -15,7 +15,7 @@ import { advise, betsPerDay, light } from "@/lib/advice";
 import { bookLabel, getRealBook, viewedBook, viewedCoin } from "@/lib/book";
 import { COIN_NAMES, onCoin } from "@/lib/coin";
 import {
-  getAnalysis, getHistory, getLive, getNews, getPolicy, getRecentFills, getRoster, getSettlements, withRoster,
+  getAnalysis, getBonusPot, getHistory, getLive, getNews, getPolicy, getRecentFills, getRoster, getSettlements, withRoster,
 } from "@/lib/db";
 import { dollars } from "@/lib/format";
 import { lerpAt } from "@/lib/interp";
@@ -40,16 +40,17 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
   try {
     const [book, realBook, coin] = await Promise.all([viewedBook(), getRealBook(), viewedCoin()]);
     const policy = await getPolicy(book);
-    const [live, fills, roster, news, analysis, history, season, admin, settled] = await Promise.all([
+    const [live, fills, roster, news, analysis, history, season, admin, settled, pot] = await Promise.all([
       getLive(book), getRecentFills(book, policy.season, coin === "all" ? 25 : 80), getRoster(book), getNews(book, 40),
       getAnalysis(book), getHistory(book, policy.season, range),
       range === "season" ? null : getHistory(book, policy.season, "season"), isAdmin(), getSettlements(book, policy.season),
+      getBonusPot(book),
     ]);
-    data = { book, realBook, coin, live, fills, roster, news, policy, analysis, history, season: season ?? history, admin, settled };
+    data = { book, realBook, coin, live, fills, roster, news, policy, analysis, history, season: season ?? history, admin, settled, pot };
   } catch (e) {
     return <Setup error={String(e)} />;
   }
-  const { book, realBook, coin, live, fills, roster, news, policy, analysis, history, season, admin, settled } = data;
+  const { book, realBook, coin, live, fills, roster, news, policy, analysis, history, season, admin, settled, pot } = data;
   const label = bookLabel(book, realBook);
   if (!live) return <Setup error="The bot hasn't published a status yet. Is it running?" />;
 
@@ -205,7 +206,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
 
       <section className="card">
         <h2>Your team{coinView ? `: ${coinName} only` : ""}</h2>
-        <Spotlight award={award} employees={employees} policy={policy} />
+        <Spotlight award={award} employees={employees} policy={policy} pot={pot} startsAt={book === "real" ? 500 : 0} pool={live.pool?.equity ?? 0} />
         <TeamList rows={rows} coin={coinView ? { name: coin, stats: coinCounts } : undefined}
           star={award?.strategy ?? undefined} starTitle={award?.detail.title} />
       </section>

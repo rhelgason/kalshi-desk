@@ -14,6 +14,7 @@ export type Employee = {
   control?: boolean;
   autotune?: boolean;
   note?: string | null;
+  practicing?: boolean; // not on this book: shown in the Live office, on the bench, practicing on Training
   overrides?: Record<string, unknown>;
   params?: Record<string, number | string | boolean | null | number[]>;
   backtestable?: boolean;
