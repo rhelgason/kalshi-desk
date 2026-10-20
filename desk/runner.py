@@ -93,6 +93,14 @@ class Desk:
             self.broker = PaperBroker(ledger, accounts or {}, liquidity_share=config.liquidity_share)
         # The office pool everyone but the control group bets out of (desk.paper.pool)
         self.pool = Pool(self.policy["pool"], ())
+        if accounts:
+            # A saved account that disagrees with the records about its starting money is stale
+            # (e.g. re-added empty while it was off the roster): drop it so it's rebuilt below
+            start = {r["strategy"]: float(r["starting_cash"])
+                     for r in ledger._rows("SELECT strategy, starting_cash FROM accounts")}
+            for k in [k for k, a in accounts.items() if k in start and abs(a.starting_cash - start[k]) > 1e-6]:
+                logger.warning("Saved account for %s is stale; rebuilding it from the records", k)
+                del accounts[k]
         self.sync_hr()
         if accounts is None:
             self._ensure_account_rows()

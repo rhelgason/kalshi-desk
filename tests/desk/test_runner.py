@@ -257,3 +257,14 @@ def test_an_employee_back_on_staff_gets_their_own_account_back():
     saved = {k: a for k, a in first.accounts.items() if k != "sniper"}
     again = Desk(DeskConfig(), object(), None, led, accounts=saved)
     assert again.accounts["sniper"].cash == share
+
+
+def test_a_stale_saved_account_is_rebuilt_from_the_records():
+    """Saved state held the Sniper as an empty $0 account while the records say she has her pool share."""
+    from desk.paper.account import PaperAccount
+    led = Ledger(":memory:")
+    first = Desk(DeskConfig(), object(), None, led)
+    share = first.accounts["sniper"].cash
+    saved = dict(first.accounts, sniper=PaperAccount("sniper", 0.0))
+    again = Desk(DeskConfig(), object(), None, led, accounts=saved)
+    assert again.accounts["sniper"].cash == share
