@@ -51,6 +51,9 @@ async def _done(x):
     return await x if inspect.isawaitable(x) else x
 
 
+MIN_BET_DOLLARS = 0.25  # smallest bet the pool places (Kalshi's own step is 0.01 contracts)
+
+
 class Desk:
     def __init__(
         self,
@@ -458,10 +461,11 @@ class Desk:
             return None, "no price"
         if dollars <= 0:
             return None, "window cap full" if capped else "the pool is empty"
+        # Kalshi takes contracts in 0.01 steps, so a small pool's $0.50 bet is still a bet
         legs = [replace(leg, count=math.floor(leg.count * dollars / cost * 100) / 100) for leg in intent.legs]
-        if any(leg.count < 1 for leg in legs):
-            # less than one contract left under the cap
-            return None, "window cap full" if capped else "bet under 1 contract"
+        if any(leg.count < 0.01 for leg in legs) or sum(leg.count * leg.limit_price for leg in legs) < MIN_BET_DOLLARS:
+            # crumbs left under the cap aren't worth an order
+            return None, "window cap full" if capped else f"bet under ${MIN_BET_DOLLARS:.2f}"
         return replace(intent, legs=legs), ""
 
     async def match_resting(self) -> None:

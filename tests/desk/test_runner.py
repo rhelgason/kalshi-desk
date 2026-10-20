@@ -233,3 +233,16 @@ async def test_ended_bids_are_recorded(desk_and_client, monkeypatch):
     await desk.match_resting()
     row = desk.ledger._rows("SELECT outcome, filled, count FROM decisions")[0]
     assert (row["outcome"], row["filled"], row["count"]) == ("bid expired, part filled", 1, 2)
+
+
+def test_a_small_pool_bets_partial_contracts(desk_and_client):
+    """$100 pool, Intern: a $0.50 bet at 78c is 0.64 of a contract, not a skip. Crumbs still are."""
+    desk, _ = desk_and_client
+    desk.pool.update(100, NOW)
+    desk.multipliers["longshot_fade"] = 0.5
+    t = "KXBTC15M-26OCT151200-00"
+    bet, why = desk.size(TradeIntent("longshot_fade", [Leg(t, Side.YES, 0.78, 10)], ""))
+    assert why == "" and bet.legs[0].count == 0.64
+    desk.multipliers["longshot_fade"] = 0.2  # $0.20: too small to bother Kalshi with
+    bet, why = desk.size(TradeIntent("longshot_fade", [Leg(t, Side.YES, 0.78, 10)], ""))
+    assert bet is None and why == "bet under $0.25"
