@@ -246,3 +246,14 @@ def test_a_small_pool_bets_partial_contracts(desk_and_client):
     desk.multipliers["longshot_fade"] = 0.2  # $0.20: too small to bother Kalshi with
     bet, why = desk.size(TradeIntent("longshot_fade", [Leg(t, Side.YES, 0.78, 10)], ""))
     assert bet is None and why == "bet under $0.25"
+
+
+def test_an_employee_back_on_staff_gets_their_own_account_back():
+    """The cloud runner hands over saved accounts; one missing (switched off for a while) is rebuilt, not $0."""
+    led = Ledger(":memory:")
+    first = Desk(DeskConfig(), object(), None, led)
+    share = first.accounts["sniper"].cash
+    assert share > 0
+    saved = {k: a for k, a in first.accounts.items() if k != "sniper"}
+    again = Desk(DeskConfig(), object(), None, led, accounts=saved)
+    assert again.accounts["sniper"].cash == share

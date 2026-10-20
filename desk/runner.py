@@ -35,7 +35,6 @@ from desk.paper.ledger import Ledger
 from desk.paper.pool import Pool, PoolAccountView, PoolState, event_of
 from desk.paper.scoreboard import format_scoreboard, scoreboard_rows
 from desk import hr
-from desk.paper.account import PaperAccount
 from desk.strategies import REGISTRY, strategy_params
 from desk.strategies.base import Snapshot, Strategy, TradeIntent
 
@@ -154,10 +153,13 @@ class Desk:
             self.ledger.ensure_account(k, self.opening_cash(k))
 
     def _ensure_accounts(self) -> None:
-        for k in self._all_keys():
-            if k not in self.accounts:
-                self.ledger.ensure_account(k, self.opening_cash(k))
-                self.accounts[k] = PaperAccount(k, self.opening_cash(k))
+        missing = [k for k in self._all_keys() if k not in self.accounts]
+        for k in missing:
+            self.ledger.ensure_account(k, self.opening_cash(k))
+        if missing:
+            # Someone back on staff (or a new hire): their account as the records say, not an empty one.
+            # A pool member re-added with $0 left their share out of the books (2026-10-20 real-book halt)
+            self.accounts.update(self.ledger.load_accounts(self.config.starting_cash, missing))
 
     def sync_hr(self) -> None:
         """Apply the latest roster and settings from the database (run before each tick)."""
