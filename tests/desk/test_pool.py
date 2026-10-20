@@ -72,3 +72,15 @@ def test_members_see_and_spend_the_pools_cash():
     assert r.filled and accounts["e0"].cash < 0  # one pot: e0's own share can go below zero
     assert broker.free_cash("e1") == pytest.approx(1000 - 40 - r.fills[0].fee)
     assert broker.free_cash("monkey") == 1000
+
+
+def test_money_joining_or_leaving_isnt_a_gain_or_loss():
+    """The 2026-10-18 false halt: two employees left the pool mid-day and it looked like a 25% loss."""
+    pool, accounts = office((250.0,) * 4)
+    pool.update(1000, NOON, capital=1000)
+    pool.update(750, NOON + timedelta(minutes=2), capital=750)  # two of four let go, their money with them
+    assert pool.today == pytest.approx(0) and not pool.stopped and not pool.braked
+    pool.update(1750, NOON + timedelta(minutes=4), capital=1750)  # a $1,000 deposit
+    assert pool.today == pytest.approx(0) and pool.state.peak == pytest.approx(1750)
+    pool.update(1700, NOON + timedelta(minutes=6), capital=1750)  # a real loss still counts
+    assert pool.today == pytest.approx(-50 / 1750)

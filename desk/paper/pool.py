@@ -44,6 +44,7 @@ class PoolState:
     day_open: float = 0.0  # pool equity at the start of that day
     peak: float = 0.0  # highest pool equity this season
     stopped_at: Optional[str] = None  # when today's daily stop kicked in
+    capital: Optional[float] = None  # money put in, as of the last update
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -91,9 +92,21 @@ class Pool:
     def _today(self, now: datetime) -> str:
         return now.astimezone(ZoneInfo(self.settings.get("timezone") or "UTC")).date().isoformat()
 
-    def update(self, equity: float, now: datetime) -> None:
-        """Call once per tick with the pool's current equity."""
+    def update(self, equity: float, now: datetime, capital: Optional[float] = None) -> None:
+        """
+        Call once per tick with the pool's current equity (and the money put in). When money
+        joins or leaves (someone hired or let go, a deposit), the day's start and the high move
+        by the same amount, so it never counts as a gain or a loss.
+        """
         self.equity = equity
+        if capital is not None:
+            if self.state.capital is not None and abs(capital - self.state.capital) > 1e-6:
+                moved = capital - self.state.capital
+                if self.state.day_open > 0:
+                    self.state.day_open += moved
+                if self.state.peak > 0:
+                    self.state.peak += moved
+            self.state.capital = capital
         today = self._today(now)
         if self.state.day != today:
             self.state.day, self.state.day_open, self.state.stopped_at = today, equity, None
