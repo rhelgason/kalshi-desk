@@ -47,7 +47,7 @@ def test_real_book_config_inherits_and_overrides():
     assert real.strategies["dart_monkey"]["enabled"] is False
     assert real.strategies["dart_monkey"]["stake"] == pretend.strategies["dart_monkey"]["stake"]
     assert real.strategies["nickel_maker"] == pretend.strategies["nickel_maker"]
-    assert real.strategies["sniper"]["enabled"] is False
+    assert real.strategies["sniper"] == pretend.strategies["sniper"]
     assert real.strategies["breakout_maker"]["enabled"] is False and "breakout" in pretend.strategies
 
 

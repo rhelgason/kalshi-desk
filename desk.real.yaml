@@ -38,5 +38,6 @@ strategies:
   # Their 15-minute "move" is mostly from before the window opened, when Kalshi has already priced it.
   breakout: {enabled: false}
   breakout_maker: {enabled: false}
-  # The Sniper: every last-5-minute setting lost in a 30-day replay; she practices on pretend money
-  sniper: {enabled: false}
+  # Don't switch off a pool member mid-season here: it drops their share of the money from our
+  # books, Kalshi still has it, and the safety check halts trading (2026-10-20, the Sniper).
+  # Bench them on the roster instead (suspended); their money stays in the pool.
