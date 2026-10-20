@@ -35,6 +35,14 @@ class TestBreakoutBetty:
         assert b.evaluate(snap(btc15(0.53, 0.55, 5), move=0.003), account) == []
         assert b.evaluate(snap(btc15(0.70, 0.72, 13), move=0.003), account) == []
 
+    def test_sticks_to_her_coins(self, account):
+        eth = make_market("KXETH15M-X13", yes_bid=0.53, yes_ask=0.55, series="KXETH15M",
+                          event="KXETH15M-X13", close_in=timedelta(minutes=13))
+        q = {"BTC": UnderlyingQuote("BTC", spot=100_000, momentum={15: 0.004}),
+             "ETH": UnderlyingQuote("ETH", spot=4_000, momentum={15: 0.004})}
+        intents = BreakoutBetty(coins=["BTC"]).evaluate(Snapshot.build(NOW, [], [btc15(0.53, 0.55, 13), eth], q), account)
+        assert [i.legs[0].ticker for i in intents] == ["KXBTC15M-X13"]
+
 
 class TestEarlyBirdEdie:
     def test_buys_an_early_favorite(self, account):

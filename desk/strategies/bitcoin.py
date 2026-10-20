@@ -41,8 +41,9 @@ class BreakoutBetty(Strategy):
 
     def __init__(self, min_move: float = 0.002, window: int = 15, min_seconds: float = 600,
                  max_seconds: float = 900, max_price: float = 0.60, max_spread: float = 0.03,
-                 stake: float = 10.0, max_positions: int = 4):
+                 stake: float = 10.0, max_positions: int = 4, coins: Optional[list[str]] = None):
         self.min_move = min_move  # log return, 0.002 = 0.2%
+        self.coins = coins  # e.g. ["BTC"]; None = every coin
         self.window = window
         self.min_seconds = min_seconds
         self.max_seconds = max_seconds
@@ -64,7 +65,9 @@ class BreakoutBetty(Strategy):
             if not (self.min_seconds <= secs <= self.max_seconds) or m.yes_ask - m.yes_bid > self.max_spread:
                 continue
             q = snap.underlying_for(m)
-            move = (q.momentum or {}).get(self.window) if q else None
+            if not q or (self.coins and q.symbol not in self.coins):
+                continue
+            move = (q.momentum or {}).get(self.window)
             if move is None or abs(move) < self.min_move:
                 continue
             side = Side.YES if move > 0 else Side.NO
