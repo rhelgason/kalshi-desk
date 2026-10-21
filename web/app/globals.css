@@ -348,7 +348,7 @@ button.nav-btn { font-family: var(--pixel); line-height: inherit; }
 .nav-btn.view-live[aria-current="page"] { background: #3ddc84; }
 .coin-switch { gap: 2px; margin: 0; }
 .coin-switch button { font: inherit; font-family: var(--pixel); font-size: 8px; padding: 9px 7px; border: 0; border-radius: 2px;
-  background: transparent; color: var(--text-secondary); cursor: pointer; }
+  background: transparent; color: var(--text-secondary); cursor: pointer; white-space: nowrap; }
 .coin-switch button[aria-current="true"] { background: var(--coin); color: #1b1733; }
 .coin-switch[data-pending] { opacity: 0.6; }
 @media (max-width: 600px) { .coin-switch button { padding: 8px 5px; font-size: 7px; } .views { gap: 6px; } }
@@ -371,3 +371,19 @@ button.nav-btn { font-family: var(--pixel); line-height: inherit; }
 .compare-pick label { white-space: nowrap; }
 .compare-pick select { font: inherit; font-size: 14px; padding: 6px 8px; border-radius: 3px; border: 2px solid var(--border);
   background: var(--surface-2); color: var(--text-primary); max-width: 100%; }
+
+/* Live price chart (LivePrice) */
+.lp-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
+.lp-price { font-size: 26px; font-weight: 650; font-variant-numeric: tabular-nums; margin-top: 4px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.lp-price > span { font-size: 13px; font-weight: 500; }
+.lp-status { font-family: var(--pixel); font-size: 8px; color: var(--text-muted); }
+.lp-status.lp-live { color: var(--up); }
+.lp-tabs { display: flex; gap: 3px; padding: 3px; border: 2px solid var(--border); border-radius: 4px; background: var(--page); }
+.lp-tabs button { font-family: var(--pixel); font-size: 9px; padding: 8px 8px; border: 0; border-radius: 2px; background: none; color: var(--text-secondary); cursor: pointer; white-space: nowrap; }
+.lp-tabs button[aria-selected="true"] { background: var(--coin); color: #1b1733; }
+.lp-bets { list-style: none; margin: 0; padding: 0; }
+.lp-bets li { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; border-top: 1px solid var(--grid); }
+.lp-bets li:first-child { border-top: 0; }
+.lp-dot { width: 20px; text-align: center; font-size: 13px; line-height: 20px; color: var(--text-muted); }
+.lp-dot.up { color: var(--up); }
+.lp-dot.down { color: var(--down); }

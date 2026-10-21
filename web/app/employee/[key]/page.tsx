@@ -11,10 +11,12 @@ import CalibrationChart from "@/components/CalibrationChart";
 import AdviceCard from "@/components/AdviceCard";
 import CompareChart from "@/components/CompareChart";
 import RangeTabs from "@/components/RangeTabs";
+import LivePrice from "@/components/LivePrice";
 import Setup from "@/components/Setup";
 import ManagerBar from "@/components/ManagerBar";
 import { DailyBars, MoneySplit, WinDonut } from "@/components/MiniCharts";
 import TradeFeed from "@/components/TradeFeed";
+import { ridingBets } from "@/lib/bets";
 import { isAdmin } from "@/lib/admin";
 import { advise, betsPerDay, light } from "@/lib/advice";
 import { HOW_THEY_BET, quip } from "@/lib/voice";
@@ -148,6 +150,9 @@ export default async function EmployeePage({ params, searchParams }: {
         <h2>Skill or luck?</h2>
         <SkillCheck e={ev} />
       </section>
+
+      <LivePrice bets={ridingBets(positions, { [key]: e.name })} coins={["BTC", "ETH"]}
+        start={data.coin !== "all" ? data.coin : positions.some((p) => p.ticker.startsWith("KXETH")) ? "ETH" : "BTC"} />
 
       <div className="grid two">
         <section className="card">
