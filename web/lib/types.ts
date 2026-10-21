@@ -43,6 +43,7 @@ export type Position = {
   cost: number;
   mark: number | null;
   closes: string | null;
+  strike?: number | null; // the market's target price
 };
 
 export type Underlying = {

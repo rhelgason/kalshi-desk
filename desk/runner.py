@@ -932,6 +932,7 @@ class Desk:
                     "yes": round(p.yes, 2), "no": round(p.no, 2),
                     "cost": round(p.yes_cost + p.no_cost, 4), "mark": self.marks.get(t),
                     "closes": m.close_time.isoformat() if m and m.close_time else None,
+                    "strike": m.floor_strike if m else None,
                 })
         quotes = {}
         if snap:
