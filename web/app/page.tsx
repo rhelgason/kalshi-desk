@@ -2,7 +2,6 @@ import AdviceAction from "@/components/AdviceAction";
 import AutoRefresh from "@/components/AutoRefresh";
 import Avatar from "@/components/Avatar";
 import KalshiCheck from "@/components/KalshiCheck";
-import LivePrice from "@/components/LivePrice";
 import NewsFeed from "@/components/NewsFeed";
 import MoneyHero from "@/components/MoneyHero";
 import RangeTabs from "@/components/RangeTabs";
@@ -13,7 +12,6 @@ import TeamList from "@/components/TeamList";
 import TradeFeed from "@/components/TradeFeed";
 import { isAdmin } from "@/lib/admin";
 import { advise, betsPerDay, light } from "@/lib/advice";
-import { ridingBets } from "@/lib/bets";
 import { bookLabel, getRealBook, viewedBook, viewedCoin } from "@/lib/book";
 import { COIN_NAMES, onCoin } from "@/lib/coin";
 import {
@@ -128,8 +126,6 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
   const coinName = COIN_NAMES[coin].toLowerCase();
   const on = coinView ? ` on ${coinName}` : "";
   const end = points[points.length - 1].t;
-  const riding = ridingBets(live.positions.filter((p) => members.has(p.strategy)), Object.fromEntries(employees.map((e) => [e.key, e.name])));
-  const firstCoin = coin !== "all" ? coin : riding[0]?.coin === "ETH" ? "ETH" : "BTC";
 
   return (
     <div className="stack">
@@ -174,8 +170,6 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
           </p>
         )}
       />
-
-      <LivePrice bets={riding} coins={["BTC", "ETH"]} start={firstCoin} />
 
       <section className="card">
         <h2>Needs your attention</h2>
