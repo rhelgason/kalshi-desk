@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { defaultBook } from "@/lib/book";
-import { db, getHistory, getKillSwitch, getLive, getPolicy, getSeasonStart } from "@/lib/db";
+import { getHistory, getTodayRows, getKillSwitch, getLive, getPolicy, getSeasonStart } from "@/lib/db";
 import { only, poolKeys, portfolioSeries, type RangeKey } from "@/lib/portfolio";
 
 /**
@@ -79,11 +79,7 @@ export async function GET(req: NextRequest) {
   const [history, seasonStart, todayRows] = await Promise.all([
     getHistory(book, policy.season, range),
     getSeasonStart(book, policy.season),
-    db(book)`SELECT strategy, count(*)::int AS n, sum(CASE WHEN pnl > 0 THEN 1 ELSE 0 END)::int AS won, sum(pnl) AS pnl
-         FROM settlements
-         WHERE season = ${policy.season}
-           AND (ts::timestamptz AT TIME ZONE ${tz})::date = (now() AT TIME ZONE ${tz})::date
-         GROUP BY strategy`,
+    getTodayRows(book, policy.season, tz),
   ]);
 
   // The pool's value over the window, or since the season began if that's more recent

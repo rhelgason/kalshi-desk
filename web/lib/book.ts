@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { cache } from "react";
 import { COIN_COOKIE, parseCoin, type Coin } from "./coin";
-import { db, type Book } from "./db";
+import { getLive, type Book } from "./db";
 
 export type { Book };
 
@@ -19,9 +19,8 @@ export type RealBook = { env: string; live: boolean; updated_at: string };
 /** The real book, if the bot has ever reported one (null until then). live = real money (not the demo). */
 export const getRealBook = cache(async (): Promise<RealBook | null> => {
   try {
-    const rows = await db("real")`SELECT data FROM status WHERE key = 'live'`;
-    if (!rows.length) return null;
-    const live = JSON.parse(rows[0].data);
+    const live = await getLive("real");
+    if (!live) return null;
     return { env: live.env ?? "demo", live: (live.env ?? "demo") === "prod", updated_at: live.updated_at };
   } catch {
     return null; // no real schema yet

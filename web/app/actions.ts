@@ -1,12 +1,12 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { login, logout, requireAdmin } from "@/lib/admin";
 import { cookies } from "next/headers";
 import { BOOK_COOKIE, viewedBook, type Book } from "@/lib/book";
 import { COIN_COOKIE, parseCoin } from "@/lib/coin";
-import { db, getPolicy } from "@/lib/db";
+import { bookTag, db, getPolicy } from "@/lib/db";
 import { LEVELS, levelTitle } from "@/lib/hr";
 import type { Policy } from "@/lib/types";
 
@@ -26,6 +26,8 @@ async function ensureEmployee(book: Book, key: string) {
 }
 
 function done(paths: string[] = ["/"]) {
+  // Drop the dashboard's kept copies (lib/db.ts sturdy()) so the change shows straight away
+  for (const b of ["real", "pretend", "shared"] as const) revalidateTag(bookTag(b));
   for (const p of paths) revalidatePath(p);
 }
 

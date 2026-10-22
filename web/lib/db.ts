@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache";
 import postgres from "postgres";
 import { LEVELS, mergePolicy } from "./hr";
 import { coinOfTicker } from "./coin";
@@ -49,10 +50,47 @@ export function db(book: Book = "pretend"): Tag {
   };
 }
 
-async function status<T>(book: Book, key: string): Promise<T | null> {
-  const rows = await db(book)`SELECT data FROM status WHERE key = ${key}`;
-  return rows.length ? (JSON.parse(rows[0].data) as T) : null;
+/**
+ * Sturdy reads. Every page load used to ask the database again, and when its connection limit
+ * filled up (15 for everyone, see connection()) every page showed an error. Now each read is
+ * kept for a short while and shared by all visitors and the widget:
+ *  - a copy under FRESH_MS old is used as is (the bot only reports every 2 minutes anyway);
+ *  - an older copy: ask the database again, but if it's down or slow, show the old copy
+ *    instead of an error page.
+ * Manager changes (app/actions.ts) clear the copies straight away (revalidateTag).
+ */
+const FRESH_MS = 60_000;
+const TRY_MS = 3_000;
+const REST_MS = 30_000; // after the database fails to answer, don't wait on it again for this long
+let downUntil = 0;
+export const bookTag = (book: Book | "shared") => `db:${book}`;
+
+function sturdy<A extends unknown[], R>(name: string, query: (...a: A) => Promise<R>): (...a: A) => Promise<R> {
+  return async (...a: A) => {
+    const book = a[0] === "real" || a[0] === "pretend" ? a[0] : "shared";
+    const kept = unstable_cache(async () => ({ at: Date.now(), v: await query(...a) }), [name, JSON.stringify(a)],
+      { revalidate: 30, tags: [bookTag(book)] });
+    const copy = await kept();
+    if (Date.now() - copy.at < FRESH_MS || Date.now() < downUntil) return copy.v;
+    try {
+      return await Promise.race([
+        query(...a),
+        new Promise<never>((_, no) => setTimeout(() => no(new Error("database slow")), TRY_MS)),
+      ]);
+    } catch (e) {
+      downUntil = Date.now() + REST_MS;
+      console.warn(`${name}: showing a copy from ${Math.round((Date.now() - copy.at) / 1000)}s ago (${e})`);
+      return copy.v;
+    }
+  };
 }
+
+async function statusQuery(book: Book, key: string): Promise<unknown> {
+  const rows = await db(book)`SELECT data FROM status WHERE key = ${key}`;
+  return rows.length ? JSON.parse(rows[0].data) : null;
+}
+const statusRow = sturdy("status", statusQuery);
+const status = async <T,>(book: Book, key: string) => (await statusRow(book, key)) as T | null;
 
 export const getLive = (book: Book) => status<LiveStatus>(book, "live");
 
@@ -67,13 +105,13 @@ export async function getKillSwitch(book: Book): Promise<{ halted: boolean; reas
   return rows.length ? JSON.parse(rows[0].data) : { halted: false };
 }
 
-export async function getPolicy(book: Book): Promise<Policy> {
+async function getPolicyQuery(book: Book): Promise<Policy> {
   const rows = await db(book)`SELECT data FROM settings WHERE key = 'desk'`;
   return mergePolicy(rows.length ? JSON.parse(rows[0].data) : null);
 }
 
 /** HR records straight from the table, so admin changes show up before the bot's next run. */
-export async function getRoster(book: Book): Promise<Record<string, RosterRow>> {
+async function getRosterQuery(book: Book): Promise<Record<string, RosterRow>> {
   const rows = await db(book)`SELECT * FROM employees`;
   return Object.fromEntries(
     rows.map((r) => [
@@ -83,7 +121,7 @@ export async function getRoster(book: Book): Promise<Record<string, RosterRow>> 
   );
 }
 
-export async function getNews(book: Book, limit = 30, strategy?: string): Promise<NewsItem[]> {
+async function getNewsQuery(book: Book, limit = 30, strategy?: string): Promise<NewsItem[]> {
   const rows = await db(book)`
     SELECT id, ts, strategy, kind, detail FROM events
     WHERE kind IN ('hr', 'award', 'tune', 'review', 'season', 'admin')
@@ -92,17 +130,17 @@ export async function getNews(book: Book, limit = 30, strategy?: string): Promis
   return rows.map((r) => ({ ...r, detail: safeJson(r.detail) })) as NewsItem[];
 }
 
-export async function getTuningRuns(strategy: string, limit = 5): Promise<TuningRun[]> {
+async function getTuningRunsQuery(strategy: string, limit = 5): Promise<TuningRun[]> {
   const rows = await db()`SELECT id, created_at, strategy, summary FROM tuning_runs
     WHERE strategy = ${strategy} ORDER BY id DESC LIMIT ${limit}`;
   return rows.map((r) => ({ ...r, summary: JSON.parse(r.summary) })) as TuningRun[];
 }
 
-export async function getJobs(): Promise<{ finished_at: string; [k: string]: any } | null> {
+async function getJobsQuery(): Promise<{ finished_at: string; [k: string]: any } | null> {
   return status("pretend", "jobs"); // the background jobs report to the pretend book
 }
 
-export async function getCoverage(): Promise<{ series: string; markets: number; oldest: number; newest: number }[]> {
+async function getCoverageQuery(): Promise<{ series: string; markets: number; oldest: number; newest: number }[]> {
   const rows = await db()`SELECT series, count(*)::int AS markets, min(close_ts)::bigint AS oldest,
     max(close_ts)::bigint AS newest FROM market_history GROUP BY series ORDER BY series`;
   return rows.map((r) => ({ series: r.series, markets: r.markets, oldest: Number(r.oldest), newest: Number(r.newest) }));
@@ -124,7 +162,7 @@ type AccuracyStatus = {
 };
 
 /** Accuracy, skill-or-luck evidence, and the fill reality check (refreshed every ~30 min by the bot). */
-export async function getAnalysis(book: Book) {
+async function getAnalysisQuery(book: Book) {
   const a = await status<AccuracyStatus>(book, "accuracy");
   return { accuracy: a?.summaries ?? [], evidence: a?.evidence ?? {}, realism: a?.realism ?? {} };
 }
@@ -134,7 +172,7 @@ export const getAccuracy = async (book: Book) => (await getAnalysis(book)).accur
 // mid-way (while other queries share the connection) can leave it half-sent.
 
 /** When the season's first snapshot was taken (ms), or null before any. */
-export async function getSeasonStart(book: Book, season: number): Promise<number | null> {
+async function getSeasonStartQuery(book: Book, season: number): Promise<number | null> {
   const rows = await db(book)`SELECT min(ts) AS ts FROM equity WHERE season = ${season}`;
   return rows[0]?.ts ? Date.parse(rows[0].ts) : null;
 }
@@ -143,7 +181,7 @@ export async function getSeasonStart(book: Book, season: number): Promise<number
  * Every employee's account value over a time range, one point per time bucket
  * (spacing picked by binFor), plus what's needed to work out money put in.
  */
-export async function getHistory(book: Book, season: number, range: RangeKey): Promise<History> {
+async function getHistoryQuery(book: Book, season: number, range: RangeKey): Promise<History> {
   const days = RANGES[range].days;
   let sinceMs: number;
   if (days == null) {
@@ -190,7 +228,7 @@ export async function getHistory(book: Book, season: number, range: RangeKey): P
   };
 }
 
-export async function getRecentFills(book: Book, season: number, limit = 30, strategy?: string): Promise<Fill[]> {
+async function getRecentFillsQuery(book: Book, season: number, limit = 30, strategy?: string): Promise<Fill[]> {
   const rows = await db(book)`
     SELECT f.id, f.ts, f.strategy, f.ticker, f.side, f.count, f.price, f.fee, f.model_prob, f.reason,
            s.yes_value, s.pnl
@@ -213,7 +251,7 @@ export type SettlementStats = {
 };
 
 /** Finished bets for one employee this season: wins vs losses and profit per day. */
-export async function getSettlementStats(book: Book, season: number, strategy: string): Promise<SettlementStats> {
+async function getSettlementStatsQuery(book: Book, season: number, strategy: string): Promise<SettlementStats> {
   const [totals, days] = await Promise.all([
     db(book)`
       SELECT count(*) FILTER (WHERE pnl > 0)::int AS wins, count(*) FILTER (WHERE pnl <= 0)::int AS losses,
@@ -239,7 +277,7 @@ export type Activity = {
 };
 
 /** What each employee has been up to lately, for the office floor. */
-export async function getActivity(book: Book, season: number): Promise<Record<string, Activity>> {
+async function getActivityQuery(book: Book, season: number): Promise<Record<string, Activity>> {
   const hourAgo = new Date(Date.now() - 3_600_000).toISOString();
   const [last, recent, settled] = await Promise.all([
     db(book)`SELECT DISTINCT ON (strategy) strategy, ts, side, count, price FROM fills
@@ -256,17 +294,17 @@ export async function getActivity(book: Book, season: number): Promise<Record<st
   return out;
 }
 
-export async function getSettledCount(book: Book, season: number): Promise<number> {
+async function getSettledCountQuery(book: Book, season: number): Promise<number> {
   const rows = await db(book)`SELECT count(*)::int AS n FROM settlements WHERE season = ${season}`;
   return rows[0].n;
 }
 
-export async function listBacktests(): Promise<{ id: string; created_at: string; summary: BacktestSummary }[]> {
+async function listBacktestsQuery(): Promise<{ id: string; created_at: string; summary: BacktestSummary }[]> {
   const rows = await db()`SELECT id, created_at, summary FROM backtests ORDER BY id DESC LIMIT 50`;
   return rows.map((r) => ({ id: r.id, created_at: r.created_at, summary: JSON.parse(r.summary) }));
 }
 
-export async function getBacktest(id: string): Promise<BacktestSummary | null> {
+async function getBacktestQuery(id: string): Promise<BacktestSummary | null> {
   const rows = await db()`SELECT summary FROM backtests WHERE id = ${id}`;
   return rows.length ? JSON.parse(rows[0].summary) : null;
 }
@@ -289,7 +327,7 @@ export function withRoster<T extends { key: string }>(employees: T[], roster: Re
 }
 
 /** Bitcoin's price over the last few hours, from the bot's market tape (for the office TV). */
-export async function getBtcSeries(book: Book, hours = 3): Promise<Point[]> {
+async function getBtcSeriesQuery(book: Book, hours = 3): Promise<Point[]> {
   const since = new Date(Date.now() - hours * 3_600_000).toISOString();
   try {
     const rows = await db(book)`SELECT ts, max(spot) AS spot FROM market_tape WHERE ts >= ${since} AND spot IS NOT NULL
@@ -301,7 +339,7 @@ export async function getBtcSeries(book: Book, hours = 3): Promise<Point[]> {
 }
 
 /** Bets settled and won by the pool's members, today (in the pool's time zone) and all season. */
-export async function getPoolRecord(book: Book, season: number, members: string[], tz: string) {
+async function getPoolRecordQuery(book: Book, season: number, members: string[], tz: string) {
   // Grouped by employee and filtered here: with fetch_types off, postgres.js can't send an array parameter
   const rows = await db(book)`
     SELECT strategy, count(*)::int AS n, coalesce(sum(CASE WHEN pnl > 0 THEN 1 ELSE 0 END), 0)::int AS won,
@@ -317,7 +355,7 @@ export async function getPoolRecord(book: Book, season: number, members: string[
 export type CoinRow = { strategy: string; coin: string; n: number; won: number; pnl: number };
 
 /** Settled bets per employee per coin ("BTC", "ETH"), from each market's series (KXBTC15M-... is bitcoin). */
-export async function getCoinStats(book: Book, season: number): Promise<CoinRow[]> {
+async function getCoinStatsQuery(book: Book, season: number): Promise<CoinRow[]> {
   const rows = await db(book)`
     SELECT strategy, split_part(ticker, '-', 1) AS series, count(*)::int AS n,
            coalesce(sum(CASE WHEN pnl > 0 THEN 1 ELSE 0 END), 0)::int AS won, coalesce(sum(pnl), 0) AS pnl
@@ -326,10 +364,39 @@ export async function getCoinStats(book: Book, season: number): Promise<CoinRow[
 }
 
 /** Every settled bet this season since `sinceIso`, oldest first: what the coin views add up. */
-export async function getSettlements(book: Book, season: number, sinceIso = "1970-01-01"): Promise<
+async function getSettlementsQuery(book: Book, season: number, sinceIso = "1970-01-01"): Promise<
   { t: number; strategy: string; coin: string; pnl: number }[]
 > {
   const rows = await db(book)`SELECT ts, strategy, ticker, pnl FROM settlements
     WHERE season = ${season} AND ts >= ${sinceIso} ORDER BY ts`;
   return rows.map((r) => ({ t: Date.parse(r.ts), strategy: r.strategy, coin: coinOfTicker(r.ticker), pnl: Number(r.pnl) }));
 }
+
+// The exported, sturdy versions (see sturdy() above)
+export const getPolicy = sturdy("getPolicy", getPolicyQuery);
+export const getRoster = sturdy("getRoster", getRosterQuery);
+export const getNews = sturdy("getNews", getNewsQuery);
+export const getTuningRuns = sturdy("getTuningRuns", getTuningRunsQuery);
+export const getJobs = sturdy("getJobs", getJobsQuery);
+export const getCoverage = sturdy("getCoverage", getCoverageQuery);
+export const getAnalysis = sturdy("getAnalysis", getAnalysisQuery);
+export const getSeasonStart = sturdy("getSeasonStart", getSeasonStartQuery);
+export const getHistory = sturdy("getHistory", getHistoryQuery);
+export const getRecentFills = sturdy("getRecentFills", getRecentFillsQuery);
+export const getSettlementStats = sturdy("getSettlementStats", getSettlementStatsQuery);
+export const getActivity = sturdy("getActivity", getActivityQuery);
+export const getSettledCount = sturdy("getSettledCount", getSettledCountQuery);
+export const listBacktests = sturdy("listBacktests", listBacktestsQuery);
+export const getBacktest = sturdy("getBacktest", getBacktestQuery);
+export const getBtcSeries = sturdy("getBtcSeries", getBtcSeriesQuery);
+export const getPoolRecord = sturdy("getPoolRecord", getPoolRecordQuery);
+export const getCoinStats = sturdy("getCoinStats", getCoinStatsQuery);
+export const getSettlements = sturdy("getSettlements", getSettlementsQuery);
+
+/** Each employee's bets settled today (in the pool's timezone): the widget's "today" story. */
+export const getTodayRows = sturdy("getTodayRows", async (book: Book, season: number, tz: string) =>
+  (await db(book)`SELECT strategy, count(*)::int AS n, sum(CASE WHEN pnl > 0 THEN 1 ELSE 0 END)::int AS won, sum(pnl) AS pnl
+     FROM settlements
+     WHERE season = ${season}
+       AND (ts::timestamptz AT TIME ZONE ${tz})::date = (now() AT TIME ZONE ${tz})::date
+     GROUP BY strategy`).map((r) => ({ strategy: String(r.strategy), n: Number(r.n), won: Number(r.won), pnl: Number(r.pnl) })));
