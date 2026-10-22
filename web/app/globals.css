@@ -387,3 +387,14 @@ button.nav-btn { font-family: var(--pixel); line-height: inherit; }
 .lp-dot { width: 20px; text-align: center; font-size: 13px; line-height: 20px; color: var(--text-muted); }
 .lp-dot.up { color: var(--up); }
 .lp-dot.down { color: var(--down); }
+
+/* On the home screen the page runs under the status bar and home bar: keep clear of both
+   (in Safari these insets are 0, so nothing changes there) */
+.shell { padding-top: calc(20px + env(safe-area-inset-top)); padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+@media (max-width: 600px) {
+  .shell { padding-top: calc(12px + env(safe-area-inset-top)); padding-bottom: calc(48px + env(safe-area-inset-bottom)); }
+}
+/* Pull to refresh (home-screen app) */
+.ptr { position: fixed; left: 50%; top: calc(env(safe-area-inset-top) + 6px); z-index: 50; transform: translate(-50%, -60px);
+  font-family: var(--pixel); font-size: 9px; color: #1b1733; background: var(--coin); padding: 8px 12px; border-radius: 4px;
+  box-shadow: 0 3px 0 var(--shadow); pointer-events: none; transition: transform 0.15s; }
