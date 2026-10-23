@@ -169,13 +169,13 @@ export async function startNewSeason(reserve: number) {
 }
 
 /** The real-money kill switch: no new orders, waiting ones cancelled on the bot's next run. */
-export async function haltTrading(reason: string) {
+export async function haltTrading(reason: string, long = false) {
   await requireAdmin();
   const book: Book = "real";
-  const data = { halted: true, reason: reason || "stopped from the website", by: "website", at: now() };
+  const data = { halted: true, reason: reason || "stopped from the website", by: "website", at: now(), ...(long && { long: true }) };
   await db(book)`INSERT INTO settings (key, updated_at, data) VALUES ('trading', ${now()}, ${JSON.stringify(data)})
     ON CONFLICT (key) DO UPDATE SET updated_at = excluded.updated_at, data = excluded.data`;
-  await event(book, "trading", null, { action: "halted", reason: data.reason });
+  await event(book, "trading", null, { action: "halted", reason: data.reason, long });
   done(["/settings", "/"]);
 }
 

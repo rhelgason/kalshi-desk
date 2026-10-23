@@ -14,7 +14,7 @@ Command line for the desk.
     python -m desk health        is the hosted bot running? (exit 1 if it has gone quiet)
     python -m desk live-check [--order]   test the Kalshi API key; --order places and cancels a tiny bid
                       [--fund]    move the cash to the crypto shard, where bitcoin bets are paid from
-    python -m desk halt "why" / resume    the real-money kill switch
+    python -m desk halt "why" [--long] / resume    the real-money kill switch
     python -m desk employees     who works here
     python -m desk whoami        check your Kalshi API key (read-only)
 """
@@ -474,7 +474,7 @@ async def cmd_live_check(cfg: DeskConfig, order: bool, fund: bool = False) -> in
         return 0
 
 
-def cmd_halt(cfg: DeskConfig, reason: str, resume: bool) -> None:
+def cmd_halt(cfg: DeskConfig, reason: str, resume: bool, long: bool = False) -> None:
     from desk.live.guard import Guard
 
     guard = Guard(Ledger(cfg.db_path, cfg.schema), cfg.live)
@@ -482,8 +482,10 @@ def cmd_halt(cfg: DeskConfig, reason: str, resume: bool) -> None:
         guard.resume(by="command line")
         print("Real trading may resume on the bot's next run (books re-checked against Kalshi from scratch).")
     else:
-        guard.halt(reason or "stopped from the command line", by="command line")
+        guard.halt(reason or "stopped from the command line", by="command line", long=long)
         print("Halted: no new real orders, and waiting ones are cancelled on the bot's next run (~2 minutes).")
+        if long:
+            print("Long pause: the phone widget and the dashboard show Training until you resume.")
 
 
 def cmd_employees() -> None:
@@ -563,6 +565,7 @@ def main(argv: list[str] | None = None) -> int:
     lc.add_argument("--fund", action="store_true", help="move the cash to the crypto shard and keep it there")
     ht = sub.add_parser("halt", help="kill switch: stop all real trading")
     ht.add_argument("reason", nargs="?", default="")
+    ht.add_argument("--long", action="store_true", help="a long pause: the widget and dashboard show Training")
     sub.add_parser("resume", help="allow real trading again after a halt")
     sub.add_parser("employees")
     sub.add_parser("whoami")
@@ -604,7 +607,7 @@ def main(argv: list[str] | None = None) -> int:
         elif args.cmd == "live-check":
             return asyncio.run(cmd_live_check(cfg, args.order, args.fund))
         elif args.cmd in ("halt", "resume"):
-            cmd_halt(cfg, getattr(args, "reason", ""), args.cmd == "resume")
+            cmd_halt(cfg, getattr(args, "reason", ""), args.cmd == "resume", getattr(args, "long", False))
         elif args.cmd == "employees":
             cmd_employees()
         elif args.cmd == "pool-reset":

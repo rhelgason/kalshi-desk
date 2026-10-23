@@ -100,9 +100,16 @@ export const getBonusPot = async (book: Book): Promise<BonusPot> =>
   (await status<BonusPot>(book, "_bonus_pot")) ?? { pot: 0, winner: null, given: 0, left: 0, since: null };
 
 /** The kill switch straight from the table (the bot's status lags a run behind a press of the button). */
-export async function getKillSwitch(book: Book): Promise<{ halted: boolean; reason?: string; by?: string; at?: string }> {
+export type KillSwitch = { halted: boolean; reason?: string; by?: string; at?: string; long?: boolean };
+export async function getKillSwitch(book: Book): Promise<KillSwitch> {
   const rows = await db(book)`SELECT data FROM settings WHERE key = 'trading'`;
   return rows.length ? JSON.parse(rows[0].data) : { halted: false };
+}
+
+/** A long pause (marked long, or halted for over a day), not an afternoon's stop: show Training meanwhile. */
+export function isLongPause(kill: KillSwitch, now = Date.now()): boolean {
+  if (!kill.halted) return false;
+  return !!kill.long || (!!kill.at && now - Date.parse(kill.at) > 24 * 3_600_000);
 }
 
 async function getPolicyQuery(book: Book): Promise<Policy> {

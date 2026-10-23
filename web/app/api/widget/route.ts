@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { defaultBook } from "@/lib/book";
+import { defaultBook, getRealBook } from "@/lib/book";
 import { getHistory, getTodayRows, getKillSwitch, getLive, getPolicy, getSeasonStart } from "@/lib/db";
 import { only, poolKeys, portfolioSeries, type RangeKey } from "@/lib/portfolio";
 
@@ -9,7 +9,8 @@ import { only, poolKeys, portfolioSeries, type RangeKey } from "@/lib/portfolio"
  *
  * The office pool's value now, a line of it over the last `days`, and a short
  * plain-English summary of today: up or down, bets won, who led, what's riding.
- * Real money once a real-money book exists (not the demo practice), the pretend pool until then.
+ * Real money once a real-money book exists (not the demo practice), the pretend pool until then
+ * and while real trading is on a long pause.
  */
 export const dynamic = "force-dynamic";
 
@@ -67,8 +68,9 @@ export async function GET(req: NextRequest) {
   const hours = Math.min(Math.max(q.get("hours") ? Number(q.get("hours")) : (Number(q.get("days")) || 7) * 24, 1), 24 * 90);
   const range: RangeKey = hours <= 24 ? "day" : hours <= 24 * 7 ? "week" : hours <= 24 * 30 ? "month" : "quarter";
 
-  const book = await defaultBook();
+  const [book, real] = await Promise.all([defaultBook(), getRealBook()]);
   const [live, policy, kill] = await Promise.all([getLive(book), getPolicy(book), getKillSwitch(book)]);
+  const note = kill.halted ? "Real trading stopped" : book === "pretend" && real?.live && real.paused ? "Real money paused; showing Training" : "";
   if (!live?.pool) return NextResponse.json({ ok: false, error: "the bot hasn't reported yet" }, { status: 503 });
   const pool = live.pool;
   const tz = pool.settings?.timezone || "America/Vancouver";
@@ -128,8 +130,8 @@ export async function GET(req: NextRequest) {
       pct: pool.today,
       settled: rows.reduce((s, r) => s + r.n, 0),
       won: rows.reduce((s, r) => s + r.won, 0),
-      text: (kill.halted ? `Real trading stopped: ${kill.reason ?? "by you"}. ` : "") + todayText(day),
-      brief: (kill.halted ? "Real trading stopped. " : "") + briefText(day),
+      text: (kill.halted ? `${note}: ${kill.reason ?? "by you"}. ` : note ? `${note}. ` : "") + todayText(day),
+      brief: (note ? `${note}. ` : "") + briefText(day),
     },
     series,
   }, { headers: { "Cache-Control": "no-store" } });

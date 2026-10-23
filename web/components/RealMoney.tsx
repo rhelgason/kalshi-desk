@@ -74,7 +74,9 @@ export default function RealMoney({ trading, killSwitch, admin }: {
             <button className="btn danger" disabled={pending}
               onClick={() => {
                 const why = prompt("Stop all real trading? Waiting orders on Kalshi will be cancelled. Reason (optional):");
-                if (why !== null) run(() => haltTrading(why), "Stopped. The bot cancels waiting orders on its next run");
+                if (why === null) return;
+                const long = confirm("Is this a long pause? OK shows Training on your phone and the dashboard until you resume; Cancel for a short stop.");
+                run(() => haltTrading(why, long), "Stopped. The bot cancels waiting orders on its next run");
               }}>
               🛑 Stop all real trading
             </button>

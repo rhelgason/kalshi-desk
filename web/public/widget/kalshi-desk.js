@@ -4,7 +4,7 @@
 // fetches this file from the dashboard and runs it, so the design can change
 // without pasting anything again. It runs with DASHBOARD and KEY passed in.
 //
-// Shows real money once a real-money book exists, the pretend pool until then.
+// Shows real money once a real-money book exists, the pretend pool until then (and during a long pause).
 // Black and green, terminal style: the office pool's total, a line of it over
 // the last 7 days (the widget's Parameter sets the days), and a sentence about
 // today. Tap to open the dashboard.

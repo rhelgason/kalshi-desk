@@ -9,6 +9,8 @@ The safety layer for real money. Every real order asks the guard first.
                 looks wrong (a loss limit, the books not matching Kalshi). While
                 halted, no new orders go out and waiting ones are cancelled.
                 Only a person can resume (website or `python -m desk resume`).
+                A long pause ({"long": true}, or any halt older than a day)
+                also turns the phone widget and the dashboard back to Training.
   Hard limits   independent of the pool's own rules, in desk.yaml `live:`:
                 largest single order, orders per day, and the most the pool may
                 lose in a day before trading halts (the pool's daily stop only
@@ -64,12 +66,14 @@ class Guard:
     def halted(self) -> bool:
         return bool(self.state.get("halted"))
 
-    def halt(self, reason: str, by: str = "bot") -> None:
+    def halt(self, reason: str, by: str = "bot", long: bool = False) -> None:
         if self.halted:
             return
         self.state = {"halted": True, "reason": reason, "by": by, "at": _now().isoformat()}
+        if long:
+            self.state["long"] = True
         self.ledger.set_setting(SETTING, self.state)
-        self.ledger.record_event("trading", {"action": "halted", "reason": reason, "by": by})
+        self.ledger.record_event("trading", {"action": "halted", "reason": reason, "by": by, "long": long})
         logger.error("REAL TRADING HALTED by %s: %s", by, reason)
         from desk import notify
 
