@@ -23,7 +23,7 @@ export const DEFAULT_POLICY: Policy = {
   strikes_to_fire: 4,
   award_bonus: 0,
   reserve: 0,
-  pool: { bet_pct: 0.01, window_cap: 0.03, daily_stop: 0.1, brake_drawdown: 0.25, brake_factor: 0.5, timezone: "America/Vancouver" },
+  pool: { bet_pct: 0.01, window_cap: 0.03, daily_stop: 0.1, brake_drawdown: 0.25, brake_factor: 0.5, max_bet: 0, timezone: "America/Vancouver" },
   last_review: null,
   promote_min_confidence: 0.8,
   realism: { depth: 100, samples: 0, measured_at: null },

@@ -33,6 +33,16 @@ def test_bets_are_a_share_of_the_pool_scaled_by_level():
     assert pool.bet_dollars(2.0) == pytest.approx(20)  # VP / Partner
 
 
+def test_max_bet_stops_bets_outgrowing_the_market():
+    accounts = {"e0": PaperAccount("e0", 18_000)}
+    pool = Pool({**SETTINGS, "max_bet": 10}, ["e0"])
+    pool.update(pool.total_equity(accounts, {}), NOON)
+    assert pool.bet_dollars(1.0) == pytest.approx(10)  # 1% would be $180
+    assert pool.bet_dollars(0.5) == pytest.approx(10)
+    pool.settings["max_bet"] = 0  # 0 = no cap
+    assert pool.bet_dollars(1.0) == pytest.approx(180)
+
+
 def test_window_cap_counts_everyone_in_the_same_window():
     pool, accounts = office()
     t = "KXBTC15M-26OCT151200-00"

@@ -68,6 +68,7 @@ export type PoolSettings = {
   daily_stop: number;
   brake_drawdown: number;
   brake_factor: number;
+  max_bet?: number; // dollars, 0 = no cap
   timezone: string;
 };
 

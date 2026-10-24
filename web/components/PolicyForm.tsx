@@ -11,6 +11,7 @@ const FIELDS: Field[] = [
   { key: "window_cap", label: "Most in one 15-minute window", help: "Everyone together, as a share of the pool", kind: "percent", group: "pool" },
   { key: "daily_stop", label: "Stop for the day after losing", help: "Since midnight; open bets still settle", kind: "percent", group: "pool" },
   { key: "brake_drawdown", label: "Halve bets when the pool is down", help: "From its high, until it recovers", kind: "percent", group: "pool" },
+  { key: "max_bet", label: "Biggest single bet ($)", help: "However big the pool grows; 0 = no cap", kind: "number", group: "pool" },
   { key: "review_days", label: "Review every (days)", help: "7 = Employee of the Week, 28+ = of the Month", kind: "number" },
   { key: "min_settled", label: "Bets needed to be reviewed", help: "Settled bets in the period", kind: "number" },
   { key: "promote_roi", label: "Promote at", help: "Profit per $1 bet in the period (2% = 2¢)", kind: "percent" },

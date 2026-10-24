@@ -82,6 +82,7 @@ DEFAULT_POLICY: dict[str, Any] = {
         "daily_stop": 0.10,  # no new bets once the pool is down this much since midnight
         "brake_drawdown": 0.25,  # this far below the pool's high...
         "brake_factor": 0.5,  # ...every bet is cut to this
+        "max_bet": 0,  # dollars; no single bet above this (0 = no cap)
         "timezone": "America/Vancouver",  # whose midnight starts the day
     },
     "last_review": None,

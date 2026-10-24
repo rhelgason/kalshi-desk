@@ -16,6 +16,9 @@ Three guardrails keep one bad day from sinking the office:
   slump brake  while the pool is more than `brake_drawdown` below its high, every
                bet is cut to `brake_factor` of its size, until it recovers
 
+and `max_bet` (dollars, 0 = none) stops a grown pool's bets outgrowing what
+these markets can fill: past it the pool still grows, the bets stop growing.
+
 A 55-day replay of the patient twins (research/fast_bot/sizing*.py) picked the numbers:
 1% per bet grew the pool if the backtests were even half right and lost ~5%
 if there was no edge at all; at 2%+ a bad stretch could halve the pool.
@@ -130,7 +133,9 @@ class Pool:
     def bet_dollars(self, multiplier: float) -> float:
         """How much one bet should be at this level, right now."""
         size = max(self.equity, 0.0) * float(self.settings["bet_pct"]) * multiplier
-        return size * float(self.settings["brake_factor"]) if self.braked else size
+        size = size * float(self.settings["brake_factor"]) if self.braked else size
+        cap = float(self.settings.get("max_bet") or 0)
+        return min(size, cap) if cap > 0 else size
 
     def window_room(self, event: str, accounts: dict[str, PaperAccount], resting: list) -> float:
         cap = max(self.equity, 0.0) * float(self.settings["window_cap"])
