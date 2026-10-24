@@ -336,7 +336,7 @@ def cmd_new_season(cfg: DeskConfig, pool: float | None, levels: list[str], why: 
 
 
 async def cmd_seed_season(cfg: DeskConfig, days: float, history: str, slippage: list[str], why: str,
-                          apply: bool, until: str | None = None) -> None:
+                          apply: bool, until: str | None = None, max_bet: float | None = None) -> None:
     """Replay this book's staff over the last `days` of stored markets; with --apply, make it the new season."""
     import json
     from collections import defaultdict
@@ -373,11 +373,12 @@ async def cmd_seed_season(cfg: DeskConfig, days: float, history: str, slippage: 
         fees = {s: await client.get_fee_schedule(s) for s in cfg.crypto_series}
     policy = hr.load_policy(ledger)
     replay = SeasonReplay(data, strategies, members, {k: roster[k].multiplier for k in staff}, policy["pool"],
-                          cfg.pool_cash, cfg.starting_cash, fees, slippage=slip)
+                          cfg.pool_cash, cfg.starting_cash, fees, slippage=slip, max_bet=max_bet)
     replay.run()
 
     print(f"\nReplay {start:%Y-%m-%d %H:%M} to {end:%Y-%m-%d %H:%M} UTC, {', '.join(cfg.crypto_series)}; "
-          f"pool ${cfg.pool_cash:,.0f} shared by {', '.join(sorted(members))}; slippage {slip or 'none'}")
+          f"pool ${cfg.pool_cash:,.0f} shared by {', '.join(sorted(members))}; slippage {slip or 'none'}"
+          f"{f'; bets capped at ${max_bet:g}' if max_bet else ''}")
     print(f"{replay.stats['fills']} bets from {replay.stats['intents']} ideas\n")
     print(format_scoreboard(scoreboard_rows(replay.accounts, replay.ledger)))
     pool_end = sum(replay.accounts[k].equity({}) for k in members)
@@ -404,7 +405,7 @@ async def cmd_seed_season(cfg: DeskConfig, days: float, history: str, slippage: 
                                       "pool": replay.pool.state.to_dict()})
         ledger.record_event("season", {"action": "seeded from a replay", "season": detail["season"],
                                        "from": start.isoformat(), "to": end.isoformat(), "days": days,
-                                       "pool_start": cfg.pool_cash, "pool_end": round(pool_end, 2),
+                                       "pool_start": cfg.pool_cash, "pool_end": round(pool_end, 2), "max_bet": max_bet,
                                        "slippage": slip, **written})
     finally:
         ledger.release_lease(LEASE)
@@ -639,6 +640,7 @@ def main(argv: list[str] | None = None) -> int:
     sd.add_argument("--why", default="")
     sd.add_argument("--apply", action="store_true", help="write it (otherwise a dry run)")
     sd.add_argument("--until", help="dry run ending at this UTC date instead of now (e.g. 2026-09-24)")
+    sd.add_argument("--max-bet", type=float, help="no replayed bet above this many dollars (like the real book's order cap)")
     lg = sub.add_parser("log", help="what the bot did each run: bets, skips and why, warnings, errors")
     lg.add_argument("--hours", type=float, default=6)
     lg.add_argument("--employee", help="only this employee key")
@@ -685,7 +687,8 @@ def main(argv: list[str] | None = None) -> int:
         elif args.cmd == "new-season":
             cmd_new_season(cfg, args.pool, args.level, args.why)
         elif args.cmd == "seed-season":
-            asyncio.run(cmd_seed_season(cfg, args.days, args.history, args.slippage, args.why, args.apply, args.until))
+            asyncio.run(cmd_seed_season(cfg, args.days, args.history, args.slippage, args.why, args.apply, args.until,
+                                        args.max_bet))
         elif args.cmd == "log":
             cmd_log(cfg, args.hours, args.all, args.employee)
         elif args.cmd == "health":

@@ -26,6 +26,7 @@ contracts are assumed at the quote.
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import replace
 from datetime import datetime, timezone
 from types import SimpleNamespace
@@ -52,7 +53,7 @@ class SeasonReplay(Backtest):
     def __init__(self, data: BacktestData, strategies: list[Strategy], members: set[str],
                  multipliers: dict[str, float], pool_settings: dict, pool_cash: float, control_cash: float,
                  fees: dict[str, FeeSchedule], slippage: Optional[dict[str, float]] = None,
-                 every_minutes: int = 2, depth: float = 100.0):
+                 every_minutes: int = 2, depth: float = 100.0, max_bet: Optional[float] = None):
         ledger = Ledger(":memory:")
         for s in strategies:  # pool members share the pool; the control group has its own money
             ledger.set_starting_cash(s.key, pool_cash / len(members) if s.key in members else control_cash)
@@ -65,6 +66,7 @@ class SeasonReplay(Backtest):
         self.slippage = slippage or {}
         self.every = every_minutes
         self.dip_share = 0.25  # of a minute's volume, what came through a waiting bid's price
+        self.max_bet = max_bet
 
     def _slip(self, ticker: str) -> float:
         return self.slippage.get(self.by_ticker[ticker].market.series_ticker, 0.0)
@@ -84,7 +86,15 @@ class SeasonReplay(Backtest):
 
         desk = SimpleNamespace(pool=self.pool, multipliers=self.multipliers, accounts=self.accounts,
                                broker=self.broker, bonus={})
-        return Desk.size(desk, intent)
+        bet, why = Desk.size(desk, intent)
+        if bet and self.max_bet:
+            # A cap like the real book's max_order_dollars: without one, 1% bets compound over months
+            # into sizes these markets could never fill, and a year's replay reads like a fantasy
+            cost = sum(leg.count * leg.limit_price for leg in bet.legs)
+            if cost > self.max_bet:
+                k = self.max_bet / cost
+                bet = replace(bet, legs=[replace(leg, count=math.floor(leg.count * k * 100) / 100) for leg in bet.legs])
+        return bet, why
 
     def _dips(self, ts: int) -> dict[str, list[dict]]:
         """The minute ending at `ts` as two trades per market with a waiting bid: a seller at the

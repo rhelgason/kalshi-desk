@@ -85,3 +85,13 @@ def test_replay_fills_a_patient_twins_bid_when_the_bid_dips_through_it():
 def test_replay_never_fills_a_bid_without_stored_dips():
     replay = _twin_replay(dip=False)  # history stored before bid lows were kept
     assert replay.ledger.fills() == [] and replay.stats["bids"] >= 1
+
+
+def test_replay_caps_bets_when_asked():
+    data = BacktestData(markets=[window(0, "yes", 100_000, [(0.50, 0.52)] * 7 + [(0.94, 0.95)] * 8)],
+                        spot={"BTC": flat_spot(100_100)}, dvol={}, start=ts0, end=ts0 + 20 * 60)
+    replay = SeasonReplay(data, [SteadyStella()], {"heavy_favorite"}, {"heavy_favorite": 1.0}, POOL,
+                          pool_cash=1000, control_cash=1000, fees={}, max_bet=5)
+    replay.run()
+    fill = replay.ledger.fills()[0]
+    assert 4.5 <= fill["count"] * fill["price"] <= 5.0  # not the pool's $10
