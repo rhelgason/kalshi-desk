@@ -5,7 +5,9 @@ from datetime import timedelta
 from desk.feeds.crypto import UnderlyingQuote
 from desk.kalshi.models import Side
 from desk.paper.broker import RestingOrder
-from desk.strategies import BreakoutBetty, BreakoutBonnie, EarlyBirdEdie, EarlyBirdEllie, NickelNora, SteadySadie
+from desk.strategies import (
+    BreakoutBetty, BreakoutBonnie, ClosingTimeCoco, EarlyBirdEdie, EarlyBirdEllie, NickelNora, SilverMedalSid, SteadySadie,
+)
 from desk.strategies.base import Snapshot
 from tests.desk.conftest import NOW, make_market
 
@@ -102,6 +104,21 @@ class TestPatientTwins:
         leg = intent.legs[0]
         assert intent.post_only and (leg.side, leg.limit_price) == (Side.YES, 0.951)  # a tenth of a cent over the bid
         assert SteadySadie().evaluate(snap(btc15(0.950, 0.953, 12)), account) == []  # too early for Stella
+
+    def test_coco_bids_only_in_the_last_few_minutes(self, account):
+        m = btc15(0.960, 0.962, 3)
+        m.price_ranges = LADDER
+        [intent] = ClosingTimeCoco().evaluate(snap(m), account)
+        assert intent.post_only and intent.legs[0].limit_price == 0.961
+        assert ClosingTimeCoco().evaluate(snap(btc15(0.960, 0.962, 7)), account) == []  # Sadie's time
+        assert ClosingTimeCoco().evaluate(snap(btc15(0.930, 0.932, 3)), account) == []  # under 94c
+
+    def test_sid_bids_on_the_next_tier_of_favorites(self, account):
+        m = btc15(0.87, 0.89, 10)
+        m.price_ranges = LADDER
+        [intent] = SilverMedalSid().evaluate(snap(m), account)
+        assert intent.post_only and intent.legs[0].limit_price == 0.88  # a cent over the bid (1c steps under 90c)
+        assert SilverMedalSid().evaluate(snap(btc15(0.950, 0.953, 10)), account) == []  # Sadie's price
 
     def test_a_small_pools_bet_under_one_contract_still_bids(self, account):
         m = btc15(0.950, 0.953, 7)

@@ -29,69 +29,32 @@ broad_scan: false         # no sports, weather, or other non-bitcoin markets
 
 liquidity_share: 0.5      # assume faster bots take half of every displayed order
 
-# One block per employee (the bitcoin team). Set enabled: false to give someone the day off.
+# One block per employee. Set enabled: false to give someone the day off.
 # A `stake` here no longer sets the bet's dollars: the office pool does (see pool_cash).
-# Retired with the bitcoin focus: Risk-Free Rick, Sudoku Sue, Vega Vinny,
-# Front-Runner Fran, Spread Sam, Whale Watcher Walt, and (no edge on 15-minute
-# bitcoin) The Professor, Momentum Mo, Rubber Band Randy. Code kept in desk/strategies.
+# Retired: Risk-Free Rick, Sudoku Sue, Vega Vinny, Front-Runner Fran, Spread Sam, Whale
+# Watcher Walt, The Professor, Momentum Mo, Rubber Band Randy, and on 2026-10-24 the
+# Sniper, Nickel Nick, the Wet Blanket, Wipeout, Early Bird Edie and the twins Nora,
+# Ellie and Bonnie (no edge in the Oct 23 scan). Code kept in desk/strategies.
 # Run `python -m desk employees` for the full roster.
 #
-# Settings marked TUNED came from `python -m desk tune` (30 days of 15-minute
-# BTC/ETH/SOL markets, 1-minute fill delay) and were profitable in BOTH the
-# training period and the unseen test period. PROBATION means no tested
-# setting made money, so the employee only bets on rare, very strong signals.
+# research/stella_backtest (2026-10-24): every 15-minute BTC/ETH/SOL market from Dec 2025
+# to Oct 2026, replayed like the bot trades. Per $1 bet, the honest numbers:
+#   Stella paying the ask           +0.58c (t 3.8, 9 of 11 months up)
+#   Sadie's resting bids            +1.53c (t 9.7, 11 of 11), ~+1.2c on the real trade tape
+#   the edge is shrinking: ~2c a month early in the year, 0.4c so far in October
 strategies:
-  heavy_favorite:         # 🐜 Steady Stella - Season 5's whole pool: 92-99c favorites, 5-9 minutes left
-    min_price: 0.92       # 92 days, 7 coins, 1-minute fill delay, every 2 minutes like the bot:
-    max_price: 0.99       #   chosen on Jul 25-Sep 22: +0.66c per $1 bet (t 2.2)
-    min_seconds: 300      #   then Sep 23-Oct 22, unseen: +0.67c per $1 (t 1.6)
-    max_seconds: 540      # A tiny edge on lots of bets (~140 a day); it could still be luck.
+  heavy_favorite:         # 🐜 Steady Stella - 92-99c favorites, 5-9 minutes left, pays the ask
+    min_price: 0.92       # the yardstick for the twins: same picks, taker fills and fees
+    max_price: 0.99
+    min_seconds: 300
+    max_seconds: 540
     max_spread: 0.02
-  heavy_maker: {enabled: false}  # 🐌 Steady Sadie - Stella's patient twin: off until the long backtest decides
-  # Off on Training since Season 5 (2026-10-23): none of their rules held up in the scan.
-  # The real book keeps its own roster (desk.real.yaml turns its people back on).
-  sniper:                 # 🎯 The Sniper - LOOSENED again 10-20 (pretend money only; benched on real)
-    enabled: false
-    min_win_prob: 0.80    # 30-day replay: every last-5-minute setting loses (-5 to -14c per $1), and at
-    max_seconds: 300      # 90% she had 4 ideas in 6 days, none filled. This lets her fire so HR can judge
-    vol_multiplier: 1.25  # her on real evidence. (Training's roster row holds the same settings,
-    min_edge: 0.0         # with autotune paused for her.)
-    min_price: 0.60
-    max_bet: 50
-  longshot_fade:          # 🧊 The Wet Blanket - TUNED: fade 5-15c long shots, never in the last 10 minutes
-    enabled: false
-    min_yes: 0.05
-    max_yes: 0.15
-    min_seconds: 600
-    max_days: 2
-    stake: 5
-  longshot_buy:           # 🐦 Lucky the Pigeon - control group: buys the long shots the Wet Blanket fades
+  heavy_maker: {}         # 🐌 Steady Sadie - Stella's picks with resting bids (uses Stella's settings)
+  late_maker: {}          # 🦉 Closing Time Coco - 94-99c, 2-5 minutes left, resting bids
+  runner_up_maker: {}     # 🥈 Silver Medal Sid - 85-92c, 5-13 minutes left, resting bids (probation)
+  longshot_buy:           # 🐦 Lucky the Pigeon - control group: buys long shots
     max_days: 2
     stake: 2
-  nickel_picker:          # 🪙 Nickel Nick - TUNED: 88-95c favorites, never in the last 10 minutes
-    enabled: false
-    min_price: 0.88
-    max_price: 0.95
-    min_seconds: 600
-    stake: 10
-  breakout:               # 🏄‍♀️ Wipeout - RETUNED 10-20: bitcoin only, 0.3%+ moves early in a window
-    enabled: false
-    min_move: 0.003       # 30-day replay: +$54 train / +$110 test (0.2% was +$147 / +$11, fading)
-    max_price: 0.60
-    coins: [BTC]          # ether lost in the first 20 days at every threshold (Bonnie went 2 of 12 on it)
-  early_favorite:         # 🐦 Early Bird Edie - NEW (Season 3), probation: 75-85c favorites in the first 5 minutes
-    enabled: false
-    min_price: 0.75       # backtest Aug-Oct: +$132 train / +$11 test; the edge may be fading
-    max_seconds: 780
-  # The patient twins (Season 3, week 2): same picks as Nick, Edie and Betty, but they post a
-  # bid and wait instead of paying the ask. No fee when someone fills them. They use their
-  # sibling's settings automatically (including autotune's changes), so the only difference
-  # is how they buy; anything set here for a twin applies on top (desk/hr.py TWINS).
-  # 55-day replay on Kalshi's minute candles, per $1 bet (taker -> patient twin):
-  #   Edie +1.3c -> +1.6c, Nick +3.6c -> +3.8c, Betty -0.2c -> +3.2c (noisy)
-  nickel_maker: {enabled: false}  # 🐢 Nickel Nora: Nick's picks, resting bids
-  early_maker: {enabled: false}   # 🐣 Early Bird Ellie: Edie's picks, resting bids
-  breakout_maker: {enabled: false}  # 🛶 Breakout Bonnie: Betty's picks, resting bids
   dart_monkey:            # 🐒 Dart Monkey Dan - control group: random bets; the benchmark to beat
     bets_per_tick: 0.2
     max_hours: 24

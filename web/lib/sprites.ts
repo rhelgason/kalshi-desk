@@ -168,6 +168,8 @@ export const LOOKS: Record<string, Look | "monkey"> = {
   nickel_picker: { skin: SKIN.light, hair: "#c8c8c8", hairStyle: "visor", hat: "#1f7a4d", eyes: "glasses", shirt: "#6d4c2f", tie: "#c0392b", mouth: "flat" },
   heavy_favorite: { skin: SKIN.tan, hair: "#2b1a10", hairStyle: "long", shirt: "#2a9d8f", tie: null, mouth: "smile" },
   heavy_maker: { skin: SKIN.tan, hair: "#2b1a10", hairStyle: "long", shirt: "#6b8e4e", tie: null, mouth: "smile" },
+  late_maker: { skin: SKIN.light, hair: "#3a3150", hairStyle: "short", eyes: "glasses", shirt: "#283a6b", tie: null, mouth: "smile" },
+  runner_up_maker: { skin: SKIN.light, hair: "#7a5230", hairStyle: "bald", shirt: "#5c6670", tie: null, mouth: "flat" },
   favorite_sports: { skin: SKIN.brown, hair: "#f2d16b", hairStyle: "ponytail", shirt: "#c0392b", tie: null, mouth: "grin" },
   market_maker: { skin: SKIN.tan, hair: "#4a2c17", hairStyle: "short", headset: true, shirt: "#ecf0f1", tie: "#1f3a68" },
   whale_follow: { skin: SKIN.light, hair: "#eeeeee", hairStyle: "captain", hat: "#1f3a68", beard: true, shirt: "#1f3a68", tie: null },

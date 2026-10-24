@@ -31,7 +31,7 @@ deployed from `web/`). Notifications go through Pushover.
 ```bash
 .venv/bin/python -m pytest -q          # tests
 .venv/bin/python -m desk employees     # meet the staff
-.venv/bin/python -m desk tune nickel_picker --days 30 --set min_price=0.85,0.88
+.venv/bin/python -m desk tune heavy_favorite --days 30 --set min_price=0.90,0.92
 ```
 
 ## Credits

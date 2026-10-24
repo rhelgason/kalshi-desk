@@ -16,40 +16,30 @@ real_book: null
 env: prod                 # REAL MONEY since 2026-10-18 (was demo)
 trading: live
 auto_hr: false            # no automatic reviews or promotions with real money: the manager decides
-pool_cash: 100
-starting_cash: 100
+# Season 2 (from 2026-10-24's backtest): Steady Sadie alone on bitcoin, ether and solana.
+# Starting a real season: python -m desk new-season --config desk.real.yaml --pool <deposit>
+pool_cash: 250
+starting_cash: 250
 
-# Bitcoin only until ETH proves itself on pretend money
-crypto_series: [KXBTC15M]
-crypto_symbols: [BTC]
+crypto_series: [KXBTC15M, KXETH15M, KXSOL15M]
+crypto_symbols: [BTC, ETH]
 
 live:
   max_order_dollars: 10   # no single order above this
-  max_orders_per_day: 200
-  max_daily_loss: 20      # dollars down since midnight: halt until resumed
+  max_orders_per_day: 800 # Sadie posts a bid each look until one fills: ~1-3 per market, ~290 markets a day
+  max_daily_loss: 40      # dollars down since midnight: halt until resumed (the pool's own stop is 10%)
   max_drift: 1            # dollars the books may differ from Kalshi's balance
 
 bonus_pot:
   min_pool: 500           # the Employee of the Week's bonus starts once the real pool passes $500
 
 strategies:
-  # The control group stays on pretend money: they're there to lose
+  # Only Sadie trades real money. Everyone else stays on Training.
+  heavy_favorite: {enabled: false}
+  late_maker: {enabled: false}
+  runner_up_maker: {enabled: false}
   dart_monkey: {enabled: false}
   longshot_buy: {enabled: false}
-  # Betty and Bonnie (the breakout twins) stay on pretend money until the edge shows up:
-  # season 4 through Oct 18 they were 27 of 74 for -$92, and every other pool member was up.
-  # Their 15-minute "move" is mostly from before the window opened, when Kalshi has already priced it.
-  breakout: {enabled: false}
-  breakout_maker: {enabled: false}
-  # desk.yaml switched these off on Training (Season 5); the real book keeps them on its roster
-  sniper: {enabled: true}
-  longshot_fade: {enabled: true}
-  nickel_picker: {enabled: true}
-  early_favorite: {enabled: true}
-  nickel_maker: {enabled: true}
-  early_maker: {enabled: true}
-  heavy_favorite: {enabled: false}  # Steady Stella is pretend money only
-  heavy_maker: {enabled: false}     # nor her twin, Steady Sadie (yet)
   # Don't switch off a pool member mid-season here: it drops their share of the money from our
   # books, Kalshi still has it, and the safety check halts trading (2026-10-20, the Sniper).
-  # Bench them on the roster instead (suspended); their money stays in the pool.
+  # Roster changes on the real book go with a new season.

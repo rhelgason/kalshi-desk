@@ -236,3 +236,50 @@ class SteadySadie(PatientTwin, SteadyStella):
 
     def evaluate(self, snap: Snapshot, account: AccountView) -> list[TradeIntent]:
         return self.patient(super().evaluate(snap, account), snap, account)
+
+
+class ClosingTimeCoco(PatientTwin, SteadyStella):
+    """
+    The last stretch of the window: 94-99c favorites with 2 to 5 minutes left, resting bids.
+    research/stella_backtest (Dec 2025 - Oct 2026, BTC/ETH/SOL): picked on the first half
+    (+1.33c per $1, t 8.8), held up on the second (+0.58c, t 4.7), up in all 11 months.
+    Starts where Sadie stops (5 minutes left), so they rarely bid at the same moment.
+    """
+
+    key = "late_maker"
+    persona = Persona(
+        "Closing Time Coco", "Night Owl", "🦉",
+        "Shows up as the lights go down. Bids on the sure thing in the last few minutes and never, ever pays the asking price.",
+    )
+    backtestable = False
+
+    def __init__(self, min_price: float = 0.94, max_price: float = 0.99, min_seconds: float = 120,
+                 max_seconds: float = 300, **kw):
+        super().__init__(min_price=min_price, max_price=max_price, min_seconds=min_seconds,
+                         max_seconds=max_seconds, **kw)
+
+    def evaluate(self, snap: Snapshot, account: AccountView) -> list[TradeIntent]:
+        return self.patient(super().evaluate(snap, account), snap, account)
+
+
+class SilverMedalSid(PatientTwin, SteadyStella):
+    """
+    The next tier down: 85-92c favorites with 5 to 13 minutes left, resting bids. Probation:
+    +0.91c per $1 (t 2.3) in the first half of the backtest and +1.12c (t 3.6) in the second,
+    up in 9 of 11 months, but he was chosen after seeing both halves, so Training only.
+    """
+
+    key = "runner_up_maker"
+    persona = Persona(
+        "Silver Medal Sid", "Eternal Runner-Up", "🥈",
+        "Has finished second at everything since 1987 and made peace with it. Bets on the favorites nobody's quite sure of yet.",
+    )
+    backtestable = False
+
+    def __init__(self, min_price: float = 0.85, max_price: float = 0.92, min_seconds: float = 300,
+                 max_seconds: float = 780, **kw):
+        super().__init__(min_price=min_price, max_price=max_price, min_seconds=min_seconds,
+                         max_seconds=max_seconds, **kw)
+
+    def evaluate(self, snap: Snapshot, account: AccountView) -> list[TradeIntent]:
+        return self.patient(super().evaluate(snap, account), snap, account)

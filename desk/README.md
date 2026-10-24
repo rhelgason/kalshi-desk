@@ -17,20 +17,22 @@ pytest tests/desk            # offline test suite
 
 ## The staff
 
-| | Employee | Strategy | Can it lose? |
+Since 2026-10-24 the desk trades only the heavy-favorite family on 15-minute coin markets:
+the one kind of rule a 10-month backtest found a real edge in (research/stella_backtest).
+
+| | Employee | Strategy | Books |
 |---|---|---|---|
-| 🧮 | Risk-Free Rick | Buys combos of strike contracts that pay $1 no matter what, for less than $1 | Only through execution or rule-reading mistakes |
-| 🧩 | Sudoku Sue | Buys NO on every outcome of a "pick one" event when they cost less than the guaranteed payout | Same as Rick |
-| 🎓 | The Professor | Prices BTC/ETH contracts with a volatility model and buys what looks cheap | Yes. Wins only if the model beats the market |
-| 📐 | Vega Vinny | Reads volatility from Kalshi's own prices, bets on strikes out of line with their neighbors | Yes |
-| 🎯 | The Sniper | Final 10 minutes only: near-certain outcomes still trading a few cents under $1 | Rarely, but big when it does |
-| 🏄 | Momentum Mo | Pricing model that assumes the last 15 minutes' trend continues | Yes |
-| 🪀 | Rubber Band Randy | Pricing model that assumes the last 5 minutes' move reverses | Yes (Mo and Randy can't both be right) |
-| 🧊 | The Wet Blanket | Bets against long shots (the favorite-longshot bias) | Yes. Many small wins, occasional big loss |
-| 🐦 | Lucky the Pigeon | Buys the long shots the Wet Blanket bets against | Yes. Mostly small losses, occasional jackpot |
-| 🪙 | Nickel Nick | Buys 92-97c near-sure things settling within 12 hours | Yes. Steady, until a surprise |
-| 🐋 | Whale Watcher Walt | Follows unusually large trades | Yes |
-| 🐒 | Dart Monkey Dan | Random bets | Yes. He's the benchmark: beat Dan or you're not skilled |
+| 🐌 | Steady Sadie | 92-99c favorites, 5-9 minutes left, a resting bid a tick over the best bid (no fee) | Real money (BTC/ETH/SOL) and Training |
+| 🐜 | Steady Stella | Sadie's picks, paying the ask: the yardstick that shows what the patience is worth | Training |
+| 🦉 | Closing Time Coco | 94-99c favorites, 2-5 minutes left, resting bids | Training |
+| 🥈 | Silver Medal Sid | 85-92c favorites, 5-13 minutes left, resting bids (probation) | Training |
+| 🐦 | Lucky the Pigeon | Buys long shots | Training (control group) |
+| 🐒 | Dart Monkey Dan | Random bets | Training (control group): beat Dan or you're not skilled |
+
+Retired, code kept for old seasons: Risk-Free Rick, Sudoku Sue, the Professor, Vega Vinny,
+Momentum Mo, Rubber Band Randy, Whale Watcher Walt, Front-Runner Fran, Spread Sam, and on
+2026-10-24 the Sniper, Nickel Nick, the Wet Blanket, Wipeout, Early Bird Edie and the
+twins Nora, Ellie and Bonnie.
 
 ## Running itself: HR, autotuning, and the manager's office
 

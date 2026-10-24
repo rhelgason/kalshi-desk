@@ -9,7 +9,7 @@ Command line for the desk.
     python -m desk tune EMPLOYEE --set param=v1,v2   search settings with a train/test split
     python -m desk jobs          background jobs: history sync, archive backfill, autotuning
     python -m desk review --days 30   performance review of every employee (Markdown)
-    python -m desk new-season --level nickel_picker=Senior ...   fresh start: split the office pool
+    python -m desk new-season --level heavy_maker=Senior ...     fresh start: split the office pool
     python -m desk seed-season --days 30 --history data/research.db [--apply]   new season as if started N days ago
     python -m desk log --hours 6 what the bot did each run (bets, skips and why, warnings)
     python -m desk health        is the hosted bot running? (exit 1 if it has gone quiet)
@@ -630,7 +630,7 @@ def main(argv: list[str] | None = None) -> int:
     ns = sub.add_parser("new-season", help="start everyone fresh with a new office pool")
     ns.add_argument("--pool", type=float, help="dollars in the office pool (default: pool_cash in desk.yaml; "
                     "a live book always uses the Kalshi balance)")
-    ns.add_argument("--level", action="append", default=[], help="employee_key=Title, e.g. nickel_picker=Senior")
+    ns.add_argument("--level", action="append", default=[], help="employee_key=Title, e.g. heavy_maker=Senior")
     ns.add_argument("--why", default="", help="the reason, for the HR log")
     sd = sub.add_parser("seed-season", help="start a new season as if this staff had begun N days ago (replay)")
     sd.add_argument("--days", type=float, default=30)

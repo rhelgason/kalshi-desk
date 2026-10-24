@@ -2,28 +2,32 @@ from desk.strategies.base import AccountView, Leg, Persona, Snapshot, Strategy, 
 from desk.strategies.arbitrage import CoverArb, PartitionArb
 from desk.strategies.fair_value import CryptoFairValue, MomentumMo, RubberBandRandy, Sniper, VegaVinny
 from desk.strategies.bitcoin import (
-    BreakoutBetty, BreakoutBonnie, EarlyBirdEdie, EarlyBirdEllie, NickelNora, SteadySadie,
+    BreakoutBetty, BreakoutBonnie, ClosingTimeCoco, EarlyBirdEdie, EarlyBirdEllie, NickelNora, SilverMedalSid,
+    SteadySadie,
 )
 from desk.strategies.behavioral import (
     DartMonkey, FrontRunnerFran, LongshotFade, LongshotLenny, NickelNick, SpreadSam, SteadyStella, WhaleWatcherWalt,
 )
 
-# Everyone on payroll. Since Season 3 the desk only trades 15-minute bitcoin
-# up/down markets, so the staff is the employees who can work those.
+# Everyone on payroll. Since Season 5 the desk trades 15-minute coin up/down markets
+# (bitcoin, ether, solana; XRP and doge on Training), and the staff is the heavy-favorite
+# family that a 10-month backtest found an edge in (research/stella_backtest).
 STAFF: tuple[type[Strategy], ...] = (
-    Sniper, NickelNick, LongshotFade, BreakoutBetty, EarlyBirdEdie,
-    NickelNora, EarlyBirdEllie, BreakoutBonnie,  # patient twins: same picks, resting bids instead of paying the ask
-    SteadyStella,  # Training's whole pool since 2026-10-23: heavy favorites mid-window, five coins
-    SteadySadie,  # Stella's patient twin
+    SteadyStella,  # heavy favorites mid-window, paying the ask (Training's yardstick for the twins)
+    SteadySadie,  # Stella's patient twin: the real book's only employee since 2026-10-24
+    ClosingTimeCoco, SilverMedalSid,  # resting bids late in the window / on the next tier of favorites
     LongshotLenny, DartMonkey,  # yardsticks: everyone should beat these
 )
 # Retired. Rick, Sue, Vinny, Fran, Sam, Walt need strike ladders, sports or the
 # trade tape; the Professor, Mo and Randy's pricing model showed no edge on
-# 15-minute bitcoin (Mo and Randy bet once in 45 days). Kept so old seasons
-# and tests still make sense.
+# 15-minute bitcoin (Mo and Randy bet once in 45 days). The Sniper, Nick, the Wet
+# Blanket, Wipeout, Edie and the twins Nora, Ellie and Bonnie retired 2026-10-24: no
+# rule of theirs held up in the Oct 23 scan, and they lost the real book $13 of $100.
+# Kept so old seasons and tests still make sense.
 ALUMNI: tuple[type[Strategy], ...] = (
     CoverArb, PartitionArb, VegaVinny, FrontRunnerFran, SpreadSam, WhaleWatcherWalt,
     CryptoFairValue, MomentumMo, RubberBandRandy,
+    Sniper, NickelNick, LongshotFade, BreakoutBetty, EarlyBirdEdie, NickelNora, EarlyBirdEllie, BreakoutBonnie,
 )
 REGISTRY: dict[str, type[Strategy]] = {cls.key: cls for cls in STAFF}
 EVERYONE: dict[str, type[Strategy]] = {cls.key: cls for cls in STAFF + ALUMNI}
@@ -73,5 +77,5 @@ __all__ = [
     "CoverArb", "PartitionArb", "CryptoFairValue", "VegaVinny", "Sniper", "MomentumMo", "RubberBandRandy",
     "LongshotFade", "LongshotLenny", "NickelNick", "FrontRunnerFran", "SpreadSam", "WhaleWatcherWalt",
     "DartMonkey", "SteadyStella", "BreakoutBetty", "EarlyBirdEdie", "NickelNora", "EarlyBirdEllie", "BreakoutBonnie",
-    "SteadySadie", "STAFF", "ALUMNI", "REGISTRY", "EVERYONE", "build_strategies", "strategy_params",
+    "SteadySadie", "ClosingTimeCoco", "SilverMedalSid", "STAFF", "ALUMNI", "REGISTRY", "EVERYONE", "build_strategies", "strategy_params",
 ]

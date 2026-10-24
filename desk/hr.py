@@ -55,7 +55,8 @@ CONTROL_GROUP = {"dart_monkey", "longshot_buy"}
 TWINS = {"nickel_maker": "nickel_picker", "early_maker": "early_favorite", "breakout_maker": "breakout",
          "heavy_maker": "heavy_favorite"}
 # Employees that start at the bottom when first hired (unproven strategies)
-START_AS_INTERN = {"breakout", "early_favorite", "nickel_maker", "early_maker", "breakout_maker", "favorite_sports", "market_maker"}
+START_AS_INTERN = {"breakout", "early_favorite", "nickel_maker", "early_maker", "breakout_maker", "favorite_sports", "market_maker",
+                   "runner_up_maker"}
 
 DEFAULT_POLICY: dict[str, Any] = {
     "season": 1,

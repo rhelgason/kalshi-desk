@@ -42,18 +42,15 @@ def test_real_book_config_inherits_and_overrides():
     assert pretend.book == "pretend" and pretend.schema == "public" and pretend.real_book == "desk.real.yaml"
     assert real.book == "real" and real.schema == "real" and real.real_book is None
     assert real.trading == "live" and not real.auto_hr and pretend.trading == "paper" and pretend.auto_hr
-    assert real.crypto_series == ["KXBTC15M"]
+    assert real.crypto_series == ["KXBTC15M", "KXETH15M", "KXSOL15M"]
     # One employee switched off without dropping their settings or anyone else's
     assert real.strategies["dart_monkey"]["enabled"] is False
     assert real.strategies["dart_monkey"]["stake"] == pretend.strategies["dart_monkey"]["stake"]
-    # Training switched its old staff off (Season 5); the real book switches its own people back on
-    for k in ("nickel_maker", "sniper", "nickel_picker"):
-        assert pretend.strategies[k]["enabled"] is False and real.strategies[k]["enabled"] is True
-        assert {p: v for p, v in real.strategies[k].items() if p != "enabled"} == \
-            {p: v for p, v in pretend.strategies[k].items() if p != "enabled"}
-    assert real.strategies["heavy_favorite"]["enabled"] is False and "max_seconds" in pretend.strategies["heavy_favorite"]
-    assert real.strategies["breakout_maker"]["enabled"] is False and "breakout" in pretend.strategies
-
+    # Only Sadie trades real money; Training keeps the rest of the staff (2026-10-24)
+    for k in ("heavy_favorite", "late_maker", "runner_up_maker", "longshot_buy"):
+        assert real.strategies[k]["enabled"] is False and pretend.strategies[k].get("enabled", True)
+    assert real.strategies.get("heavy_maker", {}).get("enabled", True)
+    assert "max_seconds" in real.strategies["heavy_favorite"]  # Stella's settings still reach her twin
 
 def test_bad_book_or_schema_is_refused(tmp_path):
     (tmp_path / "x.yaml").write_text("book: imaginary\n")
@@ -113,3 +110,17 @@ async def test_hosted_run_does_real_book_first_and_survives_its_failure(monkeypa
     (tmp_path / "desk.yaml").write_text("real_book: null\n")
     calls.clear()
     assert (await cloud.run_all_books(str(tmp_path / "desk.yaml")))["ok"] and calls == ["desk.yaml"]
+
+
+def test_real_book_builds_only_sadie():
+    from desk.strategies import build_strategies
+
+    real = DeskConfig.load(ROOT / "desk.real.yaml")
+    [sadie] = build_strategies(hr_config(real))
+    assert sadie.key == "heavy_maker" and (sadie.min_price, sadie.max_seconds) == (0.92, 540)
+
+
+def hr_config(cfg):
+    from desk import hr
+
+    return hr.effective_strategy_config(cfg.strategies, {})

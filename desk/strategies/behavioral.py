@@ -90,7 +90,7 @@ class BandBettor(Strategy):
                 continue
             if self.max_seconds is not None and secs > self.max_seconds:
                 continue
-            if m.yes_ask - m.yes_bid > self.max_spread or m.volume_24h < self.min_volume_24h:
+            if m.yes_ask - m.yes_bid > self.max_spread + 1e-9 or m.volume_24h < self.min_volume_24h:
                 continue
             side = self.pick(m)
             if side and m.ask(side) > 0:

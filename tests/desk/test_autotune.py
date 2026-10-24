@@ -56,6 +56,10 @@ def test_autotune_applies_only_validated_improvements():
 
 
 def test_run_autotune_respects_autotune_flag_and_logs(monkeypatch):
+    from desk import autotune
+    from desk.strategies import EVERYONE
+
+    monkeypatch.setattr(autotune, "REGISTRY", EVERYONE)  # Nick retired 2026-10-24; the machinery is the same
     led = Ledger(":memory:")
     data = BacktestData(markets=favorite_history(), spot={"BTC": flat_spot(100_100, minutes=1200)}, dvol={},
                         start=ts0, end=ts0 + 40 * 15 * 60 + 600)
@@ -84,7 +88,8 @@ def test_retired_employees_are_not_tuned():
     data = BacktestData(markets=favorite_history(), spot={"BTC": flat_spot(100_100, minutes=1200)}, dvol={},
                         start=ts0, end=ts0 + 40 * 15 * 60 + 600)
     decisions = run_autotune(led, DeskConfig(), data)
-    assert {d["employee"] for d in decisions} == {"nickel_picker", "longshot_fade", "sniper", "breakout"}
+    # Everyone with a search space retired on 2026-10-24 (the heavy-favorite staff keep fixed settings)
+    assert decisions == []
     assert hr.load_policy(led)["autotune"]["last_run"]
 
 

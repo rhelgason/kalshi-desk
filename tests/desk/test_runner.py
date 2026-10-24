@@ -252,11 +252,11 @@ def test_an_employee_back_on_staff_gets_their_own_account_back():
     """The cloud runner hands over saved accounts; one missing (switched off for a while) is rebuilt, not $0."""
     led = Ledger(":memory:")
     first = Desk(DeskConfig(), object(), None, led)
-    share = first.accounts["sniper"].cash
+    share = first.accounts["heavy_maker"].cash
     assert share > 0
-    saved = {k: a for k, a in first.accounts.items() if k != "sniper"}
+    saved = {k: a for k, a in first.accounts.items() if k != "heavy_maker"}
     again = Desk(DeskConfig(), object(), None, led, accounts=saved)
-    assert again.accounts["sniper"].cash == share
+    assert again.accounts["heavy_maker"].cash == share
 
 
 def test_a_stale_saved_account_is_rebuilt_from_the_records():
@@ -264,7 +264,7 @@ def test_a_stale_saved_account_is_rebuilt_from_the_records():
     from desk.paper.account import PaperAccount
     led = Ledger(":memory:")
     first = Desk(DeskConfig(), object(), None, led)
-    share = first.accounts["sniper"].cash
-    saved = dict(first.accounts, sniper=PaperAccount("sniper", 0.0))
+    share = first.accounts["heavy_maker"].cash
+    saved = dict(first.accounts, heavy_maker=PaperAccount("heavy_maker", 0.0))
     again = Desk(DeskConfig(), object(), None, led, accounts=saved)
-    assert again.accounts["sniper"].cash == share
+    assert again.accounts["heavy_maker"].cash == share

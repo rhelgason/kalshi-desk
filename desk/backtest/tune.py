@@ -22,7 +22,7 @@ from desk.backtest.data import BacktestData
 from desk.backtest.engine import Backtest, BacktestConfig
 from desk.paper.accuracy import accuracy_report, evidence_report
 from desk.paper.scoreboard import scoreboard_rows
-from desk.strategies import REGISTRY
+from desk.strategies import EVERYONE
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +74,7 @@ class TuneRow:
 
 
 def _run(key: str, params: dict, frames, data: BacktestData, cfg: BacktestConfig) -> Result:
-    strat = REGISTRY[key](**params)
+    strat = EVERYONE[key](**params)  # alumni too: `desk tune` can still replay a retired employee
     bt = Backtest(data, [strat], cfg)
     bt.run(frames)
     row = scoreboard_rows(bt.accounts, bt.ledger)[0]

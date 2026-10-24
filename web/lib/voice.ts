@@ -19,6 +19,16 @@ const LINES: Record<string, Lines> = {
     down: ["One upset. Thirty pennies gone. Recounting.", "That's what the jar is for.", "Noted in the ledger. Moving on."],
     idle: ["Nothing at 92 cents yet.", "Waiting for the middle of the window.", "Jar's ready."],
   },
+  late_maker: {
+    up: ["Last call, and somebody sold. Hoo.", "Two minutes left, a tenth of a cent under. Lovely.", "The night shift pays.", "Never paid retail after dark."],
+    down: ["One last-minute surprise. There's always one.", "Hoo-boy. That one turned at the buzzer.", "Back to my tea. Next window."],
+    idle: ["Too early. Wake me at five minutes.", "Bid's out. Lights are low.", "Nothing worth staying up for yet."],
+  },
+  runner_up_maker: {
+    up: ["Second favorite, first place. For once.", "Not the sure thing. Still a win.", "I'll take silver. I'll take it every time.", "Bronze is for quitters."],
+    down: ["Second again. I'm used to it.", "Close. Always close.", "That's what happens when it's only 88 cents sure."],
+    idle: ["Nothing in the 85-92 range. Stretching.", "Waiting in the runner-up lane.", "Polishing the medal."],
+  },
   heavy_maker: {
     up: ["Somebody always sells. I just wait.", "A tenth of a cent under, and no fee. Lovely.", "Slow and steady fills the jar.", "Didn't even have to get up."],
     down: ["They sold me that one for a reason. Noted.", "The snail and I will think about this.", "Even patient pennies get squashed."],
@@ -82,6 +92,8 @@ export const HOW_THEY_BET: Record<string, string> = {
   longshot_fade: "When one side costs only 5–15¢, the Wet Blanket buys the other side and tells you why the long shot never had a chance. Like Nick, he wins small and often, and loses big (and sulks) on the occasional surprise.",
   breakout: "When bitcoin has jumped or dropped 0.3%+ in the last 15 minutes, Wipeout paddles hard and bets it keeps going, but only if Kalshi's price hasn't caught up yet (still under 60¢). Bitcoin only, Training only for now: the waves haven't been kind.",
   early_favorite: "The moment a new 15-minute window opens, Edie (already on her third coffee) grabs the side that's a clear but not certain favorite (75–85¢), betting the early price is a little too cautious.",
+  late_maker: "Coco works the last stretch of every 15-minute window: with 2 to 5 minutes left, she bids a tenth of a cent over the best bid on whichever side is a 94–99¢ favorite and waits for someone to sell. No fee when she's filled. She starts where Sadie stops, so they rarely bid at the same moment. In the 10-month backtest she held up in both halves and every month. Training only for now.",
+  runner_up_maker: "Sid bets on the second tier of favorites: 85–92¢ with 5 to 13 minutes left, a resting bid a cent over the best bid. Wins less often than the 92¢+ crowd, but each win pays more. On probation: his rule looked good in the backtest, but it was picked after seeing all the data, so he practices on pretend money until his live record says otherwise.",
   heavy_maker: "Stella's twin. Same heavy favorites (92–99¢, 5 to 9 minutes left), but instead of paying the asking price she bids a tenth of a cent over the best bid and waits up to two minutes for someone to sell. Kalshi charges nothing when someone fills a waiting bid, and there's no per-order fee to round up, which on small bets costs Stella more than her whole edge. She misses the bets that run away, and gets filled more often when the price is slipping.",
   nickel_maker: "Nick's twin sister and the office's coupon queen. She picks the same heavy favorites, but instead of paying the asking price she offers a little less and waits up to two minutes for someone to sell. Cheaper, and no fee, but she misses some bets and tends to get filled when the price is slipping.",
   early_maker: "Edie's calm twin. Same early favorites, but she names a slightly lower price and knits while she waits for a seller. Kalshi charges no fee on a bid that someone else fills, so every win is worth a bit more, if she gets filled at all.",
