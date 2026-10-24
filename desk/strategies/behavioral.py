@@ -18,6 +18,10 @@ LongshotLenny ("longshot_buy")
 NickelNick ("nickel_picker")
     Buys 92-97c near-certainties that settle within hours.
 
+SteadyStella ("heavy_favorite")
+    Nick's idea in the middle of a 15-minute window: 92-99c favorites with 5 to
+    9 minutes left, on five coins. Many tiny wins; picked from 4,700 tested rules.
+
 WhaleWatcherWalt ("whale_follow")
     Follows unusually large trades on the tape.
 
@@ -54,11 +58,13 @@ class BandBettor(Strategy):
         stake: float = 5.0,
         max_positions: int = 40,
         max_per_event: int = 1,
+        max_seconds: Optional[float] = None,
     ):
         self.max_spread = max_spread
         self.min_volume_24h = min_volume_24h
         self.max_hours = max_hours
         self.min_seconds = min_seconds
+        self.max_seconds = max_seconds  # None: no limit; otherwise only markets closing within this many seconds
         self.stake = stake
         self.max_positions = max_positions
         self.max_per_event = max_per_event
@@ -79,7 +85,10 @@ class BandBettor(Strategy):
         for m in snap.markets.values():
             if not m.is_tradeable or m.ticker in held or not m.close_time:
                 continue
-            if m.close_time > horizon or (m.seconds_to_close(snap.now) or 0) < self.min_seconds:
+            secs = m.seconds_to_close(snap.now) or 0
+            if m.close_time > horizon or secs < self.min_seconds:
+                continue
+            if self.max_seconds is not None and secs > self.max_seconds:
                 continue
             if m.yes_ask - m.yes_bid > self.max_spread or m.volume_24h < self.min_volume_24h:
                 continue
@@ -182,6 +191,31 @@ class NickelNick(BandBettor):
 
     def describe(self, m, side, price):
         return f"near-sure thing: {side.value.upper()} @ {price:.2f} on '{m.title[:60]}'"
+
+
+class SteadyStella(NickelNick):
+    """
+    Heavy favorites (92-99c) halfway through a 15-minute coin window, 5 to 9 minutes
+    before it closes. Of 4,700 rules replayed on 92 days of BTC/ETH/SOL/XRP/DOGE/BNB/HYPE
+    markets (research/strategy_scan), this family was the only one that made money both
+    in the 60 days used to choose it (+0.66c per $1, t 2.2) and in the 30 days after
+    (+0.67c per $1, t 1.6). Tiny edge, lots of bets: about 140 a day across five coins.
+    BNB and HYPE are left out: too thin to fill $10 bets, and they lost in both periods.
+    """
+
+    key = "heavy_favorite"
+    persona = Persona(
+        "Steady Stella", "Penny Collector", "🐜",
+        "Never bets on anything under 92 cents. Takes the sure thing, every time, on every coin, and logs every penny.",
+    )
+
+    def __init__(self, min_price: float = 0.92, max_price: float = 0.99, min_seconds: float = 300,
+                 max_seconds: float = 540, max_spread: float = 0.02, max_hours: float = 1, **kw):
+        super().__init__(min_price=min_price, max_price=max_price, min_seconds=min_seconds,
+                         max_seconds=max_seconds, max_spread=max_spread, max_hours=max_hours, **kw)
+
+    def describe(self, m, side, price):
+        return f"heavy favorite mid-window: {side.value.upper()} @ {price:.2f} on '{m.title[:60]}'"
 
 
 class FrontRunnerFran(BandBettor):

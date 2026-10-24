@@ -3,7 +3,7 @@ from desk.strategies.arbitrage import CoverArb, PartitionArb
 from desk.strategies.fair_value import CryptoFairValue, MomentumMo, RubberBandRandy, Sniper, VegaVinny
 from desk.strategies.bitcoin import BreakoutBetty, BreakoutBonnie, EarlyBirdEdie, EarlyBirdEllie, NickelNora
 from desk.strategies.behavioral import (
-    DartMonkey, FrontRunnerFran, LongshotFade, LongshotLenny, NickelNick, SpreadSam, WhaleWatcherWalt,
+    DartMonkey, FrontRunnerFran, LongshotFade, LongshotLenny, NickelNick, SpreadSam, SteadyStella, WhaleWatcherWalt,
 )
 
 # Everyone on payroll. Since Season 3 the desk only trades 15-minute bitcoin
@@ -11,6 +11,7 @@ from desk.strategies.behavioral import (
 STAFF: tuple[type[Strategy], ...] = (
     Sniper, NickelNick, LongshotFade, BreakoutBetty, EarlyBirdEdie,
     NickelNora, EarlyBirdEllie, BreakoutBonnie,  # patient twins: same picks, resting bids instead of paying the ask
+    SteadyStella,  # Training's whole pool since 2026-10-23: heavy favorites mid-window, five coins
     LongshotLenny, DartMonkey,  # yardsticks: everyone should beat these
 )
 # Retired. Rick, Sue, Vinny, Fran, Sam, Walt need strike ladders, sports or the
@@ -68,6 +69,6 @@ __all__ = [
     "AccountView", "Leg", "Persona", "Snapshot", "Strategy", "TradeIntent",
     "CoverArb", "PartitionArb", "CryptoFairValue", "VegaVinny", "Sniper", "MomentumMo", "RubberBandRandy",
     "LongshotFade", "LongshotLenny", "NickelNick", "FrontRunnerFran", "SpreadSam", "WhaleWatcherWalt",
-    "DartMonkey", "BreakoutBetty", "EarlyBirdEdie", "NickelNora", "EarlyBirdEllie", "BreakoutBonnie",
+    "DartMonkey", "SteadyStella", "BreakoutBetty", "EarlyBirdEdie", "NickelNora", "EarlyBirdEllie", "BreakoutBonnie",
     "STAFF", "ALUMNI", "REGISTRY", "EVERYONE", "build_strategies", "strategy_params",
 ]

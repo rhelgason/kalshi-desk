@@ -46,8 +46,12 @@ def test_real_book_config_inherits_and_overrides():
     # One employee switched off without dropping their settings or anyone else's
     assert real.strategies["dart_monkey"]["enabled"] is False
     assert real.strategies["dart_monkey"]["stake"] == pretend.strategies["dart_monkey"]["stake"]
-    assert real.strategies["nickel_maker"] == pretend.strategies["nickel_maker"]
-    assert real.strategies["sniper"] == pretend.strategies["sniper"]
+    # Training switched its old staff off (Season 5); the real book switches its own people back on
+    for k in ("nickel_maker", "sniper", "nickel_picker"):
+        assert pretend.strategies[k]["enabled"] is False and real.strategies[k]["enabled"] is True
+        assert {p: v for p, v in real.strategies[k].items() if p != "enabled"} == \
+            {p: v for p, v in pretend.strategies[k].items() if p != "enabled"}
+    assert real.strategies["heavy_favorite"]["enabled"] is False and "max_seconds" in pretend.strategies["heavy_favorite"]
     assert real.strategies["breakout_maker"]["enabled"] is False and "breakout" in pretend.strategies
 
 

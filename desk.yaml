@@ -12,12 +12,12 @@ pool_cash: 1000           # split across the pool's members when a season starts
 starting_cash: 1000       # paper dollars for each control-group employee (Dan, Lucky)
 
 tick_seconds: 15          # how often everyone looks at the market
-# Bitcoin since Season 3: "will BTC be up in 15 minutes?" markets settle 96x a
-# day, the only market family that made money in Seasons 1-2, and the one with
-# months of history to backtest on. ETH's 15-minute markets joined 2026-10-17
-# (pretend money): same rules, fees and exchange shard, about 1/15th the trading.
-# Tuning and backtests still use bitcoin only (desk/autotune.py TUNE_SERIES).
-crypto_series: [KXBTC15M, KXETH15M]
+# Bitcoin since Season 3; ETH joined 2026-10-17. Season 5 (2026-10-23) is Steady Stella
+# on five coins: a 4,700-rule scan (research/strategy_scan) found her heavy-favorite rule
+# the only one that made money in both the 60 days used to pick it and the 30 days after.
+# BNB and HYPE are left out: too thin for $10 bets, and they lost in both periods.
+# The real book (desk.real.yaml) stays on bitcoin only.
+crypto_series: [KXBTC15M, KXETH15M, KXSOL15M, KXXRP15M, KXDOGE15M]
 slow_series: []
 crypto_symbols: [BTC, ETH]
 crypto_horizon_hours: 1
@@ -41,7 +41,16 @@ liquidity_share: 0.5      # assume faster bots take half of every displayed orde
 # training period and the unseen test period. PROBATION means no tested
 # setting made money, so the employee only bets on rare, very strong signals.
 strategies:
+  heavy_favorite:         # 🐜 Steady Stella - Season 5's whole pool: 92-99c favorites, 5-9 minutes left
+    min_price: 0.92       # 92 days, 7 coins, 1-minute fill delay, every 2 minutes like the bot:
+    max_price: 0.99       #   chosen on Jul 25-Sep 22: +0.66c per $1 bet (t 2.2)
+    min_seconds: 300      #   then Sep 23-Oct 22, unseen: +0.67c per $1 (t 1.6)
+    max_seconds: 540      # A tiny edge on lots of bets (~140 a day); it could still be luck.
+    max_spread: 0.02
+  # Off on Training since Season 5 (2026-10-23): none of their rules held up in the scan.
+  # The real book keeps its own roster (desk.real.yaml turns its people back on).
   sniper:                 # 🎯 The Sniper - LOOSENED again 10-20 (pretend money only; benched on real)
+    enabled: false
     min_win_prob: 0.80    # 30-day replay: every last-5-minute setting loses (-5 to -14c per $1), and at
     max_seconds: 300      # 90% she had 4 ideas in 6 days, none filled. This lets her fire so HR can judge
     vol_multiplier: 1.25  # her on real evidence. (Training's roster row holds the same settings,
@@ -49,6 +58,7 @@ strategies:
     min_price: 0.60
     max_bet: 50
   longshot_fade:          # 🧊 The Wet Blanket - TUNED: fade 5-15c long shots, never in the last 10 minutes
+    enabled: false
     min_yes: 0.05
     max_yes: 0.15
     min_seconds: 600
@@ -58,15 +68,18 @@ strategies:
     max_days: 2
     stake: 2
   nickel_picker:          # 🪙 Nickel Nick - TUNED: 88-95c favorites, never in the last 10 minutes
+    enabled: false
     min_price: 0.88
     max_price: 0.95
     min_seconds: 600
     stake: 10
   breakout:               # 🏄‍♀️ Wipeout - RETUNED 10-20: bitcoin only, 0.3%+ moves early in a window
+    enabled: false
     min_move: 0.003       # 30-day replay: +$54 train / +$110 test (0.2% was +$147 / +$11, fading)
     max_price: 0.60
     coins: [BTC]          # ether lost in the first 20 days at every threshold (Bonnie went 2 of 12 on it)
   early_favorite:         # 🐦 Early Bird Edie - NEW (Season 3), probation: 75-85c favorites in the first 5 minutes
+    enabled: false
     min_price: 0.75       # backtest Aug-Oct: +$132 train / +$11 test; the edge may be fading
     max_seconds: 780
   # The patient twins (Season 3, week 2): same picks as Nick, Edie and Betty, but they post a
@@ -75,9 +88,9 @@ strategies:
   # is how they buy; anything set here for a twin applies on top (desk/hr.py TWINS).
   # 55-day replay on Kalshi's minute candles, per $1 bet (taker -> patient twin):
   #   Edie +1.3c -> +1.6c, Nick +3.6c -> +3.8c, Betty -0.2c -> +3.2c (noisy)
-  nickel_maker: {}        # 🐢 Nickel Nora: Nick's picks, resting bids
-  early_maker: {}         # 🐣 Early Bird Ellie: Edie's picks, resting bids
-  breakout_maker: {}      # 🛶 Breakout Bonnie: Betty's picks, resting bids
+  nickel_maker: {enabled: false}  # 🐢 Nickel Nora: Nick's picks, resting bids
+  early_maker: {enabled: false}   # 🐣 Early Bird Ellie: Edie's picks, resting bids
+  breakout_maker: {enabled: false}  # 🛶 Breakout Bonnie: Betty's picks, resting bids
   dart_monkey:            # 🐒 Dart Monkey Dan - control group: random bets; the benchmark to beat
     bets_per_tick: 0.2
     max_hours: 24

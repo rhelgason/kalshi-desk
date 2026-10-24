@@ -14,6 +14,11 @@ const LINES: Record<string, Lines> = {
     down: ["The steamroller got me. Again.", "I'll be reusing this tea bag for a week.", "That one cost me a lot of nickels."],
     idle: ["No sure things yet. I'll wait.", "Counting my change. Twice.", "Nothing worth the shoe leather."],
   },
+  heavy_favorite: {
+    up: ["Another penny in the jar.", "Ninety-two cents or I don't play.", "Small, steady, logged.", "Five coins, five pennies. Lovely."],
+    down: ["One upset. Thirty pennies gone. Recounting.", "That's what the jar is for.", "Noted in the ledger. Moving on."],
+    idle: ["Nothing at 92 cents yet.", "Waiting for the middle of the window.", "Jar's ready."],
+  },
   nickel_maker: {
     up: ["Never paid full price in my life, darling.", "Got it at a discount. As always.", "Clip, clip, cash.", "Retail is for amateurs."],
     down: ["They only sold because it was going bad. Rude.", "Even a bargain can be a bad deal.", "Returning this one. Oh wait, I can't."],
@@ -68,6 +73,7 @@ export function quip(e: Employee): string {
 export const HOW_THEY_BET: Record<string, string> = {
   sniper: "The Sniper lies in the grass until the last five minutes of each 15-minute window, then takes the shot when bitcoin is far enough from the line that she's 80%+ sure. Training only: on replays her late shots have lost, so she's practicing before she gets real money.",
   nickel_picker: "Nick buys whichever side is already a heavy favorite (88–95¢) with at least 10 minutes to go. He wins most bets for a few cents each, the way he's saved every nickel since 1962, but one upset can wipe out a dozen wins.",
+  heavy_favorite: "Stella waits until a 15-minute window is half over (5 to 9 minutes left), then buys whichever side is already a heavy favorite at 92–99¢, on bitcoin, ether, solana, XRP and dogecoin. Each win is a penny or two per dollar; a loss costs the whole bet, so she needs to win about 19 times in 20. Her rule was picked from 4,700 tested ones because it kept working on months it was never tuned on. The edge is small and could still be luck.",
   longshot_fade: "When one side costs only 5–15¢, the Wet Blanket buys the other side and tells you why the long shot never had a chance. Like Nick, he wins small and often, and loses big (and sulks) on the occasional surprise.",
   breakout: "When bitcoin has jumped or dropped 0.3%+ in the last 15 minutes, Wipeout paddles hard and bets it keeps going, but only if Kalshi's price hasn't caught up yet (still under 60¢). Bitcoin only, Training only for now: the waves haven't been kind.",
   early_favorite: "The moment a new 15-minute window opens, Edie (already on her third coffee) grabs the side that's a clear but not certain favorite (75–85¢), betting the early price is a little too cautious.",

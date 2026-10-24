@@ -10,6 +10,7 @@ Command line for the desk.
     python -m desk jobs          background jobs: history sync, archive backfill, autotuning
     python -m desk review --days 30   performance review of every employee (Markdown)
     python -m desk new-season --level nickel_picker=Senior ...   fresh start: split the office pool
+    python -m desk seed-season --days 30 --history data/research.db [--apply]   new season as if started N days ago
     python -m desk log --hours 6 what the bot did each run (bets, skips and why, warnings)
     python -m desk health        is the hosted bot running? (exit 1 if it has gone quiet)
     python -m desk live-check [--order]   test the Kalshi API key; --order places and cancels a tiny bid
@@ -334,6 +335,82 @@ def cmd_new_season(cfg: DeskConfig, pool: float | None, levels: list[str], why: 
           f"{len(detail['members'])} employees ({', '.join(detail['members'])})")
 
 
+async def cmd_seed_season(cfg: DeskConfig, days: float, history: str, slippage: list[str], why: str,
+                          apply: bool, until: str | None = None) -> None:
+    """Replay this book's staff over the last `days` of stored markets; with --apply, make it the new season."""
+    import json
+    from collections import defaultdict
+    from datetime import datetime, timedelta, timezone
+
+    from desk import hr
+    from desk.backtest.seed import SeasonReplay, write_season
+    from desk.backtest.store import load_from_store
+    from desk.cloud import LEASE, LEASE_SECONDS, STATE_KEY
+
+    if cfg.trading == "live":
+        raise SystemExit("seed-season is for the pretend book: a real-money book's history is Kalshi's")
+    ledger = Ledger(cfg.db_path, cfg.schema)
+    roster = hr.load_roster(ledger, list(REGISTRY))
+    config = hr.effective_strategy_config(cfg.strategies, roster)
+    staff = [k for k in REGISTRY if (config.get(k) or {}).get("enabled", True) and roster[k].status != "fired"]
+    members = {k for k in staff if not roster[k].control}
+    # Only the pool is replayed; the control group (yardsticks with their own money) starts today
+    strategies = [REGISTRY[k](**{p: v for p, v in config[k].items() if p != "enabled"}) for k in staff if k in members]
+    slip = {k: float(v) for k, _, v in (item.partition("=") for item in slippage)}
+
+    store = Ledger(history)
+    last = max(int(r["t"] or 0) for r in store._rows(
+        "SELECT max(close_ts) AS t FROM market_history WHERE series IN (%s)" % ",".join("?" * len(cfg.crypto_series)),
+        tuple(cfg.crypto_series)))
+    end = datetime.fromtimestamp(last, timezone.utc)
+    if until:  # a dry run over an earlier stretch, to see how much of the result is luck
+        if apply:
+            raise SystemExit("--until is for dry runs: a seeded season always ends now")
+        end = min(end, datetime.fromisoformat(until).replace(tzinfo=timezone.utc))
+    start = end - timedelta(days=days)
+    data = load_from_store(store, cfg.crypto_series, start, end)
+    async with KalshiClient(env=cfg.env, requests_per_second=cfg.requests_per_second) as client:
+        fees = {s: await client.get_fee_schedule(s) for s in cfg.crypto_series}
+    policy = hr.load_policy(ledger)
+    replay = SeasonReplay(data, strategies, members, {k: roster[k].multiplier for k in staff}, policy["pool"],
+                          cfg.pool_cash, cfg.starting_cash, fees, slippage=slip)
+    replay.run()
+
+    print(f"\nReplay {start:%Y-%m-%d %H:%M} to {end:%Y-%m-%d %H:%M} UTC, {', '.join(cfg.crypto_series)}; "
+          f"pool ${cfg.pool_cash:,.0f} shared by {', '.join(sorted(members))}; slippage {slip or 'none'}")
+    print(f"{replay.stats['fills']} bets from {replay.stats['intents']} ideas\n")
+    print(format_scoreboard(scoreboard_rows(replay.accounts, replay.ledger)))
+    pool_end = sum(replay.accounts[k].equity({}) for k in members)
+    by_day = defaultdict(float)
+    for r in replay.ledger._rows("SELECT ts, strategy, pnl FROM settlements"):
+        if r["strategy"] in members:
+            by_day[r["ts"][:10]] += r["pnl"]
+    print(f"\nPool: ${cfg.pool_cash:,.2f} -> ${pool_end:,.2f}; up days {sum(v > 0 for v in by_day.values())} "
+          f"of {len(by_day)}; worst day ${min(by_day.values(), default=0):+,.2f}, best ${max(by_day.values(), default=0):+,.2f}")
+    if not apply:
+        print("\nDry run: nothing written. Add --apply to make this the new season.")
+        return
+
+    if not ledger.try_lease(LEASE, LEASE_SECONDS):
+        raise SystemExit("A bot run is in progress; try again in a minute.")
+    try:
+        detail = hr.start_season(ledger, staff, cfg.pool_cash, cfg.starting_cash,
+                                 why=why or f"replayed from the last {days:g} days of markets")
+        written = write_season(replay, ledger, detail["season"])
+        # The bot picks up the replay's day and high-water mark instead of starting them over
+        state = ledger.get_status(STATE_KEY) or {}
+        ledger.set_status(STATE_KEY, {"season": detail["season"], "budget": state.get("budget"),
+                                      "feed": state.get("feed"), "fees": state.get("fees"),
+                                      "pool": replay.pool.state.to_dict()})
+        ledger.record_event("season", {"action": "seeded from a replay", "season": detail["season"],
+                                       "from": start.isoformat(), "to": end.isoformat(), "days": days,
+                                       "pool_start": cfg.pool_cash, "pool_end": round(pool_end, 2),
+                                       "slippage": slip, **written})
+    finally:
+        ledger.release_lease(LEASE)
+    print(f"\nSeason {detail['season']} seeded: {json.dumps(written)}. The bot carries on from here.")
+
+
 async def _kalshi_pool(cfg: DeskConfig) -> float:
     """The Kalshi account's cash, for a live season's pool. Refuses while bets are open or waiting."""
     from desk.live import live_client
@@ -555,6 +632,13 @@ def main(argv: list[str] | None = None) -> int:
                     "a live book always uses the Kalshi balance)")
     ns.add_argument("--level", action="append", default=[], help="employee_key=Title, e.g. nickel_picker=Senior")
     ns.add_argument("--why", default="", help="the reason, for the HR log")
+    sd = sub.add_parser("seed-season", help="start a new season as if this staff had begun N days ago (replay)")
+    sd.add_argument("--days", type=float, default=30)
+    sd.add_argument("--history", default="data/research.db", help="history store with the markets to replay")
+    sd.add_argument("--slippage", action="append", default=[], help="SERIES=dollars per contract, e.g. KXSOL15M=0.005")
+    sd.add_argument("--why", default="")
+    sd.add_argument("--apply", action="store_true", help="write it (otherwise a dry run)")
+    sd.add_argument("--until", help="dry run ending at this UTC date instead of now (e.g. 2026-09-24)")
     lg = sub.add_parser("log", help="what the bot did each run: bets, skips and why, warnings, errors")
     lg.add_argument("--hours", type=float, default=6)
     lg.add_argument("--employee", help="only this employee key")
@@ -600,6 +684,8 @@ def main(argv: list[str] | None = None) -> int:
             cmd_review(cfg, args.days, args.out)
         elif args.cmd == "new-season":
             cmd_new_season(cfg, args.pool, args.level, args.why)
+        elif args.cmd == "seed-season":
+            asyncio.run(cmd_seed_season(cfg, args.days, args.history, args.slippage, args.why, args.apply, args.until))
         elif args.cmd == "log":
             cmd_log(cfg, args.hours, args.all, args.employee)
         elif args.cmd == "health":
