@@ -32,7 +32,7 @@ for tk, d in markets.items():
     if close - open_ != 900: continue
     y = 1 if m["result"] == "yes" else 0
     strike = m.get("floor_strike")
-    for t, b, a, v in d["c"]:
+    for t, b, a, v, *_ in d["c"]:
         if b is None or a is None or not (open_ < t < close): continue
         recs.append((coin, tk, close, t, b, a, v or 0.0, y, strike if strike is not None else np.nan))
 df = pd.DataFrame(recs, columns=["coin", "ticker", "close", "t", "bid", "ask", "vol", "y", "strike"])

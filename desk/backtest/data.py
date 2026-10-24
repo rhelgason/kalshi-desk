@@ -64,6 +64,14 @@ class HistoricalMarket:
     market: Market  # static fields: strike, open/close time, result
     # minute end timestamp -> (yes_bid, yes_ask, volume)
     candles: dict[int, tuple[float, float, float]] = field(default_factory=dict)
+    # minute end timestamp -> (lowest yes bid, highest yes ask) in that minute, when stored:
+    # a resting bid fills when the bid dips below it, often for a moment (desk/backtest/seed.py)
+    extremes: dict[int, tuple[float, float]] = field(default_factory=dict)
+
+    def set_candles(self, rows) -> None:
+        """From stored rows [ts, bid, ask, volume] or [ts, bid, ask, volume, bid_low, ask_high]."""
+        self.candles = {int(r[0]): (r[1], r[2], r[3]) for r in rows}
+        self.extremes = {int(r[0]): (r[4], r[5]) for r in rows if len(r) >= 6 and r[4] is not None}
 
     @property
     def yes_value(self) -> Optional[float]:
@@ -199,6 +207,25 @@ def _candle_tuple(c: dict) -> Optional[tuple[float, float, float]]:
     return float(bid), float(ask), float(c.get("volume_fp") or c.get("volume") or 0)
 
 
+def _candle_extremes(c: dict) -> Optional[tuple[float, float]]:
+    """(lowest yes bid, highest yes ask) during the candle's minute."""
+    yb, ya = c.get("yes_bid") or {}, c.get("yes_ask") or {}
+    low = yb.get("low_dollars", yb.get("low"))
+    high = ya.get("high_dollars", ya.get("high"))
+    if low is None or high is None:
+        return None
+    return float(low), float(high)
+
+
+def candle_row(c: dict) -> Optional[list]:
+    """[bid, ask, volume] plus [bid_low, ask_high] when Kalshi gives them."""
+    tup = _candle_tuple(c)
+    if not tup:
+        return None
+    ext = _candle_extremes(c)
+    return [*tup, *ext] if ext else list(tup)
+
+
 def _open_close(m: dict) -> tuple[int, int]:
     return (_ts(datetime.fromisoformat(m["open_time"].replace("Z", "+00:00"))),
             _ts(datetime.fromisoformat(m["close_time"].replace("Z", "+00:00"))))
@@ -228,9 +255,9 @@ async def fetch_candles(client: KalshiClient, markets: list[dict],
         for ticker, candles in raw.items():
             out[ticker] = {}
             for c in candles:
-                tup = _candle_tuple(c)
-                if tup:
-                    out[ticker][int(c["end_period_ts"])] = list(tup)
+                row = candle_row(c)
+                if row:
+                    out[ticker][int(c["end_period_ts"])] = row
         i = j
         if i % 200 < len(chunk) or i == len(ordered):
             logger.info("Candles: %d/%d markets", i, len(ordered))
@@ -300,7 +327,7 @@ async def load_backtest_data(client: KalshiClient, series: list[str], days: floa
             _write_cache(name, cached)
         for m in cached["markets"]:
             hm = HistoricalMarket(Market.from_api(m, series_ticker=s))
-            hm.candles = {int(k): tuple(v) for k, v in cached["candles"].get(m["ticker"], {}).items()}
+            hm.set_candles([[int(k), *v] for k, v in cached["candles"].get(m["ticker"], {}).items()])
             markets.append(hm)
 
     spot: dict[str, SpotSeries] = {}

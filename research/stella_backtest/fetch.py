@@ -86,7 +86,8 @@ async def month(http, sem, key, ms):
 
     await asyncio.gather(*(one(c) for c in chunks))
     data = {m["ticker"]: {"open": ts(m["open_time"]), "close": ts(m["close_time"]), "result": m["result"],
-                          "strike": m.get("floor_strike"), "c": out.get(m["ticker"], [])} for m in ms}
+                          "strike": m.get("floor_strike"), "strike_type": m.get("strike_type"),
+                          "event_ticker": m.get("event_ticker"), "c": out.get(m["ticker"], [])} for m in ms}
     with gzip.open(path + ".tmp", "wt") as fh:
         json.dump(data, fh)
     os.replace(path + ".tmp", path)

@@ -13,6 +13,12 @@ Kept honest on purpose:
   - thin markets (`slippage`, dollars per contract by series) pay extra: the
     limit is raised by that much and the fill costs that much more
   - every replayed fill is marked "[replay]" in its reason and context
+  - a resting bid (the patient twins) waits its ~110 seconds and fills when the
+    minute's lowest bid dips below it (sellers went through it), through the
+    paper broker's own tape matching; a quarter of the minute's volume is assumed
+    to be what came through. Needs history stored with bid lows/ask highs: older
+    rows without them never fill a bid. research/stella_backtest/validate_tape.py
+    found this rule a little kind: real-tape fills made ~1.2c per $1, not ~1.5c
 Candles show prices but not how many contracts were offered, so `depth`
 contracts are assumed at the quote.
 """
@@ -58,6 +64,7 @@ class SeasonReplay(Backtest):
         self.pool = Pool(pool_settings, members)
         self.slippage = slippage or {}
         self.every = every_minutes
+        self.dip_share = 0.25  # of a minute's volume, what came through a waiting bid's price
 
     def _slip(self, ticker: str) -> float:
         return self.slippage.get(self.by_ticker[ticker].market.series_ticker, 0.0)
@@ -79,12 +86,39 @@ class SeasonReplay(Backtest):
                                broker=self.broker, bonus={})
         return Desk.size(desk, intent)
 
+    def _dips(self, ts: int) -> dict[str, list[dict]]:
+        """The minute ending at `ts` as two trades per market with a waiting bid: a seller at the
+        lowest bid and a buyer at the highest ask, a quarter of the minute's volume each."""
+        when = _dt(ts - 59).isoformat()
+        out: dict[str, list[dict]] = {}
+        for ticker in {o.ticker for o in self.broker.resting}:
+            hm = self.by_ticker[ticker]
+            ext, q = hm.extremes.get(ts), hm.candles.get(ts)
+            if not ext or not q:
+                out[ticker] = []
+                continue
+            low, high = ext
+            size = str(max(q[2], 0.0) * self.dip_share)
+            out[ticker] = [
+                {"created_time": when, "taker_outcome_side": "no", "yes_price_dollars": str(low),
+                 "no_price_dollars": str(round(1 - low, 4)), "count_fp": size},
+                {"created_time": when, "taker_outcome_side": "yes", "yes_price_dollars": str(high),
+                 "no_price_dollars": str(round(1 - high, 4)), "count_fp": size},
+            ]
+        return out
+
     def run(self, frames=None, progress_every_days: float = 7) -> None:
         frames = frames if frames is not None else self.build_frames()
+        self.stats.setdefault("bids", 0)
         order = sorted(self.strategies, key=lambda s: -self.multipliers.get(s.key, 1.0))
         for frame in frames:
             ts, snap = frame.ts, frame.snap
             iso = _dt(ts).isoformat()
+            if self.broker.resting:  # waiting bids first: the minute that just ended may have filled them
+                trades = self._dips(ts)
+                fills = self.broker.match(trades, self._fees_for(list(trades)), _dt(ts))
+                self.stats["fills"] += len(fills)
+                self.broker.expire(_dt(ts))
             for ticker, yes_value in frame.settles:
                 self.broker.settle(ticker, yes_value, ts=iso)
             if snap is None:
@@ -106,6 +140,10 @@ class SeasonReplay(Backtest):
                         bet, why = self._size(intent)
                         if not bet:
                             self.stats["skipped"] += 1
+                            continue
+                        if bet.post_only:  # a patient twin's bid: it waits on the book
+                            self.broker.place(replace(bet, reason=REPLAY_TAG + bet.reason), _dt(ts))
+                            self.stats["bids"] += 1
                             continue
                         bet = replace(bet, reason=REPLAY_TAG + bet.reason, legs=[
                             replace(leg, limit_price=round(leg.limit_price + self._slip(leg.ticker), 4))

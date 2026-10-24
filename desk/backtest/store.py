@@ -23,7 +23,7 @@ from typing import Iterable, Optional
 
 import httpx
 
-from desk.backtest.data import (BacktestData, HistoricalMarket, SpotSeries, _candle_tuple, fetch_bitstamp,
+from desk.backtest.data import (BacktestData, HistoricalMarket, SpotSeries, candle_row, fetch_bitstamp,
                                 fetch_candles, fetch_dvol, fetch_settled_markets)
 from desk.feeds.crypto import underlying_for_series
 from desk.kalshi.client import KalshiAPIError, KalshiClient
@@ -123,9 +123,9 @@ async def backfill_archive(client: KalshiClient, ledger: Ledger, series: Iterabl
                     continue
                 c = {}
                 for cs in raw.get("candlesticks") or []:
-                    tup = _candle_tuple(cs)
-                    if tup:
-                        c[int(cs["end_period_ts"])] = list(tup)
+                    row = candle_row(cs)
+                    if row:
+                        c[int(cs["end_period_ts"])] = row
                 batch_m.append(m)
                 batch_c[m["ticker"]] = c
                 if len(batch_m) >= 50:
@@ -200,7 +200,7 @@ def load_from_store(ledger: Ledger, series: list[str], start: datetime, end: dat
                               (s, s_ts, e_ts)):
             d = json.loads(r["data"])
             hm = HistoricalMarket(Market.from_api(d["m"], series_ticker=s))
-            hm.candles = {int(t): (b, a, v) for t, b, a, v in d["c"]}
+            hm.set_candles(d["c"])
             markets.append(hm)
 
     first_day, last_day = _day(s_ts - 86400), _day(e_ts)
