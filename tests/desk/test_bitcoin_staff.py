@@ -5,7 +5,7 @@ from datetime import timedelta
 from desk.feeds.crypto import UnderlyingQuote
 from desk.kalshi.models import Side
 from desk.paper.broker import RestingOrder
-from desk.strategies import BreakoutBetty, BreakoutBonnie, EarlyBirdEdie, EarlyBirdEllie, NickelNora
+from desk.strategies import BreakoutBetty, BreakoutBonnie, EarlyBirdEdie, EarlyBirdEllie, NickelNora, SteadySadie
 from desk.strategies.base import Snapshot
 from tests.desk.conftest import NOW, make_market
 
@@ -70,7 +70,7 @@ class TestPatientTwins:
         leg = intent.legs[0]
         assert intent.post_only and intent.ttl_seconds > 0
         assert (leg.side, leg.limit_price) == (Side.YES, 0.78)
-        assert leg.count == 12  # the same ~$9.50 Edie would spend for 12 at 79c
+        assert leg.count == 12.15  # the same $9.48 Edie would spend for 12 at 79c, in Kalshi's 0.01 steps
 
     def test_never_crosses_the_ask(self, account):
         m = btc15(0.78, 0.79, 12)  # 1-cent spread: improving would hit the ask, so join the bid
@@ -95,6 +95,22 @@ class TestPatientTwins:
         [intent] = BreakoutBonnie().evaluate(snap(m, move=0.003), account)
         assert intent.post_only and (intent.legs[0].side, intent.legs[0].limit_price) == (Side.YES, 0.54)
 
+    def test_sadie_bids_on_stellas_heavy_favorites(self, account):
+        m = btc15(0.950, 0.953, 7)  # 95.3c ask, 7 minutes left: Stella's zone
+        m.price_ranges = LADDER
+        [intent] = SteadySadie().evaluate(snap(m), account)
+        leg = intent.legs[0]
+        assert intent.post_only and (leg.side, leg.limit_price) == (Side.YES, 0.951)  # a tenth of a cent over the bid
+        assert SteadySadie().evaluate(snap(btc15(0.950, 0.953, 12)), account) == []  # too early for Stella
+
+    def test_a_small_pools_bet_under_one_contract_still_bids(self, account):
+        m = btc15(0.950, 0.953, 7)
+        m.price_ranges = LADDER
+        [intent] = SteadySadie().evaluate(snap(m), account)
+        small = replace(intent, legs=[replace(intent.legs[0], count=0.52)])  # a $100 pool's $0.50 bet
+        leg = SteadySadie().reprice(small, m, m).legs[0]
+        assert leg.count == 0.52 and leg.limit_price == 0.951
+
     def test_reprices_against_the_live_book_when_the_list_lags(self, account):
         seen = btc15(0.53, 0.55, 13)  # the market list says YES 53/55...
         seen.price_ranges = LADDER
@@ -102,7 +118,7 @@ class TestPatientTwins:
         live = replace(seen, yes_bid=0.47, yes_ask=0.49)  # ...but the book has already dropped to 47/49
         leg = BreakoutBonnie().reprice(intent, seen, live).legs[0]
         assert leg.limit_price == 0.48  # not 0.54, which would sit above the real ask
-        assert leg.count == math.floor(intent.legs[0].count * 0.54 / 0.48)
+        assert leg.count == math.floor(intent.legs[0].count * 0.54 / 0.48 * 100) / 100
 
     def test_never_bids_more_than_the_sibling_would_pay(self, account):
         seen = btc15(0.53, 0.55, 13)

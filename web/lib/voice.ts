@@ -19,6 +19,11 @@ const LINES: Record<string, Lines> = {
     down: ["One upset. Thirty pennies gone. Recounting.", "That's what the jar is for.", "Noted in the ledger. Moving on."],
     idle: ["Nothing at 92 cents yet.", "Waiting for the middle of the window.", "Jar's ready."],
   },
+  heavy_maker: {
+    up: ["Somebody always sells. I just wait.", "A tenth of a cent under, and no fee. Lovely.", "Slow and steady fills the jar.", "Didn't even have to get up."],
+    down: ["They sold me that one for a reason. Noted.", "The snail and I will think about this.", "Even patient pennies get squashed."],
+    idle: ["Bid's out. Kettle's on.", "Nobody's selling yet. That's fine.", "Waiting for the middle of the window."],
+  },
   nickel_maker: {
     up: ["Never paid full price in my life, darling.", "Got it at a discount. As always.", "Clip, clip, cash.", "Retail is for amateurs."],
     down: ["They only sold because it was going bad. Rude.", "Even a bargain can be a bad deal.", "Returning this one. Oh wait, I can't."],
@@ -77,6 +82,7 @@ export const HOW_THEY_BET: Record<string, string> = {
   longshot_fade: "When one side costs only 5–15¢, the Wet Blanket buys the other side and tells you why the long shot never had a chance. Like Nick, he wins small and often, and loses big (and sulks) on the occasional surprise.",
   breakout: "When bitcoin has jumped or dropped 0.3%+ in the last 15 minutes, Wipeout paddles hard and bets it keeps going, but only if Kalshi's price hasn't caught up yet (still under 60¢). Bitcoin only, Training only for now: the waves haven't been kind.",
   early_favorite: "The moment a new 15-minute window opens, Edie (already on her third coffee) grabs the side that's a clear but not certain favorite (75–85¢), betting the early price is a little too cautious.",
+  heavy_maker: "Stella's twin. Same heavy favorites (92–99¢, 5 to 9 minutes left), but instead of paying the asking price she bids a tenth of a cent over the best bid and waits up to two minutes for someone to sell. Kalshi charges nothing when someone fills a waiting bid, and there's no per-order fee to round up, which on small bets costs Stella more than her whole edge. She misses the bets that run away, and gets filled more often when the price is slipping.",
   nickel_maker: "Nick's twin sister and the office's coupon queen. She picks the same heavy favorites, but instead of paying the asking price she offers a little less and waits up to two minutes for someone to sell. Cheaper, and no fee, but she misses some bets and tends to get filled when the price is slipping.",
   early_maker: "Edie's calm twin. Same early favorites, but she names a slightly lower price and knits while she waits for a seller. Kalshi charges no fee on a bid that someone else fills, so every win is worth a bit more, if she gets filled at all.",
   breakout_maker: "Wipeout's twin sister. When bitcoin makes a big move she bets it keeps going like Wipeout does, but from an inflatable flamingo: she posts a lower price and waits for the wave to come to her. Wipeout's bets are near 50¢, where Kalshi's fee is biggest, so Bonnie saves the most by not paying it. Training only for now.",

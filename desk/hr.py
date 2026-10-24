@@ -52,7 +52,8 @@ CONTROL_GROUP = {"dart_monkey", "longshot_buy"}
 # The patient twins: same picks as a sibling, but they post a bid and wait instead
 # of paying the ask. They follow the sibling's settings (including autotune's
 # changes), so the only difference between the two is how they buy.
-TWINS = {"nickel_maker": "nickel_picker", "early_maker": "early_favorite", "breakout_maker": "breakout"}
+TWINS = {"nickel_maker": "nickel_picker", "early_maker": "early_favorite", "breakout_maker": "breakout",
+         "heavy_maker": "heavy_favorite"}
 # Employees that start at the bottom when first hired (unproven strategies)
 START_AS_INTERN = {"breakout", "early_favorite", "nickel_maker", "early_maker", "breakout_maker", "favorite_sports", "market_maker"}
 

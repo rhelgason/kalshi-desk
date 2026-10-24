@@ -47,6 +47,7 @@ strategies:
     min_seconds: 300      #   then Sep 23-Oct 22, unseen: +0.67c per $1 (t 1.6)
     max_seconds: 540      # A tiny edge on lots of bets (~140 a day); it could still be luck.
     max_spread: 0.02
+  heavy_maker: {enabled: false}  # 🐌 Steady Sadie - Stella's patient twin: off until the long backtest decides
   # Off on Training since Season 5 (2026-10-23): none of their rules held up in the scan.
   # The real book keeps its own roster (desk.real.yaml turns its people back on).
   sniper:                 # 🎯 The Sniper - LOOSENED again 10-20 (pretend money only; benched on real)

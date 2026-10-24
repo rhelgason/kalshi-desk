@@ -27,7 +27,7 @@ from typing import Optional
 
 from desk.kalshi.models import Market, Side
 from desk.strategies.base import AccountView, Leg, Persona, Snapshot, Strategy, TradeIntent
-from desk.strategies.behavioral import BandBettor, NickelNick
+from desk.strategies.behavioral import BandBettor, NickelNick, SteadyStella
 
 COIN = {"BTC": "bitcoin", "ETH": "ether", "SOL": "solana"}  # for the reason text
 
@@ -129,6 +129,11 @@ def patient_price(m: Market, side: Side, ticks: int = 1) -> Optional[float]:
     return round(max(price, bid), 4)
 
 
+def contracts(n: float) -> float:
+    """Kalshi takes 0.01-contract steps: a $100 pool's $0.50 bet is about half a contract, not zero."""
+    return math.floor(n * 100 + 1e-6) / 100
+
+
 class PatientTwin:
     """Turns an employee's buy-at-the-ask bets into resting bids (maker orders)."""
 
@@ -146,8 +151,8 @@ class PatientTwin:
             price = patient_price(m, leg.side, self.improve_ticks)
             if not price:
                 continue
-            count = math.floor(leg.count * leg.limit_price / price)
-            if count < 1:
+            count = contracts(leg.count * leg.limit_price / price)
+            if count < 0.01:
                 continue
             out.append(replace(
                 intent, legs=[Leg(leg.ticker, leg.side, price, count)], post_only=True,
@@ -172,8 +177,8 @@ class PatientTwin:
         price = min(price, round(seen_ask - seen.tick_at(seen_ask if leg.side is Side.YES else 1 - seen_ask), 4))
         if price <= 0 or price >= live.ask(leg.side):
             return None
-        count = math.floor(leg.count * leg.limit_price / price)
-        if count < 1:
+        count = contracts(leg.count * leg.limit_price / price)
+        if count < 0.01:
             return None
         return replace(intent, legs=[Leg(leg.ticker, leg.side, price, count)])
 
@@ -207,6 +212,25 @@ class BreakoutBonnie(PatientTwin, BreakoutBetty):
     persona = Persona(
         "Breakout Bonnie", "Pool Floater", "🛟",
         "Wipeout's twin sister. Same waves, but she lies on an inflatable flamingo and waits for one to drift under her.",
+    )
+    backtestable = False
+
+    def evaluate(self, snap: Snapshot, account: AccountView) -> list[TradeIntent]:
+        return self.patient(super().evaluate(snap, account), snap, account)
+
+
+class SteadySadie(PatientTwin, SteadyStella):
+    """
+    Stella's picks (92-99c favorites, 5-9 minutes left), but a resting bid one tick over the
+    best bid instead of paying the ask. Makers pay no fee on Kalshi's 15-minute coin markets,
+    and a resting order has no per-order fee to round up to the cent: on a small pool's $1
+    bets that rounding costs Stella more than her whole edge.
+    """
+
+    key = "heavy_maker"
+    persona = Persona(
+        "Steady Sadie", "Slow & Steady", "🐌",
+        "Stella's twin. Same pennies, but she names her price and lets the market crawl over to her. Has never once hurried.",
     )
     backtestable = False
 

@@ -41,9 +41,9 @@ def fair_ladder(spot, vol, strikes, close_in=timedelta(hours=1), half_spread=0.0
 
 def test_all_employees_registered_with_unique_names():
     staff = build_strategies({})
-    assert len(staff) == len(REGISTRY) == 11
+    assert len(staff) == len(REGISTRY) == 12
     everyone = build_strategies({}, EVERYONE)
-    assert len({s.persona.name for s in everyone}) == len(EVERYONE) == 20
+    assert len({s.persona.name for s in everyone}) == len(EVERYONE) == 21
 
 
 class TestVegaVinny:
