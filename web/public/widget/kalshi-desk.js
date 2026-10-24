@@ -8,6 +8,10 @@
 // Black and green, terminal style: the office pool's total, a line of it over
 // the last 7 days (the widget's Parameter sets the days), and a sentence about
 // today. Tap to open the dashboard.
+//
+// Red means money lost, never just "lower than a week ago": the line is green
+// while the pool is above what went in and turns red only for the stretch
+// below it, with a faint dotted line marking what went in when it's in view.
 
 const DEFAULT_DAYS = 7;
 
@@ -54,9 +58,11 @@ function chart(d, w, h, labels = true) {
   let lo = Math.min(...pts.map((p) => p[1])), hi = Math.max(...pts.map((p) => p[1]));
   if (hi - lo < 4) { const m = (hi + lo) / 2; lo = m - 2; hi = m + 2; } // small wiggles shouldn't look like cliffs
   const top = labels ? 12 : 3, bottom = 3, left = 2, right = 6;
-  const ink = d.chart.change < 0 ? HEX.loss : HEX.bright;
   const x = (t) => left + ((t - t0) / (t1 - t0 || 1)) * (w - left - right);
   const y = (v) => top + (1 - (v - lo) / (hi - lo)) * (h - top - bottom);
+  // What went in: green above it, red below it
+  const base = d.capital ?? d.equity - d.pnl;
+  const ink = (up) => (up ? HEX.bright : HEX.loss);
 
   // Grid: three faint lines
   for (let i = 0; i <= 2; i++) {
@@ -70,28 +76,61 @@ function chart(d, w, h, labels = true) {
     ctx.strokePath();
   }
 
-  const area = new Path();
-  area.move(new Point(x(pts[0][0]), h - bottom));
-  for (const [t, v] of pts) area.addLine(new Point(x(t), y(v)));
-  area.addLine(new Point(x(t1), h - bottom));
-  area.closeSubpath();
-  ctx.addPath(area);
-  ctx.setFillColor(new Color(ink, 0.12));
-  ctx.fillPath();
+  // Break-even, dotted, when it's in view
+  if (base >= lo && base <= hi) {
+    const by = y(base);
+    for (let bx = left; bx < w - right; bx += 5) {
+      ctx.setFillColor(new Color(HEX.dim, 0.8));
+      ctx.fillRect(new Rect(bx, by - 0.5, 2, 1));
+    }
+  }
 
-  const line = new Path();
-  line.move(new Point(x(pts[0][0]), y(pts[0][1])));
-  for (const [t, v] of pts.slice(1)) line.addLine(new Point(x(t), y(v)));
-  ctx.addPath(line);
-  ctx.setStrokeColor(new Color(ink));
-  ctx.setLineWidth(1.6);
-  ctx.strokePath();
+  // Split the line where it crosses break-even so each side gets its own color
+  const runs = [];
+  let run = null;
+  for (let i = 0; i < pts.length; i++) {
+    const [t, v] = pts[i];
+    const up = v >= base;
+    if (run && run.up !== up) {
+      const [pt, pv] = pts[i - 1];
+      const cross = [pt + ((base - pv) / (v - pv)) * (t - pt), base];
+      run.pts.push(cross);
+      runs.push(run);
+      run = { up, pts: [cross] };
+    }
+    if (!run) run = { up, pts: [] };
+    run.pts.push([t, v]);
+  }
+  runs.push(run);
+
+  // Shade between the line and break-even (or the chart's edge when it's out of view)
+  const floor = Math.min(Math.max(y(base), top), h - bottom);
+  for (const r of runs) {
+    const area = new Path();
+    area.move(new Point(x(r.pts[0][0]), floor));
+    for (const [t, v] of r.pts) area.addLine(new Point(x(t), y(v)));
+    area.addLine(new Point(x(r.pts[r.pts.length - 1][0]), floor));
+    area.closeSubpath();
+    ctx.addPath(area);
+    ctx.setFillColor(new Color(ink(r.up), 0.12));
+    ctx.fillPath();
+  }
+  for (const r of runs) {
+    const line = new Path();
+    line.move(new Point(x(r.pts[0][0]), y(r.pts[0][1])));
+    for (const [t, v] of r.pts.slice(1)) line.addLine(new Point(x(t), y(v)));
+    ctx.addPath(line);
+    ctx.setStrokeColor(new Color(ink(r.up)));
+    ctx.setLineWidth(1.6);
+    ctx.strokePath();
+  }
 
   // The latest value, glowing
-  const ex = x(t1), ey = y(pts[pts.length - 1][1]);
-  ctx.setFillColor(new Color(ink, 0.25));
+  const last = pts[pts.length - 1][1];
+  const ex = x(t1), ey = y(last);
+  ctx.setFillColor(new Color(ink(last >= base), 0.25));
   ctx.fillEllipse(new Rect(ex - 5, ey - 5, 10, 10));
-  ctx.setFillColor(new Color(ink));
+  ctx.setFillColor(new Color(ink(last >= base)));
   ctx.fillEllipse(new Rect(ex - 2, ey - 2, 4, 4));
 
   if (labels) {
@@ -169,7 +208,7 @@ function build(d, family) {
     const status = { halted: "REAL TRADING STOPPED", stopped: "STOPPED FOR TODAY", braked: "BETS HALVED" }[d.safety] || "ALL CLEAR";
     text(w, `STATUS   ${status}`, 10, d.safety === "clear" ? G.dim : G.alert, "medium");
     text(w, `IN PLAY  ${money(d.in_play)} on ${d.open_bets} bet${d.open_bets === 1 ? "" : "s"}`, 10, G.dim, "medium");
-    text(w, `CHANGE   ${money(d.chart.change, true)} over the chart`, 10, d.chart.change < 0 ? G.loss : G.dim, "medium");
+    text(w, `CHANGE   ${money(d.chart.change, true)} over the chart`, 10, G.dim, "medium");
     w.addSpacer();
   }
   return w;
