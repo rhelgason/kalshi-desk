@@ -153,8 +153,9 @@ def main() -> None:
 
     # 2. Grid, picked on the first half
     grid = [Rule(lo, hi, a, b, mode=mode, improve=imp)
-            for lo, hi in [(0.85, 0.95), (0.88, 0.99), (0.90, 0.99), (0.92, 0.99), (0.94, 0.99), (0.92, 0.97), (0.95, 0.99)]
-            for a, b in [(120, 300), (180, 420), (300, 540), (300, 780), (420, 660), (540, 780)]
+            for lo, hi in [(0.75, 0.85), (0.80, 0.90), (0.85, 0.92), (0.85, 0.95), (0.88, 0.99), (0.90, 0.99), (0.92, 0.99),
+                           (0.94, 0.99), (0.92, 0.97), (0.95, 0.99)]
+            for a, b in [(120, 300), (180, 420), (300, 540), (300, 780), (420, 660), (540, 780), (600, 840)]
             for mode, imp in [("taker", 1), ("taker0", 1), ("maker", 1), ("maker", 0)]]
     with Pool(4) as pool:
         res = pool.map(run_rule, grid)
@@ -196,6 +197,13 @@ def main() -> None:
         cands[f"Grid pick ({best})"] = (br, br.mode == "maker")
     rmap = {r: df for r, df in res}
     rmap.update(base)
+    # validate_tape.py: fills the real trade tape confirms make ~0.35c per $1 less than the candle rule says.
+    # Price the twin's bets that much higher for a cautious version of her.
+    cautious = Rule(mode="maker", improve=1, max_spread=0.0201)  # same rule, separate key
+    adj = base[twin].copy()
+    adj["price"] = (adj.price * 1.0035).clip(upper=0.999)
+    rmap[cautious] = adj
+    cands["Twin, tape-adjusted"] = (cautious, True)
     sizing = []
     for label, (r, maker) in cands.items():
         df = rows_of(rmap[r])
