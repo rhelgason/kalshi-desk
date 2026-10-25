@@ -78,13 +78,29 @@ class CoinTape:
         self._sigma_at = 0
 
     def push(self, t: float, price: float) -> None:
-        s = int(t)
-        if s not in self.px:
-            self.order.append(s)
-            while len(self.order) > self.keep:
-                self.px.pop(self.order.popleft(), None)
-        self.px[s] = price
+        self.hold(t - 1)
+        sec = int(t)
+        if not self.order or sec > self.order[-1]:
+            self.order.append(sec)
+        self.px[sec] = price
+        self._trim()
         self.last_at = t
+
+    def hold(self, t: float) -> None:
+        """Carry the last price through every second up to `t`: a second without a trade (DOGE often goes 10+)
+        is a second the price stood still, and it counts toward the coin's jitter."""
+        if not self.order:
+            return
+        last = self.order[-1]
+        for sec in range(last + 1, int(t) + 1):
+            self.order.append(sec)
+            self.px[sec] = self.px[last]
+        self._trim()
+        self.last_at = max(self.last_at, t)
+
+    def _trim(self) -> None:
+        while len(self.order) > self.keep:
+            self.px.pop(self.order.popleft(), None)
 
     def at(self, s: int) -> Optional[float]:
         for k in range(10):  # quiet seconds carry the last price forward
@@ -194,7 +210,7 @@ class FastDesk:
         self.stats = {"started_at": _iso(time.time()), "book_reads": 0, "trade_reads": 0, "errors": 0,
                       "pulls": 0, "fills": {FAST: 0, TWIN: 0}, "coinbase_msgs": 0, "last_error": None}
         self.accounts: dict[str, PaperAccount] = {}
-        self.last_twin_look = 0
+        self.last_twin_look = int(time.time() - TWIN_OFFSET) // TWIN_EVERY
         self.last_equity_hour = None
 
     # --- bookkeeping -------------------------------------------------
@@ -366,7 +382,7 @@ class FastDesk:
                             coin.push(time.time(), float(msg["price"]))
                             self.stats["coinbase_msgs"] += 1
                         elif msg.get("type") == "heartbeat":
-                            coin.last_at = time.time()  # a quiet coin (DOGE) is still live: its price just held
+                            coin.hold(time.time())  # a quiet coin (DOGE) is still live: its price just held
             except Exception as e:
                 self.stats["errors"] += 1
                 self.stats["last_error"] = f"coinbase: {e}"[:200]
@@ -403,7 +419,9 @@ class FastDesk:
                     books = await self.client.get_orderbooks([lv.market.ticker for lv in act])
                     self.stats["book_reads"] += 1
                     now = time.time()
-                    twin_look = int(now) % TWIN_EVERY == TWIN_OFFSET and int(now) != self.last_twin_look
+                    # once per 2-minute slot, as soon as the cron run would have looked (slow loops can't skip it)
+                    slot = int(now - TWIN_OFFSET) // TWIN_EVERY
+                    twin_look = slot != self.last_twin_look
                     for live in act:
                         book = books.get(live.market.ticker)
                         if book is None:
@@ -413,7 +431,7 @@ class FastDesk:
                         if twin_look:
                             self.twin_step(live, m, now)
                     if twin_look:
-                        self.last_twin_look = int(now)
+                        self.last_twin_look = slot
                 except Exception as e:
                     self.stats["errors"] += 1
                     self.stats["last_error"] = f"books: {e}"[:200]

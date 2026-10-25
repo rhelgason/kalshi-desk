@@ -260,7 +260,8 @@ class KalshiClient:
         books: dict[str, Orderbook] = {}
         for i in range(0, len(tickers), 100):
             chunk = tickers[i : i + 100]
-            data = await self.request("GET", "/markets/orderbooks", params={"tickers": ",".join(chunk)})
+            # Repeated tickers=A&tickers=B: a comma-joined list comes back as ONE book named "A,B"
+            data = await self.request("GET", "/markets/orderbooks", params={"tickers": chunk})
             for item in data.get("orderbooks") or []:
                 books[item["ticker"]] = Orderbook.from_api(item["ticker"], item)
         return books

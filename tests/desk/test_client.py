@@ -64,7 +64,8 @@ async def test_orderbooks_batch(fixture_json):
     ob = fixture_json("orderbook.json")["orderbook_fp"]
 
     def handler(req):
-        tickers = req.url.params["tickers"].split(",")
+        # Like the real API (2026-10-25): one book per repeated tickers= value; "A,B" would be one book named "A,B"
+        tickers = req.url.params.get_list("tickers")
         return httpx.Response(200, json={"orderbooks": [{"ticker": t, "orderbook_fp": ob} for t in tickers]})
 
     async with client_with(handler) as c:

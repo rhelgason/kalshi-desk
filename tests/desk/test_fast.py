@@ -116,3 +116,11 @@ def test_report_compares_the_two_and_charges_the_server():
         led.record_settlement(bot, "M", 1.0, pnl, ts="2026-11-02T00:15:00+00:00")
     out = fast.fast_report(led)
     assert "2026-11" in out and "+1.00" in out  # fast beat the twin by $1 before the server's cost
+
+
+def test_a_quiet_coin_still_gets_a_reading():
+    tape = CoinTape()
+    for i in range(0, 700, 20):  # DOGE: a trade every 20 seconds, heartbeats in between
+        tape.push(T0 - 700 + i, 0.2 * (1 + 0.001 * (i % 40 == 0)))
+        tape.hold(T0 - 700 + i + 19)
+    assert tape.sigma(int(T0)) is not None and tape.move(T0) is not None
