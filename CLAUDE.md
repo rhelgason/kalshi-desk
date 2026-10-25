@@ -8,81 +8,36 @@ database through `DATABASE_URL` in `.env` (session pooler, port 5432).
 
 Tests: `python -m pytest -q` (all offline). Web type-check: `cd web && node_modules/.bin/tsc --noEmit -p .`
 
-## Where we left off (2026-10-24)
+## Links (nothing secret here; secrets live in `.env`, Vercel, and the server's /etc/kalshi-desk.env)
 
-A 10-month backtest (research/stella_backtest/README.md, REPORT.md, RECENT.md) found one real edge:
-92-99c favorites on 15-minute coin markets, bought with a **resting bid** instead of paying the ask.
-The roster was rebuilt around it and pushed:
+| What | Where |
+|---|---|
+| Dashboard (Training + real book; open, no login) | https://kalshi-desk-nu.vercel.app |
+| Admin page (needs ADMIN_PASSWORD) | https://kalshi-desk-nu.vercel.app/admin |
+| Hosted bot (Vercel project `kalshi-desk-bot`, ticked by pg_cron every 2 min) | https://kalshi-desk-bot.vercel.app |
+| Vercel projects | https://vercel.com/helgasonryan/kalshi-desk-bot and https://vercel.com/helgasonryan/kalshi-desk |
+| Supabase project `gxcyhwbytzxsxkwfoejq` (us-west-2) | https://supabase.com/dashboard/project/gxcyhwbytzxsxkwfoejq |
+| Database host (session pooler, port 5432) | aws-1-us-west-2.pooler.supabase.com (user postgres.gxcyhwbytzxsxkwfoejq; password only in DATABASE_URL) |
+| Always-on server (DigitalOcean NYC3, $6/mo) | 104.131.18.118, see deploy/SERVER.md |
+| GitHub | https://github.com/rhelgason/kalshi-desk (private) |
 
-- Real book: **Steady Sadie** (`heavy_maker`) alone on BTC/ETH/SOL. Next season's pool $250 at 1% bets.
-- Training: Stella (`heavy_favorite`, pays the ask: the yardstick), Sadie, Closing Time Coco (`late_maker`),
-  Silver Medal Sid (`runner_up_maker`, probation), plus Lucky and Dan (control group).
-- Retired to ALUMNI: the Sniper, Nick, the Wet Blanket, Wipeout, Edie, Nora, Ellie, Bonnie.
+Sessions without `.env` (Claude Code on the web or phone): set DATABASE_URL in the cloud environment's
+settings, never in the repo. Schemas: `public` = Training, `real` = real money, `fast` = the server's trial.
 
-The owner **has deployed the bot** to Vercel with this roster. Two jobs remain, below. Do them in order,
-and ask the owner before anything that moves money or writes a season.
+## Where we left off (2026-10-25)
 
-### 1. Start the real-money season (not done yet)
-
-The real book is halted (paused) and still holds last season's accounts for the retired staff, so its
-safety check keeps it halted until a new season starts. Nothing trades until step 1d.
-
-a. Owner tops up the Kalshi account so the balance is **$250** (it was about $87 after the first season).
-b. `python -m desk live-check --config desk.real.yaml --fund`
-   Needs `KALSHI_API_KEY_ID` and `KALSHI_PRIVATE_KEY_PATH` (or `KALSHI_PRIVATE_KEY`) in `.env`. It prints
-   the balance and moves the cash to the crypto shard. Optional: add `--order` to place and cancel one tiny
-   resting bid, which proves post-only orders work on this account before Sadie relies on them.
-c. `python -m desk new-season --config desk.real.yaml --pool 250 --level heavy_maker=Associate --why "Sadie alone, from the 10-month backtest"`
-   (Associate = 1% of the pool per bet. Check the printed roster says only heavy_maker.)
-d. Owner resumes real trading on the dashboard (the kill switch on the real book's Safety card).
-e. Within an hour, check the real book on the dashboard: Sadie's bids appear in `real.orders` with
-   kind `maker`; fills arrive as "maker fill" rows; fees are 0.
-
-**The trial** (two weeks, ~1,000 real fills). Pass: most posted bids fill within their two minutes (under
-~70% means the backtest's fill rule is too kind) and profit is at least +0.4c per $1 bet. Then raise the
-pool to $1,000 (another `new-season --pool 1000`, or a deposit) at 1%. Below zero after ~1,500 fills: halt
-and go back to Training. Useful queries:
-
-```sql
--- fill rate and edge for Sadie's real bids
-select count(*) filter (where kind = 'maker') as bids, sum(filled) filter (where kind = 'maker') as contracts
-from real.orders where ts > now() - interval '14 days';
-select count(*) as bets, round(sum(pnl)::numeric, 2) as pnl from real.settlements where season = (select max(season) from real.settlements);
-```
-
-### 2. Backfill Training on the dashboard from Dec 10, 2025 (not done yet)
-
-The owner wants the Training view to show the whole backtest: $1,000 put in on 2025-12-10, run by the
-current Training staff, to today. **None of this is in the database yet**: the backtest ran in a cloud
-session that couldn't reach it. `desk seed-season` does it through the bot's own code (strategy, pool
-sizing, broker), and was extended to replay resting bids from each minute's bid low/ask high.
-
-a. Download the history (about 2 hours; resumable, finished months are kept):
-   ```bash
-   cd research/stella_backtest
-   for s in KXBTC15M KXETH15M KXSOL15M KXXRP15M KXDOGE15M; do python fetch.py $s data/; done
-   for s in KXBTC15M KXETH15M KXSOL15M; do python fetch_archive.py $s data/ & done; wait
-   python to_store.py data/ ../../data/history-full.db
-   cd ../..
-   ```
-   (XRP/DOGE archives can be added the same way; Training trades them, from Aug 16 on.)
-b. Dry run (about 2 minutes; writes nothing):
-   `python -m desk seed-season --days 318 --history data/history-full.db --max-bet 10`
-   Expect roughly **$1,000 -> $18,000**: Sid +$7.3k, Sadie +$5.1k, Coco +$3.7k, Stella +$1.0k, worst day
-   about -$530, 238 of 316 days up (the cloud dry run on 2026-10-24). Pick `--days` so the start is Dec 10.
-c. Tell the owner, before applying:
-   - The `--max-bet 10` cap matters. Uncapped, 1% bets compound to $1,000 -> $292,000, which no market
-     could fill. $10 matches the real book's order cap.
-   - It's the optimistic version: the real trade tape says resting-bid fills earn ~25% less than this
-     rule, and the edge has shrunk (about 0.4c per $1 so far in October vs 2-3c early in the year).
-   - It writes ~130,000 fills plus settlements and hourly equity into Supabase (maybe 80-100 MB of the
-     free plan's 500 MB). Check usage first; `--days 120` is a lighter option.
-   - After seeding, Training's live paper bets are 1% of an ~$18,000 pool (~$180 each, no cap live).
-     It's pretend money, but the dashboard's dollars will look big next to the real book.
-   - It starts a new Training season (the current one stays in the history).
-d. With the owner's yes: same command plus `--apply --why "Backtest from Dec 10, \$10 bets"`. It takes the
-   bot's lease, so retry if a run is in progress.
-e. Check the dashboard's Training view and the phone widget show the season starting Dec 10.
+- **Real money is ON** (season 6, from $87.63): Closing Time Coco (`late_maker`) alone on ETH/SOL/XRP/DOGE,
+  3% of the pool a bet ($10 cap), window_cap 3%, daily_stop 15% (real.settings). No bitcoin: it lost in Sep and Oct.
+  Why: resting bids on 94-99c favorites in the last 5 minutes made +0.46c per $1 from Aug 18 on (t ~5.7).
+  The edge shrinks month to month and a single week swings +/-0.5c (Oct 18-25 was about zero).
+- **Training** season 6 is the backfill from Dec 10, 2025 ($1,000 -> ~$18k at $10 bets).
+- **Fast Coco trial** on the server (desk/fast.py, deploy/SERVER.md): always-on Coco that pulls bids when the
+  coin jumps, against a twin that behaves like the 2-minute cron Coco, both on pretend money from $87.63.
+  `python -m desk fast-report` says month by month whether the $6 server pays for itself. After ~2 weeks, if
+  Fast Coco wins, move the real money to the server (steps at the end of deploy/SERVER.md; the owner copies the
+  Kalshi key over themselves).
+- Projections given to the owner (expected value, edge halving every 3 months): without the server
+  $118 / $182 / $262 / $344 at 1 / 3 / 6 / 12 months; with it $161 / $388 / $635 / $799.
 
 ## Things worth knowing
 
