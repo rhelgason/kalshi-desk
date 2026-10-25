@@ -18,7 +18,7 @@ import {
   getAnalysis, getBonusPot, getHistory, getLive, getNews, getPolicy, getRecentFills, getRoster, getSettlements, withRoster,
 } from "@/lib/db";
 import { dollars } from "@/lib/format";
-import { only, parseRange, poolKeys, portfolioSeries, profitSeries, RANGES } from "@/lib/portfolio";
+import { only, parseRange, poolKeys, profitSeries, RANGES, settledSeries } from "@/lib/portfolio";
 import { poolShare } from "@/lib/hr";
 
 export const dynamic = "force-dynamic";
@@ -80,9 +80,9 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
     for (const s of mine.filter((s) => s.t >= from)) points.push({ t: s.t, worth: (run += s.pnl), putIn: 0 });
     points.push({ t: now, worth: coinProfit, putIn: 0 });
   } else {
-    // End the line at the live numbers so the chart's "now" matches the headline
-    const past = portfolioSeries(only(history, members));
-    points = [...past, { t: Math.max(Date.parse(live.updated_at), past[past.length - 1]?.t ?? 0), worth, putIn }];
+    // Finished bets only: a bet still riding counts at what it cost, so the line doesn't dip
+    // (or jump) while it waits to settle. The headline above is the live account value.
+    points = settledSeries(only(history, members), mine, Math.max(history.since, seasonStart), now);
   }
   const first = points[0];
 
@@ -90,15 +90,19 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
   const coinRuns = (since: number) => {
     const out: Record<string, { t: number; v: number }[]> = {};
     const sums: Record<string, number> = {};
-    for (const s of settled.filter((s) => s.coin === coin)) {
+    for (const s of settled.filter((s) => !coinView || s.coin === coin)) {
       sums[s.strategy] = (sums[s.strategy] ?? 0) + s.pnl;
       if (s.t >= since) (out[s.strategy] ??= [{ t: since, v: sums[s.strategy] - s.pnl }]).push({ t: s.t, v: sums[s.strategy] });
     }
+    // Nothing settled since `since`: flat at what they'd made before it
+    for (const [k, v] of Object.entries(sums)) out[k] ??= [{ t: since, v }];
     return { out, sums };
   };
   const trends = coinView ? coinRuns(seasonStart).out : profitSeries(season);
-  const rangeProfits = coinView ? coinRuns(first?.t ?? seasonStart).out : range === "season" ? trends : profitSeries(history);
-  const coinTotals = coinView ? coinRuns(0).sums : {};
+  // The chart and its what-if follow finished bets (see points above)
+  const rangeProfits = coinRuns(first?.t ?? seasonStart).out;
+  const settledTotals = coinRuns(0).sums;
+  const coinTotals = coinView ? settledTotals : {};
   const pnlOf = (k: string, all?: number) => (coinView ? coinTotals[k] ?? 0 : all ?? 0);
   const coinCounts: Record<string, { n: number; won: number; pnl: number }> = {};
   for (const s of settled.filter((s) => s.coin === coin)) {
@@ -151,7 +155,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
         points={points} period={RANGE_WORDS[range]} scope={RANGE_SCOPE[range]} showChange={range !== "season"}
         team={rows.filter(({ e }) => members.has(e.key)).map(({ e, light: l }) => ({
           key: e.key, name: e.name, emoji: e.emoji, light: l.key, bets: analysis.evidence[e.key]?.bets ?? 0,
-          profit: [...(rangeProfits[e.key] ?? []), { t: end, v: pnlOf(e.key, e.pnl) }],
+          profit: [...(rangeProfits[e.key] ?? []), { t: end, v: settledTotals[e.key] ?? 0 }],
           season: pnlOf(e.key, e.pnl),
         }))}
         outside={outside}

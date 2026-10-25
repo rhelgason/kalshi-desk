@@ -142,7 +142,7 @@ export default function PortfolioChart({ points, alt, height = 220, profitOnly }
         <circle cx={x(p.t)} cy={y(p.worth)} r={4} fill="var(--series-1)" stroke="var(--surface-1)" strokeWidth={2} />
       </svg>
       <div className="legend">
-        <span><span className="key" style={{ background: "var(--series-1)" }} />{profitOnly ?? "What it's worth"}</span>
+        <span><span className="key" style={{ background: "var(--series-1)" }} />{profitOnly ?? "Worth, from finished bets"}</span>
         {alt && <span><span className="key" style={{ background: "var(--series-2)" }} />What if</span>}
         {alt && <span><span className="key band" />The difference they made</span>}
         <span><span className="key dashed" />{profitOnly ? "Break-even" : `Money put in: ${dollars(p.putIn)}`}</span>

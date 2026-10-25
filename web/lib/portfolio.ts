@@ -84,6 +84,45 @@ export function portfolioSeries(h: History): PortfolioPoint[] {
   return out.map(({ t, worth, putIn }) => ({ t, worth, putIn }));
 }
 
+const UNIT_MS: Record<string, number> = { minute: 60_000, hour: 3_600_000, day: 86_400_000 };
+const binMs = (spanMs: number) => {
+  const [n, unit] = binFor(spanMs).split(" ");
+  return Number(n) * UNIT_MS[unit.replace(/s$/, "")];
+};
+
+export type Settled = { t: number; strategy: string; pnl: number };
+
+/**
+ * The pool's value counting finished bets only: money put in plus every settled bet's
+ * profit. A bet that's still riding counts at what it cost until it settles, so it never
+ * shows as a loss just because its price wobbled. Employees are the ones in `h.starting`;
+ * one point per time bucket (binFor) from `from` to `now`.
+ */
+export function settledSeries(h: History, settled: Settled[], from: number, now: number): PortfolioPoint[] {
+  const keys = Object.keys(h.starting);
+  const mine = settled.filter((s) => s.strategy in h.starting);
+  const putInAt = (t: number) => keys.reduce((s, k) => s + givenBy(h, k, t), 0);
+  let profit = mine.filter((s) => s.t < from).reduce((s, r) => s + r.pnl, 0);
+  const out: PortfolioPoint[] = [{ t: from, worth: putInAt(from) + profit, putIn: putInAt(from) }];
+  const bin = binMs(now - from);
+  const push = (t: number) => {
+    const p = { t, worth: putInAt(t) + profit, putIn: putInAt(t) };
+    const last = out[out.length - 1];
+    if (out.length > 1 && Math.floor((last.t - from) / bin) === Math.floor((t - from) / bin)) out[out.length - 1] = p;
+    else out.push(p);
+  };
+  // Settlements and bonuses, in time order (a bonus moves money put in, not profit)
+  const events = [...mine.filter((s) => s.t >= from && s.t <= now).map((s) => ({ t: s.t, pnl: s.pnl })),
+    ...h.transfers.filter((x) => x.strategy in h.starting && x.t >= from && x.t <= now).map((x) => ({ t: x.t, pnl: 0 }))]
+    .sort((a, b) => a.t - b.t);
+  for (const e of events) {
+    profit += e.pnl;
+    push(e.t);
+  }
+  out.push({ t: Math.max(now, out[out.length - 1].t), worth: putInAt(now) + profit, putIn: putInAt(now) });
+  return out;
+}
+
 /** Each employee's profit over time: account value minus the money they were given. */
 export function profitSeries(h: History): Record<string, Point[]> {
   const out: Record<string, Point[]> = {};

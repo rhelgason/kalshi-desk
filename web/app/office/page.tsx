@@ -2,8 +2,8 @@ import AutoRefresh from "@/components/AutoRefresh";
 import Office from "@/components/Office";
 import Setup from "@/components/Setup";
 import { getRealBook } from "@/lib/book";
-import { getActivity, getBtcSeries, getHistory, getLive, getPolicy, getRoster, withRoster } from "@/lib/db";
-import { only, poolKeys, portfolioSeries } from "@/lib/portfolio";
+import { getActivity, getBtcSeries, getHistory, getLive, getPolicy, getRoster, getSettlements, withRoster } from "@/lib/db";
+import { only, poolKeys, settledSeries } from "@/lib/portfolio";
 
 export const dynamic = "force-dynamic";
 
@@ -13,15 +13,15 @@ export default async function OfficePage() {
     // The office always shows the Live book once there is one (training until then)
     const book = (await getRealBook()) ? "real" : "pretend";
     const policy = await getPolicy(book);
-    const [live, roster, activity, history, btcSeries] = await Promise.all([
+    const [live, roster, activity, history, btcSeries, settled] = await Promise.all([
       getLive(book), getRoster(book), getActivity(book, policy.season), getHistory(book, policy.season, "season"),
-      getBtcSeries(book),
+      getBtcSeries(book), getSettlements(book, policy.season),
     ]);
     // Everyone works here, even staff who aren't on the Live book (Dan, Lucky, the twins in training):
     // they sit on the bench, practicing on pretend money
     const [training, trainingRoster] = book === "real"
       ? await Promise.all([getLive("pretend"), getRoster("pretend")]) : [null, {}];
-    data = { policy, live, roster, activity, history, btcSeries, training, trainingRoster };
+    data = { policy, live, roster, activity, history, btcSeries, settled, training, trainingRoster };
   } catch (e) {
     return <Setup error={String(e)} />;
   }
@@ -38,7 +38,7 @@ export default async function OfficePage() {
     <>
       <AutoRefresh seconds={30} />
       <Office employees={employees} activity={data.activity} total={total}
-        series={portfolioSeries(only(data.history, pool)).map((p) => ({ t: p.t, v: p.worth - p.putIn }))}
+        series={settledSeries(only(data.history, pool), data.settled, data.history.since, Date.now()).map((p) => ({ t: p.t, v: p.worth - p.putIn }))}
         btc={data.live.underlyings?.BTC?.spot ?? null} btcSeries={data.btcSeries} />
     </>
   );

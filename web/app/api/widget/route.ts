@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { defaultBook, getRealBook } from "@/lib/book";
-import { getHistory, getTodayRows, getKillSwitch, getLive, getPolicy, getSeasonStart } from "@/lib/db";
-import { only, poolKeys, portfolioSeries, type RangeKey } from "@/lib/portfolio";
+import { getHistory, getTodayRows, getKillSwitch, getLive, getPolicy, getSeasonStart, getSettlements } from "@/lib/db";
+import { only, poolKeys, settledSeries, type RangeKey } from "@/lib/portfolio";
 
 /**
  * Read-only numbers for the iPhone home-screen widget (Scriptable; the design
@@ -78,21 +78,21 @@ export async function GET(req: NextRequest) {
   const now = Date.now();
   const start = now - hours * 3_600_000;
 
-  const [history, seasonStart, todayRows] = await Promise.all([
+  const [history, seasonStart, todayRows, settled] = await Promise.all([
     getHistory(book, policy.season, range),
     getSeasonStart(book, policy.season),
     getTodayRows(book, policy.season, tz),
+    getSettlements(book, policy.season),
   ]);
 
-  // The pool's value over the window, or since the season began if that's more recent
+  // The pool's value over the window (or since the season began if that's more recent),
+  // counting finished bets only: bets still riding count at what they cost
   const from = Math.max(start, seasonStart ?? start);
   const full = from === start;
-  const all = portfolioSeries(only(history, members));
-  const before = all.filter((p) => p.t <= from).pop();
-  const series = [...(before ? [{ ...before, t: from }] : []), ...all.filter((p) => p.t > from)]
+  const series = settledSeries(only(history, members), settled, from, Math.max(now, Date.parse(live.updated_at)))
     .map((p) => [p.t, Math.round(p.worth * 100) / 100] as [number, number]);
-  series.push([Date.parse(live.updated_at), pool.equity]);
   const startValue = series[0][1];
+  const endValue = series[series.length - 1][1];
 
   const names = Object.fromEntries(live.employees.map((e) => [e.key, e.name]));
   const rows: Row[] = todayRows.filter((r) => members.includes(r.strategy))
@@ -121,7 +121,7 @@ export async function GET(req: NextRequest) {
       days: hours / 24,
       since: series[0][0],
       full, // false: the season is younger than the window
-      change: Math.round((pool.equity - startValue) * 100) / 100,
+      change: Math.round((endValue - startValue) * 100) / 100,
       high: Math.max(...series.map((p) => p[1])),
       low: Math.min(...series.map((p) => p[1])),
     },
