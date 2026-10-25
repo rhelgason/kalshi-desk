@@ -50,6 +50,7 @@ MIN_SECONDS, MAX_SECONDS = 120, 300
 PULL_SIGMA, PULL_WINDOW, PULL_COOLDOWN = 1.0, 2, 5.0
 QUEUE_SHARE = 0.3
 ORDER_LATENCY = 0.15         # seconds before a posted/cancelled bid takes effect at Kalshi
+TAPE_GRACE = 5.0             # a cancelled bid still counts against the stake until the tape has caught up with it
 TWIN_EVERY, TWIN_OFFSET, TWIN_TTL = 120, 5, 110   # pg_cron's */2 schedule, the run's ~5s, Coco's bid life
 SERVER_COST = float(os.environ.get("FAST_SERVER_COST", "6"))  # dollars a month (DigitalOcean)
 
@@ -242,13 +243,14 @@ class FastDesk:
         acct = self.accounts[bot]
         pos = acct.positions.get(ticker)
         held = (pos.yes_cost + pos.no_cost) if pos else 0.0
-        now = time.time()
+        cutoff = time.time() - TAPE_GRACE  # fills for a just-cancelled bid can still arrive from the tape
         return held + sum(b.price * b.remaining for b in self.bids
-                          if b.bot == bot and b.ticker == ticker and not b.ghost and b.live_until > now)
+                          if b.bot == bot and b.ticker == ticker and not b.ghost and b.live_until > cutoff)
 
     def free_cash(self, bot: str) -> float:
+        cutoff = time.time() - TAPE_GRACE
         return self.accounts[bot].cash - sum(b.price * b.remaining for b in self.bids
-                                             if b.bot == bot and not b.ghost and b.live_until > time.time())
+                                             if b.bot == bot and not b.ghost and b.live_until > cutoff)
 
     def post(self, bot: str, live: Live, side: Side, price: float, now: float, ttl: float = math.inf,
              reason: str = "") -> Optional[Bid]:

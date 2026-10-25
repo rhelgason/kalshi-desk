@@ -124,3 +124,15 @@ def test_a_quiet_coin_still_gets_a_reading():
         tape.push(T0 - 700 + i, 0.2 * (1 + 0.001 * (i % 40 == 0)))
         tape.hold(T0 - 700 + i + 19)
     assert tape.sigma(int(T0)) is not None and tape.move(T0) is not None
+
+
+def test_moving_a_bid_never_commits_more_than_the_stake():
+    import time as _t
+    m = make_market("KXSOL15M-X", series="KXSOL15M", yes_bid=0.95, yes_ask=0.96, close_in=timedelta(minutes=4))
+    d, live = desk_with(m)
+    now = _t.time()
+    first = d.post(FAST, live, Side.YES, 0.955, now)
+    d.cancel(first, now + 1)                  # the price moved; the old bid's fills may still be on their way
+    assert d.post(FAST, live, Side.YES, 0.957, now + 1.5) is None
+    d.apply_trades(live, [trade(now + 0.5, 0.95, 100, "no", "late")])
+    assert d.accounts[FAST].trades == 1 and d.committed(FAST, m.ticker) <= fast.stake(d.accounts[FAST]) + 1e-9
