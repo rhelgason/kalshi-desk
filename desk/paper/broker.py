@@ -240,8 +240,10 @@ class PaperBroker:
                 fee = (fees.get(o.ticker) or FeeSchedule()).maker(o.price, qty)
                 acct = self.accounts[o.strategy]
                 acct.apply_fill(o.ticker, Side(o.side), qty, o.price, fee)
+                # Stamped with the trade's time, not the clock's: a replayed season's fills must sort before
+                # their markets' settlements when the accounts are rebuilt
                 self.ledger.record_fill(o.strategy, o.ticker, Side(o.side), qty, o.price, fee,
-                                        intent_id=o.order_id, reason=f"maker fill: {o.reason}",
+                                        intent_id=o.order_id, reason=f"maker fill: {o.reason}", ts=when.isoformat(),
                                         seen_price=o.price, book_depth=size,
                                         latency_ms=int((when - placed).total_seconds() * 1000))
                 o.filled = round(o.filled + qty, 2)

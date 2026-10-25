@@ -80,6 +80,12 @@ def test_replay_fills_a_patient_twins_bid_when_the_bid_dips_through_it():
     assert fill["reason"].startswith("maker fill: " + REPLAY_TAG) and fill["fee"] == 0
     assert fill["price"] <= 0.94 and 9.0 <= fill["count"] * fill["price"] <= 10.0
     assert replay.accounts["heavy_maker"].settled_wins == 1 and not replay.broker.resting
+    # Written to a season and rebuilt in time order, the bid fills before its market settles
+    dest = Ledger(":memory:")
+    write_season(replay, dest, season=5)
+    dest.season = 5
+    rebuilt = dest.load_accounts(1000, ["heavy_maker"])["heavy_maker"]
+    assert fill["ts"] < replay.ledger.settlements()[0]["ts"] and not rebuilt.open_tickers
 
 
 def test_replay_never_fills_a_bid_without_stored_dips():
