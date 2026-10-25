@@ -318,12 +318,26 @@ class FastDesk:
                            reason=f"maker fill: {b.reason}", ts=_iso(t), seen_price=b.price,
                            book_depth=float(tr.get("count_fp") or 0), latency_ms=int((t - b.live_from) * 1000))
 
+    def summarize(self, ticker: str) -> None:
+        """One decisions row per bot per market: how many bids it posted, the last price, what filled."""
+        for bot in (FAST, TWIN):
+            mine = [b for b in self.bids if b.ticker == ticker and b.bot == bot and not b.ghost]
+            if not mine:
+                continue
+            last, filled = mine[-1], round(sum(b.filled for b in mine), 2)
+            pulls = sum(1 for b in self.bids if b.ticker == ticker and b.bot == bot and b.ghost)
+            self.write(self.ledger.record_decision, bot, ticker, last.side.value, last.price,
+                       round(sum(b.count for b in mine), 2), filled,
+                       "filled" if filled > 0 else "no fill", f"{len(mine)} bids, {pulls} pulled: {last.reason}",
+                       {"bids": len(mine), "pulls": pulls})
+
     def settle(self, live: Live, result: str) -> None:
         t, yes_value = live.market.ticker, 1.0 if result == "yes" else 0.0
         for bot, acct in self.accounts.items():
             if t in acct.positions:
                 pnl = acct.settle(t, yes_value)
                 self.write(self.ledger.record_settlement, bot, t, yes_value, pnl)
+        self.summarize(t)
         for g in [b for b in self.bids if b.ticker == t and b.ghost]:
             won = (result == g.side.value)
             pnl = round(g.filled * ((1.0 if won else 0.0) - g.price), 4)
@@ -435,6 +449,7 @@ class FastDesk:
                 ghosts = any(b.ticker == live.market.ticker and b.ghost for b in self.bids)
                 if not (held or ghosts):
                     if now > close + 45:  # the tape has stopped looking: nothing more can fill
+                        self.summarize(live.market.ticker)
                         self.bids = [b for b in self.bids if b.ticker != live.market.ticker]
                         live.settled = True
                     continue
