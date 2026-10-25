@@ -342,12 +342,17 @@ class FastDesk:
             try:
                 async with websockets.connect("wss://ws-feed.exchange.coinbase.com", ping_interval=20) as ws:
                     await ws.send(json.dumps({"type": "subscribe", "product_ids": list(COINS.values()),
-                                              "channels": ["ticker"]}))
+                                              "channels": ["ticker", "heartbeat"]}))
                     async for raw in ws:
                         msg = json.loads(raw)
-                        if msg.get("type") == "ticker" and msg.get("product_id") in self.coins:
-                            self.coins[msg["product_id"]].push(time.time(), float(msg["price"]))
+                        coin = self.coins.get(msg.get("product_id"))
+                        if coin is None:
+                            continue
+                        if msg.get("type") == "ticker":
+                            coin.push(time.time(), float(msg["price"]))
                             self.stats["coinbase_msgs"] += 1
+                        elif msg.get("type") == "heartbeat":
+                            coin.last_at = time.time()  # a quiet coin (DOGE) is still live: its price just held
             except Exception as e:
                 self.stats["errors"] += 1
                 self.stats["last_error"] = f"coinbase: {e}"[:200]
