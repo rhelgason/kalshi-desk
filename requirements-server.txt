@@ -1,0 +1,4 @@
+# The always-on server (deploy/SERVER.md) needs everything the hosted bot does, plus a websocket client
+# for Coinbase's live prices. Vercel never installs this file.
+-r requirements.txt
+websockets>=13

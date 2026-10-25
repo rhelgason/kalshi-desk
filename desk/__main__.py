@@ -18,6 +18,8 @@ Command line for the desk.
     python -m desk halt "why" [--long] / resume    the real-money kill switch
     python -m desk employees     who works here
     python -m desk whoami        check your Kalshi API key (read-only)
+    python -m desk fast          the always-on Fast Coco and her 2-minute twin (the DigitalOcean server)
+    python -m desk fast-report   is the server worth it? month by month, net of its cost
 """
 
 from __future__ import annotations
@@ -658,6 +660,8 @@ def main(argv: list[str] | None = None) -> int:
     reset = sub.add_parser("pool-reset", help="restart the pool's day and high-water mark at its current value")
     reset.add_argument("equity", type=float, help="the pool's true value now, in dollars")
     sub.add_parser("notify-test", help="send a test phone notification (needs PUSHOVER_TOKEN and PUSHOVER_USER)")
+    sub.add_parser("fast", help="run the always-on Fast Coco and her 2-minute twin (the server's job)")
+    sub.add_parser("fast-report", help="Fast Coco vs her twin by month: is the server worth it?")
     args = parser.parse_args(argv)
 
     _setup_logging(args.verbose)
@@ -714,6 +718,14 @@ def main(argv: list[str] | None = None) -> int:
             print("Sent: check your phone." if ok else "Pushover refused it (see the warning above).")
         elif args.cmd == "whoami":
             asyncio.run(cmd_whoami(cfg))
+        elif args.cmd == "fast":
+            from desk.fast import run_fast
+
+            asyncio.run(run_fast(cfg.db_path))
+        elif args.cmd == "fast-report":
+            from desk.fast import SCHEMA, fast_report
+
+            print(fast_report(Ledger(cfg.db_path, SCHEMA)))
     except KeyboardInterrupt:
         pass
     return 0

@@ -1,0 +1,17 @@
+[Unit]
+Description=Kalshi Desk: Fast Coco and her 2-minute twin (deploy/SERVER.md)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=desk
+WorkingDirectory=/home/desk/kalshi-desk
+EnvironmentFile=/etc/kalshi-desk.env
+ExecStart=/home/desk/kalshi-desk/.venv/bin/python -u -m desk fast
+Restart=always
+RestartSec=10
+# A 1 GB droplet: keep room for the system
+MemoryMax=500M
+
+[Install]
+WantedBy=multi-user.target
