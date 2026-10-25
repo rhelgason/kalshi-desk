@@ -16,17 +16,19 @@ real_book: null
 env: prod                 # REAL MONEY since 2026-10-18 (was demo)
 trading: live
 auto_hr: false            # no automatic reviews or promotions with real money: the manager decides
-# Season 2 (from 2026-10-24's backtest): Steady Sadie alone on bitcoin, ether and solana.
+# Season 6 (2026-10-25): Closing Time Coco alone on ether, solana, XRP and DOGE, 3% of the pool a bet
+# (real.settings pool.bet_pct). Resting bids on 94-99c favorites in the last 2-5 minutes: +0.46c per $1
+# from Aug 18 on (t 5.7) and in Oct 3-24 without bitcoin (t 2.9). Bitcoin lost in both Sep and Oct.
 # Starting a real season: python -m desk new-season --config desk.real.yaml --pool <deposit>
 pool_cash: 250
 starting_cash: 250
 
-crypto_series: [KXBTC15M, KXETH15M, KXSOL15M]
+crypto_series: [KXETH15M, KXSOL15M, KXXRP15M, KXDOGE15M]
 crypto_symbols: [BTC, ETH]
 
 live:
   max_order_dollars: 10   # no single order above this
-  max_orders_per_day: 800 # Sadie posts a bid each look until one fills: ~1-3 per market, ~290 markets a day
+  max_orders_per_day: 1500 # Coco posts a bid each look until one fills: ~1-3 per market, ~384 markets a day
   max_daily_loss: 40      # dollars down since midnight: halt until resumed (the pool's own stop is 10%)
   max_drift: 1            # dollars the books may differ from Kalshi's balance
 
@@ -34,9 +36,9 @@ bonus_pot:
   min_pool: 500           # the Employee of the Week's bonus starts once the real pool passes $500
 
 strategies:
-  # Only Sadie trades real money. Everyone else stays on Training.
+  # Only Coco trades real money. Everyone else stays on Training.
+  heavy_maker: {enabled: false}
   heavy_favorite: {enabled: false}
-  late_maker: {enabled: false}
   runner_up_maker: {enabled: false}
   dart_monkey: {enabled: false}
   longshot_buy: {enabled: false}
