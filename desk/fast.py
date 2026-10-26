@@ -1,22 +1,25 @@
 """
-Fast Coco: the always-on Closing Time Coco, for the DigitalOcean server (deploy/server/README.md).
+Fast Sadie: the always-on Steady Sadie, for the DigitalOcean server (deploy/SERVER.md).
 
 The hosted bot wakes every 2 minutes and its bids live 110 seconds. Here one process runs all day:
 
-  - Kalshi's order books twice a second and the trade tape every second (public data, no API key)
+  - Kalshi's order books twice a second and the trade tape every second (public data)
   - Coinbase's live price stream for each coin
-  - Fast Coco (`fast_maker`): today's Coco exactly (a bid at each 2-minute look, 94-99c favorites, 2-5 minutes
-    left), except that a waiting bid is PULLED when the coin jumps toward the line (a move beyond PULL_SIGMA over
-    the last PULL_WINDOW seconds). A 61-day second-by-second replay of four coins (Aug 25 - Oct 25): +0.86c per $1
-    against +0.55c without pulling, better in both halves and on every coin. An always-on bid did far worse
-    (+0.13c): a bid that is always there is the one that gets hit just before the price turns.
-  - The twin (`late_maker_twin`): today's Coco exactly, looking only when the 2-minute cron would.
-    Same tape, same fill rules, same money: the difference between the two is what the server is worth.
+  - Fast Sadie (`fast_maker`): a resting bid AT the best bid of a 94-99c favorite with 5-10 minutes left, kept
+    there continuously: it follows the best bid as it moves, comes down the moment the favorite leaves the band
+    or the window, and is pulled when the coin jumps toward the line (a move beyond PULL_SIGMA over the last
+    PULL_WINDOW seconds; ghosts show what pulling saved).
+  - The twin (`heavy_maker_twin`): the same pick, looking only when the 2-minute cron would, a bid that lives
+    110 seconds. Same tape, same fill rules, same money: the difference between the two is what the server is worth.
+
+Why this slot (research/fast_coco/README.md, 2026-10-26): every naive maker rule replayed on Kalshi's trade tape,
+harsh fills. 94-99c with 5-10 minutes left made +1.3c per $1 in October on all four coins (every week positive;
+the 5-6 minute slice was positive in all 9 weeks from Aug 25); Coco's 2-5 minutes was the weakest stretch.
+Following the price earns the same per $1 as the cron but fills about 1.8x as often.
 
 Both bet pretend money (3% of their own pot, at most $10, one market's worth at a time) in the database's
 "fast" schema. Fills come from the real tape like Training's (desk.paper.broker.PaperBroker.match): a trade
-through our price fills us, a trade at it fills a 30% queue share. Every pulled bid is kept as a "ghost"
-until its market settles, so `desk fast-report` can say what pulling saved and what it cost.
+through our price fills us, a trade at it fills a 30% queue share.
 """
 
 from __future__ import annotations
@@ -43,16 +46,18 @@ logger = logging.getLogger(__name__)
 
 SCHEMA = "fast"
 COINS = {"KXETH15M": "ETH-USD", "KXSOL15M": "SOL-USD", "KXXRP15M": "XRP-USD", "KXDOGE15M": "DOGE-USD"}
-FAST, TWIN = "fast_maker", "late_maker_twin"
-START_CASH = 87.63           # the real book's pool when the trial began (2026-10-25)
+FAST, TWIN = "fast_maker", "heavy_maker_twin"
+START_CASH = 87.63           # the real book's pool when the trials began (2026-10-25)
 BET_PCT, MAX_BET = 0.03, 10.0
 MIN_PRICE, MAX_PRICE, MAX_SPREAD = 0.94, 0.99, 0.02
-MIN_SECONDS, MAX_SECONDS = 120, 300
+MIN_SECONDS, MAX_SECONDS = 300, 600
+IMPROVE_TICKS = 0            # join the best bid: a tick above it earned less in every replay
+PULL_COOL = 5                # seconds before Fast Sadie bids again after a pull
 PULL_SIGMA, PULL_WINDOW = 1.0, 2
 QUEUE_SHARE = 0.3
 ORDER_LATENCY = 0.15         # seconds before a posted/cancelled bid takes effect at Kalshi
 TAPE_GRACE = 5.0             # a cancelled bid still counts against the stake until the tape has caught up with it
-TWIN_EVERY, TWIN_OFFSET, TWIN_TTL = 120, 5, 110   # pg_cron's */2 schedule, the run's ~5s, Coco's bid life
+TWIN_EVERY, TWIN_OFFSET, TWIN_TTL = 120, 5, 110   # pg_cron's */2 schedule, the run's ~5s, a cron bid's life
 SERVER_COST = float(os.environ.get("FAST_SERVER_COST", "6"))  # dollars a month (DigitalOcean)
 
 
@@ -174,11 +179,11 @@ def match(bid: Bid, trade: dict) -> float:
 
 
 def favorite(m: Market) -> Optional[tuple[Side, float]]:
-    """Coco's pick: the side priced 94-99c with a tight spread, and the bid she'd post for it."""
+    """The pick: the side priced 94-99c with a tight spread, and the bid to post for it (at the best bid)."""
     for side in (Side.YES, Side.NO):
         bid, ask = m.bid(side), m.ask(side)
         if MIN_PRICE <= ask <= MAX_PRICE and 0 < ask - bid <= MAX_SPREAD + 1e-9:
-            price = patient_price(m, side, 1)
+            price = patient_price(m, side, IMPROVE_TICKS)
             if price:
                 return side, price
     return None
@@ -213,6 +218,7 @@ class FastDesk:
         self.accounts: dict[str, PaperAccount] = {}
         self.last_twin_look = int(time.time() - TWIN_OFFSET) // TWIN_EVERY
         self.last_equity_hour = None
+        self.cool: dict[str, float] = {}
 
     # --- bookkeeping -------------------------------------------------
 
@@ -278,29 +284,33 @@ class FastDesk:
                        no_ask=round(1 - yb, 4) if yb else 0.0)
 
     def fast_step(self, live: Live, m: Market, now: float, look: bool) -> None:
-        """Coco's own schedule (a 110-second bid at each 2-minute look), plus the one thing the server adds:
-        a waiting bid is pulled the moment the coin jumps toward the line."""
+        """A bid always at the favorite's best bid while it's in the band and the window: follow the price, come
+        down when the pick goes away, and pull (keeping a ghost) when the coin jumps toward the line."""
         t = live.market.ticker
         left = live.market.seconds_to_close(datetime.fromtimestamp(now, timezone.utc)) or 0
         coin = self.coins[COINS[live.market.series_ticker or t.split("-")[0]]]
         move = coin.move(now)
-        for b in [b for b in self.bids if b.bot == FAST and b.ticker == t and not b.ghost and b.live_until > now]:
+        mine = [b for b in self.bids if b.bot == FAST and b.ticker == t and not b.ghost and b.live_until > now]
+        for b in mine:
             against = None if move is None else (move if b.side is Side.YES else -move)
             if against is not None and against < -PULL_SIGMA:
                 self.cancel(b, now, ghost=True, move=round(against, 2))
+                self.cool[t] = now + PULL_COOL
                 self.stats["pulls"] += 1
                 self.write(self.ledger.record_event, "pull", {
                     "ticker": t, "side": b.side.value, "price": b.price, "count": b.remaining,
                     "move_sigma": round(against, 2), "seconds_left": round(left)}, strategy=FAST)
-        if not look or move is None or not (MIN_SECONDS <= left <= MAX_SECONDS):
-            return  # no bids while the coin feed is cold: pulling is the point of this bot
-        pick = favorite(m)
-        if pick and not any(b.bot == FAST and b.ticker == t and not b.ghost and b.live_until > now for b in self.bids):
-            self.post(FAST, live, pick[0], pick[1], now, ttl=TWIN_TTL,
+        mine = [b for b in mine if b.live_until > now + ORDER_LATENCY]
+        pick = favorite(m) if move is not None and MIN_SECONDS <= left <= MAX_SECONDS else None
+        for b in mine:
+            if not pick or (b.side, b.price) != pick:
+                self.cancel(b, now)   # the price moved, the pick went away, or the window closed
+        if pick and now >= self.cool.get(t, 0) and not any((b.side, b.price) == pick for b in mine):
+            self.post(FAST, live, pick[0], pick[1], now,
                       reason=f"fast: {pick[0].value} {pick[1]:.3f}, {left:.0f}s left")
 
     def twin_step(self, live: Live, m: Market, now: float) -> None:
-        """Today's Coco: one look per cron run, a bid that lives 110 seconds, no coin feed."""
+        """The cron version: one look per 2-minute run, a bid that lives 110 seconds, no coin feed."""
         left = live.market.seconds_to_close(datetime.fromtimestamp(now, timezone.utc)) or 0
         if not (MIN_SECONDS <= left <= MAX_SECONDS):
             return
@@ -523,7 +533,7 @@ async def run_fast(db_url: str) -> None:
 # ----------------------------------------------------------------------
 
 def fast_report(ledger: Ledger, server_since: Optional[str] = None) -> str:
-    """Month by month: Fast Coco against her 2-minute twin, what pulling did, and the server's cost."""
+    """Month by month: Fast Sadie against her 2-minute twin, what pulling did, and the server's cost."""
     rows = ledger._rows("SELECT strategy, ts, pnl FROM settlements ORDER BY ts")
     fills = ledger._rows("SELECT strategy, ts, count, price FROM fills ORDER BY ts")
     events = ledger._rows("SELECT ts, kind, detail FROM events WHERE kind = 'pull_outcome' ORDER BY ts")
@@ -542,7 +552,7 @@ def fast_report(ledger: Ledger, server_since: Optional[str] = None) -> str:
         d = json.loads(e["detail"]) if isinstance(e["detail"], str) else e["detail"]
         mo = month(e["ts"]); mo["pulls"] += 1; mo["pull_saved"] -= float(d.get("pnl_if_kept") or 0)
     accts = ledger.load_accounts(START_CASH, [FAST, TWIN])
-    lines = ["Fast Coco (always-on server) vs her twin (today's 2-minute Coco), pretend money, same tape",
+    lines = ["Fast Sadie (always-on server) vs her twin (the 2-minute cron version), pretend money, same tape",
              f"{'month':8} {'fast P&L':>9} {'twin P&L':>9} {'server':>8} {'cost':>6} {'net':>8} "
              f"{'fast c/$':>9} {'twin c/$':>9} {'pulls':>6} {'pulls saved':>12}"]
     tot = {"fast": 0.0, "twin": 0.0, "cost": 0.0}
@@ -556,7 +566,7 @@ def fast_report(ledger: Ledger, server_since: Optional[str] = None) -> str:
                      f"{cpd(FAST):+8.2f}c {cpd(TWIN):+8.2f}c {mo['pulls']:6d} {mo['pull_saved']:+12.2f}")
     lines.append(f"{'total':8} {tot['fast']:+9.2f} {tot['twin']:+9.2f} {tot['fast'] - tot['twin']:+8.2f} "
                  f"{tot['cost']:6.2f} {tot['fast'] - tot['twin'] - tot['cost']:+8.2f}")
-    lines.append(f"Pots now: Fast Coco ${accts[FAST].equity({}):,.2f}, twin ${accts[TWIN].equity({}):,.2f} "
+    lines.append(f"Pots now: Fast Sadie ${accts[FAST].equity({}):,.2f}, twin ${accts[TWIN].equity({}):,.2f} "
                  f"(both started at ${START_CASH})")
     lines.append("'server' = what the always-on version made beyond the twin; 'net' subtracts the server's cost "
                  "(a whole month is charged even for a partial one). 'pulls saved' = losses avoided minus "

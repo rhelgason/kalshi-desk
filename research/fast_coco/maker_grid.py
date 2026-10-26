@@ -9,7 +9,8 @@ from datetime import datetime, timezone
 TAPE = sys.argv[1]
 COINS = sys.argv[2:] or ["ETH", "SOL", "XRP", "DOGE"]
 CAP, QUEUE, LAT = 10.0, float(os.environ.get("QUEUE", "0.3")), 1.0
-SLICES = [(300, 360), (240, 300), (180, 240), (120, 180), (60, 120), (30, 60), (0, 30)]
+_e = [int(x) for x in os.environ.get("EDGES", "360,300,240,180,120,60,30,0").split(",")]
+SLICES = list(zip(_e[1:], _e[:-1]))   # (min seconds left, max seconds left), latest first
 BANDS = [(0.01, 0.05), (0.05, 0.15), (0.15, 0.35), (0.35, 0.65), (0.65, 0.85), (0.85, 0.94), (0.94, 0.97),
          (0.97, 0.99), (0.99, 0.996), (0.996, 1.0)]
 out = defaultdict(lambda: defaultdict(lambda: [0.0, 0.0, 0, 0]))

@@ -1,4 +1,4 @@
-"""Fast Coco and her 2-minute twin (no network)."""
+"""Fast Sadie and her 2-minute twin (no network)."""
 
 import math
 from datetime import timedelta
@@ -52,10 +52,10 @@ def test_tape_fills_through_fully_and_at_price_by_queue_share():
     assert match(bid, trade(T0 + 3, 0.90, 4, "no", "e")) == 0      # after it was cancelled
 
 
-def test_favorite_is_cocos_band_with_a_tight_spread():
+def test_favorite_is_the_94_99_band_with_a_tight_spread_and_joins_the_best_bid():
     m = make_market("KXSOL15M-X", yes_bid=0.955, yes_ask=0.96)
     side, price = favorite(m)
-    assert side is Side.YES and 0.955 <= price < 0.96
+    assert side is Side.YES and price == 0.955
     assert favorite(make_market("KXSOL15M-Y", yes_bid=0.80, yes_ask=0.82)) is None
     assert favorite(make_market("KXSOL15M-Z", yes_bid=0.90, yes_ask=0.96)) is None  # 6c spread
 
@@ -64,24 +64,27 @@ def _book(ticker, yes_bid, no_bid):
     return Orderbook(ticker, [Level(yes_bid, 500)], [Level(no_bid, 500)])
 
 
-def test_fast_bids_at_cocos_looks_and_pulls_on_a_jump_toward_the_line():
-    m = make_market("KXSOL15M-X", series="KXSOL15M", yes_bid=0.95, yes_ask=0.96, close_in=timedelta(minutes=4))
+def test_fast_follows_the_best_bid_and_pulls_on_a_jump_toward_the_line():
+    m = make_market("KXSOL15M-X", series="KXSOL15M", yes_bid=0.95, yes_ask=0.96, close_in=timedelta(minutes=7))
     d, live = desk_with(m)
     calm_coin(d)
-    lm = d.live_market(live, _book(m.ticker, 0.95, 0.04))
-    d.fast_step(live, lm, T0 - 1, look=False)  # between looks: nothing
-    assert d.bids == []
-    d.fast_step(live, lm, T0, look=True)
+    d.fast_step(live, d.live_market(live, _book(m.ticker, 0.95, 0.04)), T0, look=False)  # no need to wait for a look
     [bid] = [b for b in d.bids if b.bot == FAST]
-    assert bid.side is Side.YES and 2.5 <= bid.price * bid.count <= 2.63  # 3% of $87.63
-    assert bid.live_until == T0 + fast.TWIN_TTL
-    d.coins["SOL-USD"].push(T0 + 1, 99.0)  # SOL drops: bad news for a YES favorite
-    d.fast_step(live, lm, T0 + 1, look=False)
-    assert bid.live_until < T0 + 2 and any(b.ghost for b in d.bids)
-    d.fast_step(live, lm, T0 + 2, look=False)  # no new bid until the next look
-    assert not [b for b in d.bids if b.bot == FAST and not b.ghost and b.live_until > T0 + 2]
+    assert bid.side is Side.YES and bid.price == 0.95 and bid.live_until == math.inf
+    assert 2.5 <= bid.price * bid.count <= 2.63  # 3% of $87.63
+    d.coins["SOL-USD"].hold(T0 + 1)
+    d.fast_step(live, d.live_market(live, _book(m.ticker, 0.952, 0.04)), T0 + 1, look=False)  # the bid moved up
+    assert bid.live_until < T0 + 2
+    [moved] = [b for b in d.bids if b.bot == FAST and b.live_until == math.inf]
+    assert moved.price == 0.952
+    d.coins["SOL-USD"].push(T0 + 2, 99.0)  # SOL drops: bad news for a YES favorite
+    lm = d.live_market(live, _book(m.ticker, 0.952, 0.04))
+    d.fast_step(live, lm, T0 + 2, look=False)
+    assert moved.live_until < T0 + 3 and any(b.ghost for b in d.bids)
+    d.fast_step(live, lm, T0 + 3, look=False)  # cooling off: no new bid yet
+    assert not [b for b in d.bids if b.bot == FAST and not b.ghost and b.live_until > T0 + 3]
     # The tape would have filled the pulled bid; the market then goes NO: pulling saved a loss
-    d.apply_trades(live, [trade(T0 + 3, 0.90, 50, "no", "x")])
+    d.apply_trades(live, [trade(T0 + 4, 0.90, 50, "no", "x")])
     assert d.accounts[FAST].trades == 0
     d.settle(live, "no")
     d.writes_drain = [d.writes.get_nowait() for _ in range(d.writes.qsize())]
@@ -89,15 +92,31 @@ def test_fast_bids_at_cocos_looks_and_pulls_on_a_jump_toward_the_line():
     assert outcome and outcome[0][1]["won"] is False and outcome[0][1]["pnl_if_kept"] < 0
 
 
+def test_fast_bid_comes_down_when_the_window_or_the_pick_ends():
+    m = make_market("KXSOL15M-X", series="KXSOL15M", yes_bid=0.95, yes_ask=0.96, close_in=timedelta(minutes=7))
+    d, live = desk_with(m)
+    calm_coin(d)
+    d.fast_step(live, d.live_market(live, _book(m.ticker, 0.95, 0.04)), T0, look=False)
+    [bid] = [b for b in d.bids if b.bot == FAST]
+    d.coins["SOL-USD"].hold(T0 + 1)
+    d.fast_step(live, d.live_market(live, _book(m.ticker, 0.90, 0.08)), T0 + 1, look=False)  # fell out of the band
+    assert bid.live_until < T0 + 2 and not [b for b in d.bids if b.live_until == math.inf]
+    late = make_market("KXSOL15M-Y", series="KXSOL15M", yes_bid=0.95, yes_ask=0.96, close_in=timedelta(minutes=4))
+    d2, live2 = desk_with(late)
+    calm_coin(d2)
+    d2.fast_step(live2, d2.live_market(live2, _book(late.ticker, 0.95, 0.04)), T0, look=True)  # under 5 minutes left
+    assert d2.bids == []
+
+
 def test_no_fast_bids_while_the_coin_feed_is_cold():
-    m = make_market("KXSOL15M-X", series="KXSOL15M", yes_bid=0.95, yes_ask=0.96, close_in=timedelta(minutes=4))
+    m = make_market("KXSOL15M-X", series="KXSOL15M", yes_bid=0.95, yes_ask=0.96, close_in=timedelta(minutes=7))
     d, live = desk_with(m)
     d.fast_step(live, d.live_market(live, _book(m.ticker, 0.95, 0.04)), T0, look=True)
     assert d.bids == []
 
 
 def test_twin_bids_once_per_look_for_110_seconds_and_fills_from_the_tape():
-    m = make_market("KXSOL15M-X", series="KXSOL15M", yes_bid=0.95, yes_ask=0.96, close_in=timedelta(minutes=4))
+    m = make_market("KXSOL15M-X", series="KXSOL15M", yes_bid=0.95, yes_ask=0.96, close_in=timedelta(minutes=7))
     d, live = desk_with(m)
     lm = d.live_market(live, _book(m.ticker, 0.95, 0.04))
     d.twin_step(live, lm, T0)
@@ -131,7 +150,7 @@ def test_a_quiet_coin_still_gets_a_reading():
 
 def test_moving_a_bid_never_commits_more_than_the_stake():
     import time as _t
-    m = make_market("KXSOL15M-X", series="KXSOL15M", yes_bid=0.95, yes_ask=0.96, close_in=timedelta(minutes=4))
+    m = make_market("KXSOL15M-X", series="KXSOL15M", yes_bid=0.95, yes_ask=0.96, close_in=timedelta(minutes=7))
     d, live = desk_with(m)
     now = _t.time()
     first = d.post(FAST, live, Side.YES, 0.955, now)

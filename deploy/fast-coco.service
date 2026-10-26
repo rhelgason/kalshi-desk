@@ -1,5 +1,5 @@
 [Unit]
-Description=Kalshi Desk: Fast Coco and her 2-minute twin (deploy/SERVER.md)
+Description=Kalshi Desk: Fast Sadie and her 2-minute twin (deploy/SERVER.md)
 After=network-online.target
 Wants=network-online.target
 
