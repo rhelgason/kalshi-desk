@@ -46,10 +46,11 @@ def test_real_book_config_inherits_and_overrides():
     # One employee switched off without dropping their settings or anyone else's
     assert real.strategies["dart_monkey"]["enabled"] is False
     assert real.strategies["dart_monkey"]["stake"] == pretend.strategies["dart_monkey"]["stake"]
-    # Only Coco trades real money; Training keeps the rest of the staff (2026-10-25)
-    for k in ("heavy_favorite", "heavy_maker", "runner_up_maker", "longshot_buy"):
-        assert real.strategies[k]["enabled"] is False and pretend.strategies[k].get("enabled", True)
-    assert real.strategies.get("late_maker", {}).get("enabled", True)
+    # Only Sadie trades real money, and she is Training's only pool member too (2026-10-26)
+    for k in ("heavy_favorite", "late_maker", "runner_up_maker"):
+        assert real.strategies[k]["enabled"] is False and pretend.strategies[k]["enabled"] is False
+    assert real.strategies["longshot_buy"]["enabled"] is False and pretend.strategies["longshot_buy"].get("enabled", True)
+    assert real.strategies["heavy_maker"].get("enabled", True) and pretend.strategies["heavy_maker"].get("enabled", True)
     assert "max_seconds" in real.strategies["heavy_favorite"]  # Stella's settings still reach her twin
 
 def test_bad_book_or_schema_is_refused(tmp_path):
@@ -112,12 +113,13 @@ async def test_hosted_run_does_real_book_first_and_survives_its_failure(monkeypa
     assert (await cloud.run_all_books(str(tmp_path / "desk.yaml")))["ok"] and calls == ["desk.yaml"]
 
 
-def test_real_book_builds_only_coco():
+def test_real_book_builds_only_sadie():
     from desk.strategies import build_strategies
 
     real = DeskConfig.load(ROOT / "desk.real.yaml")
-    [coco] = build_strategies(hr_config(real))
-    assert coco.key == "late_maker" and (coco.min_price, coco.min_seconds, coco.max_seconds) == (0.94, 120, 300)
+    [sadie] = build_strategies(hr_config(real))
+    assert sadie.key == "heavy_maker"
+    assert (sadie.min_price, sadie.max_price, sadie.min_seconds, sadie.max_seconds) == (0.92, 0.99, 300, 540)
 
 
 def hr_config(cfg):

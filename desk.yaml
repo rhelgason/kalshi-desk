@@ -42,16 +42,22 @@ liquidity_share: 0.5      # assume faster bots take half of every displayed orde
 #   Stella paying the ask           +0.58c (t 3.8, 9 of 11 months up)
 #   Sadie's resting bids            +1.53c (t 9.7, 11 of 11), ~+1.2c on the real trade tape
 #   the edge is shrinking: ~2c a month early in the year, 0.4c so far in October
+# Season 7 (2026-10-26): Steady Sadie alone in the pool, like the real book. research/fast_coco:
+# resting bids on 92-99c favorites with 5-9 minutes left made +1.2c per $1 on Kalshi's real trade tape
+# (Aug 25 - Oct 25, ETH/SOL/XRP/DOGE, the hosted bot's 2-minute looks), every coin and 9 of 10 weeks up,
+# and held with a 3-second delay or none of the queue at our price. Coco's 2-5 minutes was the weakest
+# stretch and lost in live paper. Stella, Coco and Sid are benched (code and settings kept).
 strategies:
-  heavy_favorite:         # 🐜 Steady Stella - 92-99c favorites, 5-9 minutes left, pays the ask
-    min_price: 0.92       # the yardstick for the twins: same picks, taker fills and fees
+  heavy_favorite:         # 🐜 Steady Stella - 92-99c favorites, 5-9 minutes left, pays the ask (benched)
+    enabled: false        # Sadie still uses these settings: she is Stella's patient twin
+    min_price: 0.92
     max_price: 0.99
     min_seconds: 300
     max_seconds: 540
     max_spread: 0.02
   heavy_maker: {}         # 🐌 Steady Sadie - Stella's picks with resting bids (uses Stella's settings)
-  late_maker: {}          # 🦉 Closing Time Coco - 94-99c, 2-5 minutes left, resting bids
-  runner_up_maker: {}     # 🥈 Silver Medal Sid - 85-92c, 5-13 minutes left, resting bids (probation)
+  late_maker: {enabled: false}       # 🦉 Closing Time Coco - 94-99c, 2-5 minutes left (benched)
+  runner_up_maker: {enabled: false}  # 🥈 Silver Medal Sid - 85-92c, 5-13 minutes left (benched)
   longshot_buy:           # 🐦 Lucky the Pigeon - control group: buys long shots
     max_days: 2
     stake: 2
