@@ -1,13 +1,17 @@
 # The always-on server
 
 A DigitalOcean droplet (New York, NYC3, $6/month: 1 GB, 1 CPU, Ubuntu 24.04) at **104.131.18.118**,
-set up 2026-10-25. It runs one thing: `python -m desk fast` (desk/fast.py), Fast Coco and her 2-minute
+set up 2026-10-25. It runs one thing: `python -m desk fast` (desk/fast.py), Fast Sadie and her 2-minute
 twin on pretend money in the database's `fast` schema. Everything else stays on Vercel + Supabase.
 
 - Log in: `ssh root@104.131.18.118` (the owner's Mac key). The bot runs as the `desk` user.
 - Firewall: SSH only (ufw). Password logins off. fail2ban and automatic security updates on.
 - Code: `/home/desk/kalshi-desk`, pulled from GitHub with a read-only deploy key.
-- Secrets: `/etc/kalshi-desk.env` (DATABASE_URL only; no Kalshi key while Fast Coco is on pretend money).
+- Secrets: `/etc/kalshi-desk.env` (DATABASE_URL, KALSHI_API_KEY_ID, KALSHI_PRIVATE_KEY_PATH=/etc/kalshi-desk.key).
+  The key ("Server" on Kalshi) was installed with deploy/add-kalshi-key.sh; it can trade but is only used to read
+  (signed reads get the key's own rate limit). Delete it on kalshi.com -> Settings -> API Keys to revoke.
+- Research downloads run here too (research/fast_coco/tape.py, index_history.py) into /home/desk/research; stop one
+  with `kill $(cat /home/desk/research/tape15/pid)`, never `pkill -f` (it matches your own ssh command).
 - Service: `deploy/fast-coco.service` -> `/etc/systemd/system/fast-coco.service` (restarts on crash and boot).
 
 ```bash
@@ -18,7 +22,7 @@ python -m desk fast-report     # from anywhere with DATABASE_URL: is the server 
 
 Health is in the `fast` schema's `status` row `fast:health` (updated every 30 seconds).
 
-**Before Fast Coco trades real money:** the cron Coco must stop trading real money at the same moment (two bots
-must never trade one account), and the twin keeps running as the "without the server" comparison. Fast Coco then
-needs the Kalshi key on the server (the owner copies it over) and real cancels: a pull is only worth anything if
+**Before Fast Sadie trades real money:** the cron bot must stop trading real money at the same moment (two bots
+must never trade one account), and the twin keeps running as the "without the server" comparison. Fast Sadie then
+needs real orders and cancels: a pull is only worth anything if
 the cancel reaches Kalshi within a second. research/fast_coco/README.md has the backtest behind her design.

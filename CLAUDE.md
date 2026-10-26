@@ -26,19 +26,21 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
 
 ## Where we left off (2026-10-25)
 
-- **Real money is ON** (season 6, from $87.63): Closing Time Coco (`late_maker`) alone on ETH/SOL/XRP/DOGE,
-  3% of the pool a bet ($10 cap), window_cap 3%, daily_stop 15% (real.settings). No bitcoin: it lost in Sep and Oct.
-  Why: resting bids on 94-99c favorites in the last 5 minutes made +0.46c per $1 from Aug 18 on (t ~5.7).
-  The edge shrinks month to month and a single week swings +/-0.5c (Oct 18-25 was about zero).
-- **Training** season 6 is the backfill from Dec 10, 2025 ($1,000 -> ~$18k at $10 bets).
-- **Fast Coco trial** on the server (desk/fast.py, deploy/SERVER.md): Coco's own 2-minute schedule, plus pulling a
-  waiting bid when the coin jumps (61-day replay: +0.86c per $1 vs +0.55c, research/fast_coco), against a twin that
-  behaves like the cron Coco, both on pretend money from $87.63. An always-on bid did far worse (+0.13c).
-  `python -m desk fast-report` says month by month whether the $6 server pays for itself. After ~2 weeks, if
-  Fast Coco wins, move the real money to the server (steps at the end of deploy/SERVER.md; the owner copies the
-  Kalshi key over themselves).
-- Projections given to the owner (expected value, edge halving every 3 months): without the server
-  $118 / $182 / $262 / $344 at 1 / 3 / 6 / 12 months; with it $161 / $388 / $635 / $799.
+- **Real money is PAUSED** (long pause, 2026-10-26) at $74.44: season 6 ran Closing Time Coco (`late_maker`) alone on
+  ETH/SOL/XRP/DOGE for one day (30 bets, 6 lost, -$13.19). Resume only when the owner asks.
+- **The finding (2026-10-26, research/fast_coco/README.md):** every naive maker rule replayed on Kalshi's real trade
+  tape with harsh fills (`maker_grid.py`). The edge is resting bids on 94-99c favorites with **5-10 minutes left**
+  (Steady Sadie's slot): +1.3c per $1 in October on all four coins, every week positive; the 5-6 minute slice was
+  positive in all 9 weeks from Aug 25. Coco's 2-5 minutes was the weakest stretch. 99c+ bids are a thin but steady
+  second edge (+0.3c, ~0.3% lost). Sizing: Sadie's rule + 99c rule at 3% bets, $10 cap: $100 -> $531 in 27 days,
+  worst day -11.5% (sizing.py). Ruled out: the final minute even with the official index (others are faster),
+  two-sided market making, selling before the close, Kalshi maker rewards (not on crypto).
+- **Fast Sadie trial** on the server (desk/fast.py, deploy/SERVER.md, from 2026-10-26 07:12 UTC): a bid always at the
+  favorite's best bid in Sadie's slot (follows the price, pulls on coin jumps) against a 2-minute cron twin, pretend
+  money from $87.63 each. `python -m desk fast-report`. The replay says following earns the same per $1 as the cron
+  but fills ~1.8x as often. The server has its own Kalshi key ("Server", /etc/kalshi-desk.key), used for reads.
+- **Next for real money (owner's go):** a new real season with Sadie (`heavy_maker`) instead of Coco on the four coins.
+- **Training** season 6 is the backfill from Dec 10, 2025 (seeded through Oct 24; live paper since).
 
 ## Things worth knowing
 
