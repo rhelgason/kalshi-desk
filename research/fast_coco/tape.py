@@ -7,6 +7,13 @@ import asyncio, gzip, json, os, sys, time
 from datetime import datetime
 import httpx
 
+sys.path.insert(0, ".")
+try:  # signed requests get the key's own rate limit instead of the IP's public one
+    from desk.kalshi.auth import KalshiSigner
+    SIGNER = KalshiSigner.from_env()
+except ImportError:
+    SIGNER = None
+
 K = "https://api.elections.kalshi.com/trade-api/v2"
 DAYS, WIN, OUT, SERIES = float(sys.argv[1]), int(sys.argv[2]), sys.argv[3], sys.argv[4:]
 ts = lambda s: datetime.fromisoformat(s.replace("Z", "+00:00")).timestamp()
@@ -31,7 +38,8 @@ async def get(http, path, params):
     while True:
         await lim.wait()
         try:
-            r = await http.get(K + path, params=params)
+            hdrs = SIGNER.headers("GET", "/trade-api/v2" + path) if SIGNER else {}
+            r = await http.get(K + path, params=params, headers=hdrs)
         except httpx.HTTPError:
             await asyncio.sleep(3); continue
         stats["req"] += 1
