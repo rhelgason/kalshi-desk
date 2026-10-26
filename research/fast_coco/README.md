@@ -38,3 +38,21 @@ Aug 25 - Oct 25, ETH/SOL/XRP, harsh fills (a sweep through our price fills us in
   ~25 of 62 days up. Reacting in 1 s is worse everywhere. The more the index disagrees with the price, the more a bid
   loses: the sellers who hit it know more. Taking the ask when the index says it's cheap: -0.8 to +0.1c after fees.
 - Verdict: the index is table stakes for the final minute, not an edge; others already trade on it, faster.
+
+## Where the maker edge is (2026-10-26 overnight)
+
+`maker_grid.py` replays every naive maker rule (time slice x price band) on the full 15-minute trade tape (`tape.py 62 15`,
+Aug 25 - Oct 25, ETH/SOL/XRP/DOGE): rest a bid AT the best bid of the side in the band, re-post as it moves, pull when it
+leaves the band; harsh fills (a trade through our price fills us in full). `maker_bets.py` + `sizing.py` turn one rule into
+per-bet results and compound them at different bet sizes with a per-market cap.
+
+- The edge peaks with **6-10 minutes left** on 85-99c favorites (+1.1 to +1.8c per $1, positive in both months) and fades
+  toward the close (2-5 minutes: +0.2 to +0.7c). Coco's slot (94-99c, 2-5 min) is the weakest: +0.10c, 6 of 10 weeks up.
+- **Sadie's slot (94-99c, 5-10 min): +1.08c, t 3.9, 9 of 10 weeks up, every coin positive.** 6-10 min: +1.20c, t 4.0.
+- 99c+ bids: +0.20c, t 2.9, ~0.3% lost: a thin second edge that runs alongside.
+- Sizing ($10 cap): 6-10 min + 99c rule at 1% bets: $100 -> $314 in 62 days (worst day -5%); at 3%: $1,034 (worst -17%).
+- Joining the best bid beats a tick above it; following the price earns the same per $1 as the 2-minute cron but fills
+  ~1.8x as often; $10 bids fill fully 92-94% of the time.
+- Replay vs live paper (Training Sadie on the real tape, Oct 23-25): same direction, replay ~1c per $1 too high. Expect
+  real Sadie at roughly +0.3 to +1c per $1.
+- Ruled out: two-sided market making (-0.3 to -6c), selling before the close (costs 0.1-1.9c), hour-of-day filters (noise).

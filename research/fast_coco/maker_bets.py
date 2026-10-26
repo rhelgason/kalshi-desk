@@ -34,7 +34,7 @@ def run(m, a=A, b=B, lo=LO, hi=HI):
     if spent <= 0:
         return None
     return {"close": close, "spent": round(spent, 4), "pnl": round((got if held == m["result"] else 0) - spent, 4),
-            "avg": round(spent / got, 4)}
+            "avg": round(spent / got, 4), "side": held, "got": round(got, 2)}
 
 
 def run_cron(m, a, b, lo, hi):
@@ -60,7 +60,7 @@ def run_cron(m, a, b, lo, hi):
     if spent <= 0:
         return None
     return {"close": close, "spent": round(spent, 4), "pnl": round((got if held == m["result"] else 0) - spent, 4),
-            "avg": round(spent / got, 4)}
+            "avg": round(spent / got, 4), "side": held, "got": round(got, 2)}
 
 
 if __name__ == "__main__":
