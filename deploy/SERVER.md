@@ -18,7 +18,7 @@ python -m desk fast-report     # from anywhere with DATABASE_URL: is the server 
 
 Health is in the `fast` schema's `status` row `fast:health` (updated every 30 seconds).
 
-**Before Fast Coco trades real money:** her bid follows the best bid, and on the real book her own bid IS
-the best bid, so subtract her own resting size from the book first (paper bids aren't in Kalshi's book, so
-the trial can't show this). The cron Coco must stop trading real money at the same moment, and the twin keeps
-running as the "without the server" comparison.
+**Before Fast Coco trades real money:** the cron Coco must stop trading real money at the same moment (two bots
+must never trade one account), and the twin keeps running as the "without the server" comparison. Fast Coco then
+needs the Kalshi key on the server (the owner copies it over) and real cancels: a pull is only worth anything if
+the cancel reaches Kalshi within a second. research/fast_coco/README.md has the backtest behind her design.

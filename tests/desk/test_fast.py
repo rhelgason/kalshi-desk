@@ -64,19 +64,22 @@ def _book(ticker, yes_bid, no_bid):
     return Orderbook(ticker, [Level(yes_bid, 500)], [Level(no_bid, 500)])
 
 
-def test_fast_bids_in_the_window_and_pulls_on_a_jump_toward_the_line():
+def test_fast_bids_at_cocos_looks_and_pulls_on_a_jump_toward_the_line():
     m = make_market("KXSOL15M-X", series="KXSOL15M", yes_bid=0.95, yes_ask=0.96, close_in=timedelta(minutes=4))
     d, live = desk_with(m)
     calm_coin(d)
     lm = d.live_market(live, _book(m.ticker, 0.95, 0.04))
-    d.fast_step(live, lm, T0)
+    d.fast_step(live, lm, T0 - 1, look=False)  # between looks: nothing
+    assert d.bids == []
+    d.fast_step(live, lm, T0, look=True)
     [bid] = [b for b in d.bids if b.bot == FAST]
     assert bid.side is Side.YES and 2.5 <= bid.price * bid.count <= 2.63  # 3% of $87.63
+    assert bid.live_until == T0 + fast.TWIN_TTL
     d.coins["SOL-USD"].push(T0 + 1, 99.0)  # SOL drops: bad news for a YES favorite
-    d.fast_step(live, lm, T0 + 1)
-    assert bid.live_until < math.inf and any(b.ghost for b in d.bids)
-    d.fast_step(live, lm, T0 + 2)  # cooling down: no new bid yet
-    assert not [b for b in d.bids if b.bot == FAST and not b.ghost and b.live_until == math.inf]
+    d.fast_step(live, lm, T0 + 1, look=False)
+    assert bid.live_until < T0 + 2 and any(b.ghost for b in d.bids)
+    d.fast_step(live, lm, T0 + 2, look=False)  # no new bid until the next look
+    assert not [b for b in d.bids if b.bot == FAST and not b.ghost and b.live_until > T0 + 2]
     # The tape would have filled the pulled bid; the market then goes NO: pulling saved a loss
     d.apply_trades(live, [trade(T0 + 3, 0.90, 50, "no", "x")])
     assert d.accounts[FAST].trades == 0
@@ -89,7 +92,7 @@ def test_fast_bids_in_the_window_and_pulls_on_a_jump_toward_the_line():
 def test_no_fast_bids_while_the_coin_feed_is_cold():
     m = make_market("KXSOL15M-X", series="KXSOL15M", yes_bid=0.95, yes_ask=0.96, close_in=timedelta(minutes=4))
     d, live = desk_with(m)
-    d.fast_step(live, d.live_market(live, _book(m.ticker, 0.95, 0.04)), T0)
+    d.fast_step(live, d.live_market(live, _book(m.ticker, 0.95, 0.04)), T0, look=True)
     assert d.bids == []
 
 

@@ -31,8 +31,9 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
   Why: resting bids on 94-99c favorites in the last 5 minutes made +0.46c per $1 from Aug 18 on (t ~5.7).
   The edge shrinks month to month and a single week swings +/-0.5c (Oct 18-25 was about zero).
 - **Training** season 6 is the backfill from Dec 10, 2025 ($1,000 -> ~$18k at $10 bets).
-- **Fast Coco trial** on the server (desk/fast.py, deploy/SERVER.md): always-on Coco that pulls bids when the
-  coin jumps, against a twin that behaves like the 2-minute cron Coco, both on pretend money from $87.63.
+- **Fast Coco trial** on the server (desk/fast.py, deploy/SERVER.md): Coco's own 2-minute schedule, plus pulling a
+  waiting bid when the coin jumps (61-day replay: +0.86c per $1 vs +0.55c, research/fast_coco), against a twin that
+  behaves like the cron Coco, both on pretend money from $87.63. An always-on bid did far worse (+0.13c).
   `python -m desk fast-report` says month by month whether the $6 server pays for itself. After ~2 weeks, if
   Fast Coco wins, move the real money to the server (steps at the end of deploy/SERVER.md; the owner copies the
   Kalshi key over themselves).

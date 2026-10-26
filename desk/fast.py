@@ -5,10 +5,11 @@ The hosted bot wakes every 2 minutes and its bids live 110 seconds. Here one pro
 
   - Kalshi's order books twice a second and the trade tape every second (public data, no API key)
   - Coinbase's live price stream for each coin
-  - Fast Coco (`fast_maker`): Coco's rules (94-99c favorites, 2-5 minutes left, a bid one tick over
-    the best bid), but her bid stays up the whole window, follows the price, and is PULLED when the
-    coin jumps toward the line (the 2-second move beyond PULL_SIGMA). Kalshi's tape, Oct 18-25: fills
-    right after such a jump lost 2c per $1; avoiding them lifted the rest by ~0.2c.
+  - Fast Coco (`fast_maker`): today's Coco exactly (a bid at each 2-minute look, 94-99c favorites, 2-5 minutes
+    left), except that a waiting bid is PULLED when the coin jumps toward the line (a move beyond PULL_SIGMA over
+    the last PULL_WINDOW seconds). A 61-day second-by-second replay of four coins (Aug 25 - Oct 25): +0.86c per $1
+    against +0.55c without pulling, better in both halves and on every coin. An always-on bid did far worse
+    (+0.13c): a bid that is always there is the one that gets hit just before the price turns.
   - The twin (`late_maker_twin`): today's Coco exactly, looking only when the 2-minute cron would.
     Same tape, same fill rules, same money: the difference between the two is what the server is worth.
 
@@ -47,7 +48,7 @@ START_CASH = 87.63           # the real book's pool when the trial began (2026-1
 BET_PCT, MAX_BET = 0.03, 10.0
 MIN_PRICE, MAX_PRICE, MAX_SPREAD = 0.94, 0.99, 0.02
 MIN_SECONDS, MAX_SECONDS = 120, 300
-PULL_SIGMA, PULL_WINDOW, PULL_COOLDOWN = 1.0, 2, 5.0
+PULL_SIGMA, PULL_WINDOW = 1.0, 2
 QUEUE_SHARE = 0.3
 ORDER_LATENCY = 0.15         # seconds before a posted/cancelled bid takes effect at Kalshi
 TAPE_GRACE = 5.0             # a cancelled bid still counts against the stake until the tape has caught up with it
@@ -206,7 +207,6 @@ class FastDesk:
         self.coins = {c: CoinTape() for c in COINS.values()}
         self.markets: dict[str, Live] = {}
         self.bids: list[Bid] = []
-        self.cooldown: dict[str, float] = {}
         self.writes: asyncio.Queue = asyncio.Queue()
         self.stats = {"started_at": _iso(time.time()), "book_reads": 0, "trade_reads": 0, "errors": 0,
                       "pulls": 0, "fills": {FAST: 0, TWIN: 0}, "coinbase_msgs": 0, "last_error": None}
@@ -277,29 +277,27 @@ class FastDesk:
         return replace(live.market, yes_bid=yb, no_bid=nb, yes_ask=round(1 - nb, 4) if nb else 0.0,
                        no_ask=round(1 - yb, 4) if yb else 0.0)
 
-    def fast_step(self, live: Live, m: Market, now: float) -> None:
+    def fast_step(self, live: Live, m: Market, now: float, look: bool) -> None:
+        """Coco's own schedule (a 110-second bid at each 2-minute look), plus the one thing the server adds:
+        a waiting bid is pulled the moment the coin jumps toward the line."""
         t = live.market.ticker
         left = live.market.seconds_to_close(datetime.fromtimestamp(now, timezone.utc)) or 0
-        mine = [b for b in self.bids if b.bot == FAST and b.ticker == t and not b.ghost and b.live_until == math.inf]
-        pick = favorite(m) if MIN_SECONDS <= left <= MAX_SECONDS else None
         coin = self.coins[COINS[live.market.series_ticker or t.split("-")[0]]]
         move = coin.move(now)
-        for b in mine:
+        for b in [b for b in self.bids if b.bot == FAST and b.ticker == t and not b.ghost and b.live_until > now]:
             against = None if move is None else (move if b.side is Side.YES else -move)
             if against is not None and against < -PULL_SIGMA:
                 self.cancel(b, now, ghost=True, move=round(against, 2))
-                self.cooldown[t] = now + PULL_COOLDOWN
                 self.stats["pulls"] += 1
                 self.write(self.ledger.record_event, "pull", {
                     "ticker": t, "side": b.side.value, "price": b.price, "count": b.remaining,
                     "move_sigma": round(against, 2), "seconds_left": round(left)}, strategy=FAST)
-            elif not pick or pick != (b.side, b.price):
-                self.cancel(b, now)   # out of the window or band, or the price moved: re-bid below
-        if not pick or now < self.cooldown.get(t, 0) or move is None:
+        if not look or move is None or not (MIN_SECONDS <= left <= MAX_SECONDS):
             return  # no bids while the coin feed is cold: pulling is the point of this bot
-        if not any(b.live_until == math.inf for b in self.bids
-                   if b.bot == FAST and b.ticker == t and not b.ghost):
-            self.post(FAST, live, pick[0], pick[1], now, reason=f"fast: {pick[0].value} {pick[1]:.3f}, {left:.0f}s left")
+        pick = favorite(m)
+        if pick and not any(b.bot == FAST and b.ticker == t and not b.ghost and b.live_until > now for b in self.bids):
+            self.post(FAST, live, pick[0], pick[1], now, ttl=TWIN_TTL,
+                      reason=f"fast: {pick[0].value} {pick[1]:.3f}, {left:.0f}s left")
 
     def twin_step(self, live: Live, m: Market, now: float) -> None:
         """Today's Coco: one look per cron run, a bid that lives 110 seconds, no coin feed."""
@@ -429,7 +427,7 @@ class FastDesk:
                         if book is None:
                             continue
                         m = self.live_market(live, book)
-                        self.fast_step(live, m, now)
+                        self.fast_step(live, m, now, twin_look)
                         if twin_look:
                             self.twin_step(live, m, now)
                     if twin_look:
