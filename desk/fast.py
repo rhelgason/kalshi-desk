@@ -523,8 +523,12 @@ class FastDesk:
 
 
 async def run_fast(db_url: str) -> None:
+    from desk.kalshi.auth import KalshiSigner
+
     ledger = Ledger(db_url, SCHEMA)
-    async with KalshiClient(env="prod", requests_per_second=12) as client:
+    # Signed reads count against the key's own rate limit, not the server IP's public one (which 10 minutes of
+    # tape on four coins overran). Reads only: nothing here places orders.
+    async with KalshiClient(env="prod", requests_per_second=12, signer=KalshiSigner.from_env()) as client:
         await FastDesk(ledger, client).run()
 
 
