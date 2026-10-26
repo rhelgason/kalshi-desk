@@ -17,6 +17,8 @@ twin on pretend money in the database's `fast` schema. Everything else stays on 
 ```bash
 ssh root@104.131.18.118 'systemctl status fast-coco --no-pager; journalctl -u fast-coco -n 50 --no-pager'
 ssh root@104.131.18.118 'sudo -u desk git -C /home/desk/kalshi-desk pull -q && systemctl restart fast-coco'   # deploy
+# A real-money command that reads Kalshi (e.g. new-season on the real book), run with the server's key:
+ssh root@104.131.18.118 'cd /home/desk/kalshi-desk && sudo -u desk bash -c "set -a; . /etc/kalshi-desk.env; set +a; KALSHI_LIVE_TRADING=yes .venv/bin/python -m desk new-season --config desk.real.yaml --why ..."'
 python -m desk fast-report     # from anywhere with DATABASE_URL: is the server worth it?
 ```
 
