@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { defaultBook, getRealBook } from "@/lib/book";
-import { getHistory, getTodayRows, getKillSwitch, getLive, getPolicy, getSeasonStart, getSettlements } from "@/lib/db";
+import { getHistory, getTodayRows, getKillSwitch, getLive, getPolicy, getSeasonStart, getSettlementsSince } from "@/lib/db";
 import { only, poolKeys, settledSeries, type RangeKey } from "@/lib/portfolio";
 
 /**
@@ -78,16 +78,16 @@ export async function GET(req: NextRequest) {
   const now = Date.now();
   const start = now - hours * 3_600_000;
 
-  const [history, seasonStart, todayRows, settled] = await Promise.all([
+  const [history, seasonStart, todayRows] = await Promise.all([
     getHistory(book, policy.season, range),
     getSeasonStart(book, policy.season),
     getTodayRows(book, policy.season, tz),
-    getSettlements(book, policy.season),
   ]);
 
   // The pool's value over the window (or since the season began if that's more recent),
   // counting finished bets only: bets still riding count at what they cost
   const from = Math.max(start, seasonStart ?? start);
+  const settled = await getSettlementsSince(book, policy.season, new Date(from).toISOString());
   const full = from === start;
   const series = settledSeries(only(history, members), settled, from, Math.max(now, Date.parse(live.updated_at)))
     .map((p) => [p.t, Math.round(p.worth * 100) / 100] as [number, number]);

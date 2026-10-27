@@ -379,6 +379,23 @@ async function getSettlementsQuery(book: Book, season: number, sinceIso = "1970-
   return rows.map((r) => ({ t: Date.parse(r.ts), strategy: r.strategy, coin: coinOfTicker(r.ticker), pnl: Number(r.pnl) }));
 }
 
+/**
+ * The same, but only bets since `sinceIso` one by one: everything earlier arrives as one row per employee
+ * (their profit before then, timed just before it). Enough for a chart that starts at `sinceIso`, and far
+ * less to download than a seeded season's ~35k bets on every widget refresh.
+ */
+async function getSettlementsSinceQuery(book: Book, season: number, sinceIso: string): Promise<
+  { t: number; strategy: string; coin: string; pnl: number }[]
+> {
+  const before = await db(book)`SELECT strategy, coalesce(sum(pnl), 0) AS pnl FROM settlements
+    WHERE season = ${season} AND ts < ${sinceIso} GROUP BY strategy`;
+  const t0 = Date.parse(sinceIso) - 1;
+  return [
+    ...before.map((r) => ({ t: t0, strategy: r.strategy, coin: "", pnl: Number(r.pnl) })),
+    ...(await getSettlementsQuery(book, season, sinceIso)),
+  ];
+}
+
 // The exported, sturdy versions (see sturdy() above)
 export const getPolicy = sturdy("getPolicy", getPolicyQuery);
 export const getRoster = sturdy("getRoster", getRosterQuery);
@@ -399,6 +416,7 @@ export const getBtcSeries = sturdy("getBtcSeries", getBtcSeriesQuery);
 export const getPoolRecord = sturdy("getPoolRecord", getPoolRecordQuery);
 export const getCoinStats = sturdy("getCoinStats", getCoinStatsQuery);
 export const getSettlements = sturdy("getSettlements", getSettlementsQuery);
+export const getSettlementsSince = sturdy("getSettlementsSince", getSettlementsSinceQuery);
 
 /** Each employee's bets settled today (in the pool's timezone): the widget's "today" story. */
 export const getTodayRows = sturdy("getTodayRows", async (book: Book, season: number, tz: string) =>

@@ -572,17 +572,24 @@ class Ledger:
             r["strategy"]: PaperAccount(r["strategy"], r["starting_cash"])
             for r in self._rows("SELECT * FROM accounts") if r["strategy"] in wanted
         }
+        if not accounts:
+            return accounts
+        # Only these employees' rows: a seeded season holds ~70k, and every byte read counts against
+        # the database's monthly download allowance (2026-10-27: a benched employee's empty account
+        # pulled the whole season on each of the bot's cold starts)
+        who = " AND strategy IN (%s)" % ",".join("?" * len(accounts))
+        keys = tuple(accounts)
         rows = self._rows(
             "SELECT ts, 'fill' AS kind, id, strategy, ticker, side, count, price, fee, NULL AS yes_value FROM fills"
-            " WHERE season = ?"
+            " WHERE season = ?" + who +
             " UNION ALL "
             "SELECT ts, 'settle' AS kind, id, strategy, ticker, NULL, NULL, NULL, NULL, yes_value FROM settlements"
-            " WHERE season = ?"
+            " WHERE season = ?" + who +
             " UNION ALL "
             "SELECT ts, 'transfer' AS kind, id, strategy, NULL, NULL, NULL, amount, NULL, NULL FROM transfers"
-            " WHERE season = ?"
+            " WHERE season = ?" + who +
             " ORDER BY ts, kind, id",
-            (self.season, self.season, self.season),
+            (self.season, *keys, self.season, *keys, self.season, *keys),
         )
         for r in rows:
             acct = accounts.get(r["strategy"])
