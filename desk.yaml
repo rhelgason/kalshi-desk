@@ -19,7 +19,7 @@ tick_seconds: 15          # how often everyone looks at the market
 # The real book (desk.real.yaml) stays on bitcoin only.
 crypto_series: [KXBTC15M, KXETH15M, KXSOL15M, KXXRP15M, KXDOGE15M]
 slow_series: []
-crypto_symbols: [BTC, ETH]
+crypto_symbols: [BTC, ETH, SOL, XRP, DOGE]
 crypto_horizon_hours: 1
 
 # The real-money book (its own roster and records) runs beside this one every hosted run
@@ -55,7 +55,8 @@ strategies:
     min_seconds: 300
     max_seconds: 540
     max_spread: 0.02
-  heavy_maker: {}         # 🐌 Steady Sadie - Stella's picks with resting bids (uses Stella's settings)
+  heavy_maker:            # 🐌 Steady Sadie - Stella's picks with resting bids (uses Stella's settings)
+    odds_margin: 0.0      # skip a bid when the coin's price gives her side worse odds than her bid (10-27)
   late_maker: {enabled: false}       # 🦉 Closing Time Coco - 94-99c, 2-5 minutes left (benched)
   runner_up_maker: {enabled: false}  # 🥈 Silver Medal Sid - 85-92c, 5-13 minutes left (benched)
   longshot_buy:           # 🐦 Lucky the Pigeon - control group: buys long shots

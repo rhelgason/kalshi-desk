@@ -105,6 +105,19 @@ class TestPatientTwins:
         assert intent.post_only and (leg.side, leg.limit_price) == (Side.YES, 0.951)  # a tenth of a cent over the bid
         assert SteadySadie().evaluate(snap(btc15(0.950, 0.953, 12)), account) == []  # too early for Stella
 
+    def test_sadie_skips_a_bid_the_coins_price_says_is_too_dear(self, account):
+        def look(spot, rv=0.5, yes=True):
+            m = btc15(0.950, 0.953, 7) if yes else btc15(0.047, 0.050, 7)
+            m.price_ranges, m.strike_type, m.floor_strike = LADDER, "greater_or_equal", 100_000
+            q = UnderlyingQuote("BTC", spot=spot, realized_vol=rv)
+            return SteadySadie(odds_margin=0.0).evaluate(Snapshot.build(NOW, [], [m], {"BTC": q}), account)
+        # 7 minutes left at 50% a year: bitcoin 0.3% over the strike is ~96% to finish over it, above her 95.1c bid
+        assert len(look(100_300)) == 1
+        assert look(100_200) == []                       # 0.2% over is only ~87%: whoever sells at 95c knows that
+        assert len(look(99_700, yes=False)) == 1 and look(99_800, yes=False) == []   # the same for NO
+        assert len(look(100_200, rv=None)) == 1          # no vol, no opinion: she bids as before
+        assert len(SteadySadie().evaluate(snap(btc15(0.950, 0.953, 7)), account)) == 1  # off unless set
+
     def test_coco_bids_only_in_the_last_few_minutes(self, account):
         m = btc15(0.960, 0.962, 3)
         m.price_ranges = LADDER

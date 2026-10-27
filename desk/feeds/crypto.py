@@ -31,8 +31,8 @@ MINUTES_PER_YEAR = 365 * 24 * 60
 # sources fail, betting on a minutes-old bitcoin price is worse than not betting
 MAX_QUOTE_AGE_SECONDS = 90.0
 
-KRAKEN_PAIRS = {"BTC": "XBTUSD", "ETH": "ETHUSD", "SOL": "SOLUSD"}
-DERIBIT_INDEX = {"BTC": "btc_usd", "ETH": "eth_usd", "SOL": "sol_usd"}
+KRAKEN_PAIRS = {"BTC": "XBTUSD", "ETH": "ETHUSD", "SOL": "SOLUSD", "XRP": "XRPUSD", "DOGE": "XDGUSD"}
+DERIBIT_INDEX = {"BTC": "btc_usd", "ETH": "eth_usd", "SOL": "sol_usd", "XRP": "xrp_usd", "DOGE": "doge_usd"}
 DERIBIT_DVOL = {"BTC", "ETH"}
 
 
@@ -197,6 +197,8 @@ SERIES_UNDERLYING = {
     "KXBTC15M": "BTC",  # 15-minute up/down (strike = price at the window's start)
     "KXETH15M": "ETH",
     "KXSOL15M": "SOL",
+    "KXXRP15M": "XRP",
+    "KXDOGE15M": "DOGE",
     "KXBTCD": "BTC",  # hourly above/below
     "KXBTC": "BTC",   # hourly ranges
     "KXETHD": "ETH",

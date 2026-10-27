@@ -26,7 +26,7 @@ pool_cash: 250
 starting_cash: 250
 
 crypto_series: [KXETH15M, KXSOL15M, KXXRP15M, KXDOGE15M]
-crypto_symbols: [BTC, ETH]
+crypto_symbols: [BTC, ETH, SOL, XRP, DOGE]
 
 live:
   max_order_dollars: 10   # no single order above this
@@ -39,6 +39,7 @@ bonus_pot:
 
 strategies:
   # Only Sadie trades real money. Everyone else stays on Training.
+  heavy_maker: {odds_margin: 0.0}   # skip a bid when the coin's price gives her side worse odds than her bid (10-27)
   late_maker: {enabled: false}
   heavy_favorite: {enabled: false}
   runner_up_maker: {enabled: false}

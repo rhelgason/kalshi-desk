@@ -234,8 +234,41 @@ class SteadySadie(PatientTwin, SteadyStella):
     )
     backtestable = False
 
+    def __init__(self, odds_margin: Optional[float] = None, **kw):
+        # Skip a bid when the coin's own price gives her side worse odds than her bid + this margin
+        # (None = never look). research/fast_coco/sadie_filters.py, Aug 25 - Oct 25 on 4 coins with an
+        # exchange's spot and 4 hours of 1-minute vol: +1.23c -> +2.06c per $1 at 0, both halves, half the bets.
+        # The bids she skips are the ones sellers hit because they know the coin just moved.
+        self.odds_margin = odds_margin
+        super().__init__(**kw)
+
     def evaluate(self, snap: Snapshot, account: AccountView) -> list[TradeIntent]:
-        return self.patient(super().evaluate(snap, account), snap, account)
+        bids = self.patient(super().evaluate(snap, account), snap, account)
+        if self.odds_margin is None:
+            return bids
+        return [b for b in bids if not self.coin_says_no(snap, b)]
+
+    def coin_says_no(self, snap: Snapshot, intent: TradeIntent) -> bool:
+        leg = intent.legs[0]
+        odds = side_odds(snap, snap.markets.get(leg.ticker), leg.side)
+        return odds is not None and odds < leg.limit_price + self.odds_margin
+
+
+def side_odds(snap: Snapshot, m: Optional[Market], side: Side) -> Optional[float]:
+    """
+    The chance `side` wins a 15-minute up/down market, from the coin's spot vs. the strike and its realized
+    vol: the price drifts until the final minute, then Kalshi settles on that minute's average. None when
+    any input is missing (callers then don't use it).
+    """
+    q = snap.underlying_for(m) if m else None
+    secs = m.seconds_to_close(snap.now) if m else None
+    if not q or not q.spot or not q.realized_vol or not m.floor_strike or secs is None \
+            or not m.strike_type.startswith("greater"):
+        return None
+    per_sec = q.realized_vol / math.sqrt(365 * 24 * 3600)
+    sd = per_sec * math.sqrt(max(secs - 60, 0) + 60 * 61 * 121 / 6 / 3600)
+    up = 0.5 * (1 + math.erf(math.log(q.spot / m.floor_strike) / max(sd, 1e-12) / math.sqrt(2)))
+    return up if side is Side.YES else 1 - up
 
 
 class ClosingTimeCoco(PatientTwin, SteadyStella):
