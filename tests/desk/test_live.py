@@ -208,6 +208,31 @@ async def test_a_lasting_mismatch_halts_trading_and_pulls_bids(live, monkeypatch
     assert not desk.guard.halted and desk.guard.books() == {}
 
 
+async def test_a_bid_taken_the_second_it_went_up_is_booked_before_the_check(live, monkeypatch):
+    # 2026-10-27: two bids in a row filled within the run that posted them; Kalshi showed the position
+    # before our books did, two "mismatches" halted trading, and the kill switch dropped the second fill
+    broker, client, ledger, accounts = live
+    desk = _desk(live, monkeypatch)
+    desk.pool.update(1000, NOW)
+    await desk.reconcile_live()  # baseline
+    for _ in range(3):
+        [o] = await desk.broker.place(bet(price=0.40, post_only=True, ttl_seconds=110), NOW)
+        client.trade_into(o.order_id, 2)
+        await desk.reconcile_live()
+        assert not desk.guard.halted
+    assert accounts["e0"].position(T) == (6, 0) and client.position[T] == 6
+
+
+async def test_a_bid_that_filled_before_the_kill_switch_pulled_it_is_still_booked(live):
+    broker, client, ledger, accounts = live
+    [o] = await broker.place(bet(price=0.40, post_only=True, ttl_seconds=600), NOW)
+    client.trade_into(o.order_id, 3)
+    await broker.cancel_everything()
+    assert accounts["e0"].position(T) == (3, 0) and broker.resting == []
+    row = ledger._rows("SELECT status, filled FROM orders")[0]
+    assert (row["status"], row["filled"]) == ("canceled", 3)
+
+
 async def test_the_kill_switch_from_the_website_pulls_real_bids(live, monkeypatch):
     broker, client, ledger, accounts = live
     desk = _desk(live, monkeypatch)

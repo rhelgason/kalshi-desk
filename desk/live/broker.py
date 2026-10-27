@@ -188,34 +188,40 @@ class LiveBroker(PaperBroker):
             if not self._real(o.strategy):
                 keep.append(o)  # paper bids are matched against the tape by match()
                 continue
-            try:
-                order = await self.client.get_order(o.order_id, o.ticker)
-            except KalshiAPIError as e:
-                logger.warning("Couldn't check bid %s on %s: %s", o.order_id, o.ticker, e)
-                keep.append(o)
-                continue
-            side = Side(o.side)
-            filled = float(order.get("fill_count_fp") or 0)
-            if filled > o.filled + 0.005:
-                for fid, n, price, fee in await self._fills(o.order_id, side):
-                    if fid in o.fill_ids:
-                        continue
-                    o.fill_ids.append(fid)
-                    self.accounts[o.strategy].apply_fill(o.ticker, side, n, price, fee)
-                    self.ledger.record_fill(o.strategy, o.ticker, side, n, price, fee, intent_id=o.order_id,
-                                            reason=f"maker fill: {o.reason}", seen_price=o.price,
-                                            context={"order_id": o.order_id, "env": self.env})
-                    o.filled = round(o.filled + n, 2)
-                    out.append(LegFill(o.ticker, o.side, n, price, fee, strategy=o.strategy))
-            status = order.get("status") or "resting"
-            fees = float(order.get("maker_fees_dollars") or 0) + float(order.get("taker_fees_dollars") or 0)
-            if status != "resting" or o.remaining < 0.01:
-                self.ledger.update_order(o.order_id, o.filled, fees, status)
-            else:
+            fills, status = await self._check(o)
+            out += fills
+            if status == "resting" and o.remaining >= 0.01:
                 keep.append(o)
         self.resting = keep
         self.sync_resting_views()
         return out
+
+    async def _check(self, o: RestingOrder) -> tuple[list[LegFill], str]:
+        """Book a real bid's new fills and return them with Kalshi's status for it ("resting" if unreadable)."""
+        try:
+            order = await self.client.get_order(o.order_id, o.ticker)
+        except KalshiAPIError as e:
+            logger.warning("Couldn't check bid %s on %s: %s", o.order_id, o.ticker, e)
+            return [], "resting"
+        out = []
+        side = Side(o.side)
+        filled = float(order.get("fill_count_fp") or 0)
+        if filled > o.filled + 0.005:
+            for fid, n, price, fee in await self._fills(o.order_id, side):
+                if fid in o.fill_ids:
+                    continue
+                o.fill_ids.append(fid)
+                self.accounts[o.strategy].apply_fill(o.ticker, side, n, price, fee)
+                self.ledger.record_fill(o.strategy, o.ticker, side, n, price, fee, intent_id=o.order_id,
+                                        reason=f"maker fill: {o.reason}", seen_price=o.price,
+                                        context={"order_id": o.order_id, "env": self.env})
+                o.filled = round(o.filled + n, 2)
+                out.append(LegFill(o.ticker, o.side, n, price, fee, strategy=o.strategy))
+        status = order.get("status") or "resting"
+        fees = float(order.get("maker_fees_dollars") or 0) + float(order.get("taker_fees_dollars") or 0)
+        if status != "resting" or o.remaining < 0.01:
+            self.ledger.update_order(o.order_id, o.filled, fees, status)
+        return out, status
 
     async def _cancel_real(self, o: RestingOrder) -> None:
         try:
@@ -223,6 +229,9 @@ class LiveBroker(PaperBroker):
         except KalshiAPIError as e:
             if e.status != 404:  # already gone (filled or expired) is fine
                 logger.warning("Couldn't cancel bid %s on %s: %s", o.order_id, o.ticker, e)
+        # It may have filled since the last look (2026-10-27: a bid filled the second it went up, the kill
+        # switch pulled it, and the fill never reached our books)
+        await self._check(o)
         self.ledger.update_order(o.order_id, o.filled, 0.0, "canceled")
 
     async def expire(self, now: datetime) -> list[RestingOrder]:

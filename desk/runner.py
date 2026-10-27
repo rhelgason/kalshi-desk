@@ -790,6 +790,11 @@ class Desk:
     async def reconcile_live(self) -> None:
         from desk.live.reconcile import reconcile
 
+        # Book fills on bids posted this run first: one taken the second it went up is on Kalshi already
+        for f in await self.broker.poll(_now()):
+            self.journal.count(f.strategy, "maker fills")
+            logger.info("%s REAL MAKER FILL %s %gx %s @ %.3f", self.personas.get(f.strategy, f.strategy),
+                        f.side.upper(), f.count, f.ticker, f.avg_price)
         books = self.guard.books()
         if books.get("season") != self.season:
             books = {"season": self.season}  # a new season is a new pool: measure from scratch
