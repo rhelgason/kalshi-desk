@@ -56,3 +56,21 @@ per-bet results and compound them at different bet sizes with a per-market cap.
 - Replay vs live paper (Training Sadie on the real tape, Oct 23-25): same direction, replay ~1c per $1 too high. Expect
   real Sadie at roughly +0.3 to +1c per $1.
 - Ruled out: two-sided market making (-0.3 to -6c), selling before the close (costs 0.1-1.9c), hour-of-day filters (noise).
+
+## What the open-source Kalshi bots do (2026-10-27)
+
+Read: ryanfrigo/kalshi-ai-trading-bot (its own live verdict: "NO MEASURED EDGE", n=55), hamad-khawaja, reedjacobp,
+seanrobenalt ("it lost me $100"), DeweyMarco, kapelame, CloddsBot (nothing Kalshi-crypto specific). None publishes a
+verified profit. Their ideas, against what we already tested: late favorites taken at the ask, the final 90 s with
+momentum, two-sided market making, buy-both-sides arbitrage (the book never crosses) - all ruled out above. New to us:
+"check the coin before betting" (certainty scalp, resolution rider, momentum/previous-result confirmation).
+
+`sadie_filters.py` tests those as filters on cron Sadie: per bet, the coin's odds of her side winning (spot vs strike,
+drift to the final minute, then the average), 30 s / 120 s momentum, the previous market's result, the other coins.
+- Odds below her bid = the bids informed sellers hit. Skipping them (odds_margin 0): index + 10-min 1-second vol
+  +1.15c -> +1.61c (halves +1.63/+1.59); an exchange's spot + 4 h vol (what the bot has), 4 coins: +1.23c -> +2.06c
+  (+2.28/+1.82), about half the bets, the same dollars at $10 (more after a 1c live haircut). 15 one-minute candles
+  for vol: no help. Bucket-by-bucket it's noisy; the aggregate held in 4 of 5 ways of measuring.
+- Previous market settled her way: +1.63c vs +0.69c, both halves, but it halves the bets and total dollars. Not used.
+- Momentum and the other coins: no usable pattern (the coins nearly always agree).
+Live from 2026-10-27 ~22:40 UTC in both books (`heavy_maker: {odds_margin: 0.0}`).

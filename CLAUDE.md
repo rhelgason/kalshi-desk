@@ -37,6 +37,9 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
   3-second delay. Live paper agreed (Oct 25-26: Sadie +2.0c per $1 on 136 bets, Coco -3.8c on 184). Coco's 2-5
   minutes is the weakest stretch (real season 6: -$13 in a day). Ruled out: the final minute even with the official
   index, two-sided market making, selling early, hour filters, Kalshi maker rewards (not on crypto).
+- **10-27: Sadie checks the coin before bidding** (`odds_margin: 0.0`, both books): she skips a bid when spot vs strike
+  and 4 h vol give her side worse odds than her bid. Backtest +1.23c -> +2.06c per $1, half the bets (README section
+  "What the open-source Kalshi bots do"). The feed now prices all 5 coins. Expect about half as many bets as before.
 - **Fast Sadie trial** on the server (desk/fast.py, from 2026-10-26 07:12 UTC): always-on bid vs a 2-minute cron twin,
   pretend money from $87.63 each. `python -m desk fast-report`. So far it fills more, not better per $1.
 
