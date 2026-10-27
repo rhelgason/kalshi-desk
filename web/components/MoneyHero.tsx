@@ -2,7 +2,7 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import type { Coin } from "@/lib/coin";
-import type { PortfolioPoint } from "@/lib/portfolio";
+import { betCount, winCount, type PortfolioPoint, type Settlement } from "@/lib/portfolio";
 import type { Point, PoolSummary, Position } from "@/lib/types";
 import { dollars, pct, shortName } from "@/lib/format";
 import Avatar from "./Avatar";
@@ -18,7 +18,7 @@ export type Member = {
   key: string; name: string; emoji: string; light: string; bets: number;
   profit: Point[]; season: number;
 };
-type Settled = { t: number; strategy: string; coin: string; pnl: number };
+type Settled = Settlement;
 
 /** Would benching them for real be smart? Judged on the long run, never on one stretch. */
 function verdict(m: Member, change: number): string {
@@ -89,8 +89,8 @@ export default function MoneyHero(props: {
   const record = (keep: (k: string) => boolean): PoolRecord => {
     const rows = settled.filter((s) => keep(s.strategy));
     const inRange = rows.filter((s) => s.t >= t0);
-    return { range: { n: inRange.length, won: inRange.filter((s) => s.pnl > 0).length },
-      lifetime: { n: rows.length, won: rows.filter((s) => s.pnl > 0).length } };
+    return { range: { n: betCount(inRange), won: winCount(inRange) },
+      lifetime: { n: betCount(rows), won: winCount(rows) } };
   };
   const startWorth = first ? first.worth : 0;
   const whatIf = view.kind === "pool" && view.pool && benched.length ? {
@@ -112,8 +112,8 @@ export default function MoneyHero(props: {
             {dollars(settled.reduce((s, r) => s + r.pnl, 0), true)}
           </div>
           <div className="muted">
-            Profit from {settled.length} finished {view.coinName} bet{settled.length === 1 ? "" : "s"} since {view.since}
-            {settled.length ? <> ({pct(settled.filter((s) => s.pnl > 0).length / settled.length, false, 0)} won)</> : null}.
+            Profit from {betCount(settled)} finished {view.coinName} bet{betCount(settled) === 1 ? "" : "s"} since {view.since}
+            {settled.length ? <> ({pct(winCount(settled) / betCount(settled), false, 0)} won)</> : null}.
             {" "}The whole pool is {dollars(view.wholePool)} across all coins.
           </div>
         </>

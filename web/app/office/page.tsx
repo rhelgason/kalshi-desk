@@ -2,7 +2,7 @@ import AutoRefresh from "@/components/AutoRefresh";
 import Office from "@/components/Office";
 import Setup from "@/components/Setup";
 import { getRealBook } from "@/lib/book";
-import { getActivity, getBtcSeries, getHistory, getLive, getPolicy, getRoster, getSettlements, withRoster } from "@/lib/db";
+import { getActivity, getBtcSeries, getHistory, getLive, getPolicy, getRoster, getSettlementsSince, withRoster } from "@/lib/db";
 import { only, poolKeys, settledSeries } from "@/lib/portfolio";
 
 export const dynamic = "force-dynamic";
@@ -13,9 +13,11 @@ export default async function OfficePage() {
     // The office always shows the Live book once there is one (training until then)
     const book = (await getRealBook()) ? "real" : "pretend";
     const policy = await getPolicy(book);
+    // The last week only: the page refreshes every 30 seconds, and a whole seeded season is ~35k bets
+    const sinceIso = new Date(Date.now() - 7 * 86_400_000 - 60_000).toISOString();
     const [live, roster, activity, history, btcSeries, settled] = await Promise.all([
-      getLive(book), getRoster(book), getActivity(book, policy.season), getHistory(book, policy.season, "season"),
-      getBtcSeries(book), getSettlements(book, policy.season),
+      getLive(book), getRoster(book), getActivity(book, policy.season), getHistory(book, policy.season, "week"),
+      getBtcSeries(book), getSettlementsSince(book, policy.season, sinceIso),
     ]);
     // Everyone works here, even staff who aren't on the Live book (Dan, Lucky, the twins in training):
     // they sit on the bench, practicing on pretend money

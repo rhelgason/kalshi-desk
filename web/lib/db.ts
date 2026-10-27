@@ -2,7 +2,7 @@ import { unstable_cache } from "next/cache";
 import postgres from "postgres";
 import { LEVELS, mergePolicy } from "./hr";
 import { coinOfTicker } from "./coin";
-import { binFor, RANGES, type History, type RangeKey } from "./portfolio";
+import { binFor, RANGES, type History, type RangeKey, type Settlement } from "./portfolio";
 import type {
   Accuracy, BacktestSummary, Evidence, Fill, LiveStatus, NewsItem, Point, Policy, Realism, RosterRow, TuningRun,
 } from "./types";
@@ -371,9 +371,7 @@ async function getCoinStatsQuery(book: Book, season: number): Promise<CoinRow[]>
 }
 
 /** Every settled bet this season since `sinceIso`, oldest first: what the coin views add up. */
-async function getSettlementsQuery(book: Book, season: number, sinceIso = "1970-01-01"): Promise<
-  { t: number; strategy: string; coin: string; pnl: number }[]
-> {
+async function getSettlementsQuery(book: Book, season: number, sinceIso = "1970-01-01"): Promise<Settlement[]> {
   const rows = await db(book)`SELECT ts, strategy, ticker, pnl FROM settlements
     WHERE season = ${season} AND ts >= ${sinceIso} ORDER BY ts`;
   return rows.map((r) => ({ t: Date.parse(r.ts), strategy: r.strategy, coin: coinOfTicker(r.ticker), pnl: Number(r.pnl) }));
@@ -381,17 +379,17 @@ async function getSettlementsQuery(book: Book, season: number, sinceIso = "1970-
 
 /**
  * The same, but only bets since `sinceIso` one by one: everything earlier arrives as one row per employee
- * (their profit before then, timed just before it). Enough for a chart that starts at `sinceIso`, and far
- * less to download than a seeded season's ~35k bets on every widget refresh.
+ * and coin, timed just before `sinceIso`, carrying their profit, bet count (`n`) and wins (`won`) up to then.
+ * Enough for charts that start at `sinceIso` and for lifetime totals, and far less to download than a
+ * seeded season's ~35k bets on every page view (Supabase's free plan allows 5 GB of downloads a month).
  */
-async function getSettlementsSinceQuery(book: Book, season: number, sinceIso: string): Promise<
-  { t: number; strategy: string; coin: string; pnl: number }[]
-> {
-  const before = await db(book)`SELECT strategy, coalesce(sum(pnl), 0) AS pnl FROM settlements
-    WHERE season = ${season} AND ts < ${sinceIso} GROUP BY strategy`;
+async function getSettlementsSinceQuery(book: Book, season: number, sinceIso: string): Promise<Settlement[]> {
+  const before = await db(book)`SELECT strategy, split_part(ticker, '-', 1) AS series, coalesce(sum(pnl), 0) AS pnl,
+      count(*)::int AS n, coalesce(sum(CASE WHEN pnl > 0 THEN 1 ELSE 0 END), 0)::int AS won
+    FROM settlements WHERE season = ${season} AND ts < ${sinceIso} GROUP BY 1, 2`;
   const t0 = Date.parse(sinceIso) - 1;
   return [
-    ...before.map((r) => ({ t: t0, strategy: r.strategy, coin: "", pnl: Number(r.pnl) })),
+    ...before.map((r) => ({ t: t0, strategy: r.strategy, coin: coinOfTicker(r.series), pnl: Number(r.pnl), n: r.n, won: r.won })),
     ...(await getSettlementsQuery(book, season, sinceIso)),
   ];
 }

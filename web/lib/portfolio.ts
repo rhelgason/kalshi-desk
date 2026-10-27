@@ -91,6 +91,11 @@ const binMs = (spanMs: number) => {
 };
 
 export type Settled = { t: number; strategy: string; pnl: number };
+/** A settled bet, or (with `n`) several earlier ones rolled into one row: see getSettlementsSince in db.ts. */
+export type Settlement = { t: number; strategy: string; coin: string; pnl: number; n?: number; won?: number };
+/** How many bets, and how many won, counting rolled-up rows by what they hold. */
+export const betCount = (rows: Settlement[]) => rows.reduce((s, r) => s + (r.n ?? 1), 0);
+export const winCount = (rows: Settlement[]) => rows.reduce((s, r) => s + (r.won ?? (r.pnl > 0 ? 1 : 0)), 0);
 
 /**
  * The pool's value counting finished bets only: money put in plus every settled bet's

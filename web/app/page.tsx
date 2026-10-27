@@ -15,10 +15,10 @@ import { advise, betsPerDay, light } from "@/lib/advice";
 import { bookLabel, getRealBook, viewedBook, viewedCoin } from "@/lib/book";
 import { COIN_NAMES, onCoin } from "@/lib/coin";
 import {
-  getAnalysis, getBonusPot, getHistory, getLive, getNews, getPolicy, getRecentFills, getRoster, getSettlements, withRoster,
+  getAnalysis, getBonusPot, getHistory, getLive, getNews, getPolicy, getRecentFills, getRoster, getSettlements, getSettlementsSince, withRoster,
 } from "@/lib/db";
 import { dollars } from "@/lib/format";
-import { only, parseRange, poolKeys, profitSeries, RANGES, settledSeries } from "@/lib/portfolio";
+import { betCount, only, parseRange, poolKeys, profitSeries, RANGES, settledSeries, winCount } from "@/lib/portfolio";
 import { poolShare } from "@/lib/hr";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +29,10 @@ const RANGE_SCOPE = { day: "today", week: "this week", month: "this month", quar
 
 export default async function Home({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const params = await searchParams;
-  const range = parseRange(params.range);
+  const range = parseRange(params.range, "week");
+  // Bets before the range arrive rolled up (getSettlementsSince); a minute early so the roll-up sits before the chart's start
+  const days = RANGES[range].days;
+  const sinceIso = days == null ? null : new Date(Date.now() - days * 86_400_000 - 60_000).toISOString();
   let data;
   try {
     const [book, realBook, coin] = await Promise.all([viewedBook(), getRealBook(), viewedCoin()]);
@@ -37,7 +40,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
     const [live, fills, roster, news, analysis, history, season, admin, settled, pot] = await Promise.all([
       getLive(book), getRecentFills(book, policy.season, coin === "all" ? 25 : 80), getRoster(book), getNews(book, 40),
       getAnalysis(book), getHistory(book, policy.season, range),
-      range === "season" ? null : getHistory(book, policy.season, "season"), isAdmin(), getSettlements(book, policy.season),
+      range === "season" ? null : getHistory(book, policy.season, "season"), isAdmin(), sinceIso ? getSettlementsSince(book, policy.season, sinceIso) : getSettlements(book, policy.season),
       getBonusPot(book),
     ]);
     data = { book, realBook, coin, live, fills, roster, news, policy, analysis, history, season: season ?? history, admin, settled, pot };
@@ -73,7 +76,6 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
 
   let points;
   if (coinView) {
-    const days = RANGES[range].days;
     const from = days == null ? seasonStart : Math.max(seasonStart, now - days * 86_400_000);
     let run = mine.filter((s) => s.t < from).reduce((s, r) => s + r.pnl, 0);
     points = [{ t: from, worth: run, putIn: 0 }];
@@ -107,7 +109,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
   const coinCounts: Record<string, { n: number; won: number; pnl: number }> = {};
   for (const s of settled.filter((s) => s.coin === coin)) {
     const c = (coinCounts[s.strategy] ??= { n: 0, won: 0, pnl: 0 });
-    c.n += 1; c.won += s.pnl > 0 ? 1 : 0; c.pnl += s.pnl;
+    c.n += betCount([s]); c.won += winCount([s]); c.pnl += s.pnl;
   }
 
   const rows = employees
