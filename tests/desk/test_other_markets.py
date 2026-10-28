@@ -1,0 +1,90 @@
+from dataclasses import replace
+from datetime import datetime, timedelta, timezone
+
+from desk.config import DeskConfig
+from desk.kalshi.models import Side
+from desk.runner import Desk
+from desk.strategies import FinalWhistleFiona, SteadySadie, WeatherWendy
+from desk.strategies.base import Snapshot
+from tests.desk.conftest import NOW, make_market
+
+# 2026-10-28 13:00 UTC = 9 am in New York, 6 am in Los Angeles
+MORNING = datetime(2026, 10, 28, 13, 0, tzinfo=timezone.utc)
+
+
+def weather(yes_bid, yes_ask, series="KXHIGHNY", day="26OCT28", strike="B67.5"):
+    return make_market(f"{series}-{day}-{strike}", yes_bid=yes_bid, yes_ask=yes_ask, series=series,
+                       event=f"{series}-{day}", close_in=timedelta(hours=12))
+
+
+def game(yes_bid, yes_ask, ends_in, event="KXNFLGAME-26OCT28KCDET", team="KC"):
+    m = make_market(f"{event}-{team}", yes_bid=yes_bid, yes_ask=yes_ask, series="KXNFLGAME", event=event,
+                    close_in=timedelta(days=2))
+    return replace(m, expected_expiration_time=MORNING + ends_in)
+
+
+def snap(*markets, now=MORNING):
+    return Snapshot.build(now, [], list(markets))
+
+
+class TestWeatherWendy:
+    def test_bids_on_a_morning_favorite_a_tick_over_the_best_bid(self, account):
+        [bid] = WeatherWendy().evaluate(snap(weather(0.94, 0.97)), account)
+        assert bid.post_only and bid.legs[0].side is Side.YES and bid.legs[0].limit_price == 0.95
+
+    def test_the_no_side_of_a_long_shot_bracket_counts(self, account):
+        [bid] = WeatherWendy().evaluate(snap(weather(0.03, 0.06)), account)
+        assert bid.legs[0].side is Side.NO and bid.legs[0].limit_price == 0.95
+
+    def test_only_mornings_of_the_day_itself_in_the_citys_time(self, account):
+        w = WeatherWendy()
+        assert w.evaluate(snap(weather(0.94, 0.97), now=MORNING + timedelta(hours=3)), account) == []  # noon in NY
+        assert w.evaluate(snap(weather(0.94, 0.97, day="26OCT29")), account) == []  # tomorrow's market
+        assert len(w.evaluate(snap(weather(0.94, 0.97, series="KXHIGHLAX"), now=MORNING + timedelta(hours=4)), account)) == 1
+
+    def test_skips_toss_ups_and_other_series(self, account):
+        w = WeatherWendy()
+        assert w.evaluate(snap(weather(0.60, 0.64)), account) == []
+        coin = make_market("KXBTC15M-X", yes_bid=0.94, yes_ask=0.97, series="KXBTC15M", event="KXBTC15M-X")
+        assert w.evaluate(snap(coin), account) == []
+
+    def test_a_reprice_below_her_band_is_dropped(self):
+        m = weather(0.94, 0.97)
+        [bid] = WeatherWendy().evaluate(snap(m), _empty())
+        assert WeatherWendy().reprice(bid, m, replace(m, yes_bid=0.85, yes_ask=0.88)) is None
+
+
+class TestFinalWhistleFiona:
+    def test_bids_on_the_winner_late_in_the_game(self, account):
+        [bid] = FinalWhistleFiona().evaluate(snap(game(0.97, 0.99, timedelta(hours=1))), account)
+        assert bid.legs[0].side is Side.YES and bid.legs[0].limit_price == 0.98
+
+    def test_not_before_the_last_three_hours_or_long_after(self, account):
+        f = FinalWhistleFiona()
+        assert f.evaluate(snap(game(0.97, 0.99, timedelta(hours=4))), account) == []
+        assert f.evaluate(snap(game(0.97, 0.99, -timedelta(hours=3))), account) == []
+
+    def test_one_bid_per_game(self, account):
+        both = snap(game(0.97, 0.99, timedelta(hours=1)), game(0.01, 0.03, timedelta(hours=1), team="DET"))
+        assert len(FinalWhistleFiona().evaluate(both, account)) == 1
+
+    def test_skips_a_game_still_in_doubt(self, account):
+        assert FinalWhistleFiona().evaluate(snap(game(0.80, 0.82, timedelta(hours=1))), account) == []
+
+
+def _empty():
+    from desk.paper.account import PaperAccount
+    return PaperAccount("t", 1000.0)
+
+
+def test_coin_staff_never_see_weather_and_wendy_never_sees_coins(tmp_path):
+    from desk.paper.ledger import Ledger
+
+    cfg = DeskConfig(db_path=str(tmp_path / "d.db"), use_database_url=False,
+                     other_series=["KXHIGHNY"], strategies={})
+    desk = Desk(cfg, client=None, strategies=[SteadySadie(), WeatherWendy()], ledger=Ledger(cfg.db_path))
+    s = snap(weather(0.94, 0.97), make_market("KXBTC15M-X", series="KXBTC15M", event="KXBTC15M-X"))
+    assert set(desk.scoped(s, "coins").markets) == {"KXBTC15M-X"}
+    assert set(desk.scoped(s, "other").markets) == {"KXHIGHNY-26OCT28-B67.5"}
+    desk.config.other_series = []
+    assert desk.scoped(s, "coins") is s

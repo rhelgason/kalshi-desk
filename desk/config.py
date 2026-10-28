@@ -42,6 +42,10 @@ class DeskConfig:
     slow_series: list[str] = field(default_factory=lambda: ["KXBTCD", "KXBTC", "KXETHD", "KXETH"])
     slow_series_every_seconds: float = 0.0
     crypto_horizon_hours: float = 6.0
+    # Non-coin series fetched every run for the "other" employees (weather, sports): their markets about
+    # to be decided, i.e. whose event date (or expected end) is within this many hours, or passed < 3 h ago
+    other_series: list[str] = field(default_factory=list)
+    other_horizon_hours: float = 24.0
 
     # Broad scan (for strategies that look beyond crypto)
     broad_scan: bool = True

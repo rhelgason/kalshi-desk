@@ -69,6 +69,16 @@ const LINES: Record<string, Lines> = {
     down: ["They only sold when it was going wrong.", "Dropped a stitch.", "Oh dear. Never mind."],
     idle: ["Bid's posted. Kettle's on.", "Knit one, purl one, wait.", "No rush, dear."],
   },
+  weather_maker: {
+    up: ["Called it before breakfast.", "The favorite was a little too cheap again. Lovely.", "Six skies, one thermos, a few pennies.", "Didn't forecast a thing. Didn't need to."],
+    down: ["The sky had other plans.", "One degree. One whole degree.", "Even the sunniest morning clouds over."],
+    idle: ["Thermos is full. Waiting for midnight.", "No favorites worth a bid this morning.", "Watching six skies."],
+  },
+  sports_closer: {
+    up: ["Game over. Penny pocketed.", "Never stay for the comeback. There isn't one.", "Beat the traffic again.", "Final whistle, final answer."],
+    down: ["That's the comeback I always leave before.", "Ninety-eight cents sure. Ouch.", "Should've stayed for overtime."],
+    idle: ["No game's decided yet.", "Waiting for the fourth quarter.", "Checking the scoreboard."],
+  },
   dart_monkey: { up: ["Ook! 🍌"], down: ["Ook…"], idle: ["Ook?"] },
 };
 const DEFAULT: Lines = { up: ["Up and to the right."], down: ["Rough patch."], idle: ["Waiting."] };
@@ -98,6 +108,8 @@ export const HOW_THEY_BET: Record<string, string> = {
   nickel_maker: "Nick's twin sister and the office's coupon queen. She picks the same heavy favorites, but instead of paying the asking price she offers a little less and waits up to two minutes for someone to sell. Cheaper, and no fee, but she misses some bets and tends to get filled when the price is slipping.",
   early_maker: "Edie's calm twin. Same early favorites, but she names a slightly lower price and knits while she waits for a seller. Kalshi charges no fee on a bid that someone else fills, so every win is worth a bit more, if she gets filled at all.",
   breakout_maker: "Wipeout's twin sister. When bitcoin makes a big move she bets it keeps going like Wipeout does, but from an inflatable flamingo: she posts a lower price and waits for the wave to come to her. Wipeout's bets are near 50¢, where Kalshi's fee is biggest, so Bonnie saves the most by not paying it. Training only for now.",
+  weather_maker: "Wendy works Kalshi's daily high-temperature markets in six cities (New York, Los Angeles, Chicago, Miami, Austin, Denver). From midnight to 11 am city time on the day itself, she bids a cent over the best bid on whichever side of a temperature bracket is a 92–99.5¢ favorite, and waits for someone to sell. Weather charges no fee on a waiting bid. She never tries to forecast: free forecasts lost badly against Kalshi's prices. On 60 days of Kalshi's real trades her bids made about 4¢ per $1 at 92–97¢, up on 56 of 60 days, but only a few bets a day. Training only.",
+  sports_closer: "Fiona bets football, baseball and basketball games once they're all but decided: from 3 hours before Kalshi expects a game to end until 2 hours after, she bids a cent over the best bid on a side priced 97–99.5¢, one bid per game. Each win is a penny or two per dollar after Kalshi's small sports fee; one comeback costs the whole bet. On 60 days of Kalshi's real trades she never lost in about 350 replayed bets, but there are only a few a day. Training only.",
   longshot_buy: "Pecks at the cheap long shots the Wet Blanket bets against. He's a yardstick on pretend money only: if the Wet Blanket can't beat a pigeon, the idea doesn't work.",
   dart_monkey: "Bets at random. He's the yardstick everyone has to beat, on pretend money only: if a strategy can't do better than a monkey with darts, it isn't really a strategy.",
 };

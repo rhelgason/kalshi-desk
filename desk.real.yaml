@@ -27,6 +27,7 @@ starting_cash: 250
 
 crypto_series: [KXETH15M, KXSOL15M, KXXRP15M, KXDOGE15M]
 crypto_symbols: [BTC, ETH, SOL, XRP, DOGE]
+other_series: []          # Wendy and Fiona's weather and sports markets are Training only
 
 live:
   max_order_dollars: 10   # no single order above this
@@ -41,6 +42,8 @@ strategies:
   # Only Sadie trades real money. Everyone else stays on Training.
   heavy_maker: {odds_margin: 0.0}   # skip a bid when the coin's price gives her side worse odds than her bid (10-27)
   late_maker: {enabled: false}
+  weather_maker: {enabled: false}   # Training only (never on this book, so not a mid-season roster change)
+  sports_closer: {enabled: false}
   heavy_favorite: {enabled: false}
   runner_up_maker: {enabled: false}
   dart_monkey: {enabled: false}

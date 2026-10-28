@@ -124,6 +124,9 @@ class Strategy:
     # False if 15-minute price history can't replay this strategy (it needs the
     # live trade tape, hourly ladders, or fills from other traders)
     backtestable: bool = True
+    # Which markets the runner shows it: "coins" (the 15-minute coin series) or "other"
+    # (desk.yaml `other_series`: weather, sports), so neither side bets the other's markets
+    scope: str = "coins"
 
     def evaluate(self, snap: Snapshot, account: AccountView) -> list[TradeIntent]:
         raise NotImplementedError

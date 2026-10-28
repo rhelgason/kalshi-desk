@@ -21,11 +21,15 @@ crypto_series: [KXBTC15M, KXETH15M, KXSOL15M, KXXRP15M, KXDOGE15M]
 slow_series: []
 crypto_symbols: [BTC, ETH, SOL, XRP, DOGE]
 crypto_horizon_hours: 1
+# Non-coin markets for Wendy and Fiona (2026-10-28, research/other_markets): six cities' daily highs and
+# football/baseball/basketball winners. The coin staff never see these, and these two never see the coins.
+other_series: [KXHIGHNY, KXHIGHLAX, KXHIGHCHI, KXHIGHMIA, KXHIGHAUS, KXHIGHDEN,
+               KXNFLGAME, KXNCAAFGAME, KXMLBGAME, KXNBAGAME]
 
 # The real-money book (its own roster and records) runs beside this one every hosted run
 real_book: desk.real.yaml
 
-broad_scan: false         # no sports, weather, or other non-bitcoin markets
+broad_scan: false         # no general market scan (Wendy and Fiona's series come from other_series)
 
 liquidity_share: 0.5      # assume faster bots take half of every displayed order
 
@@ -59,6 +63,13 @@ strategies:
     odds_margin: 0.0      # skip a bid when the coin's price gives her side worse odds than her bid (10-27)
   late_maker: {enabled: false}       # 🦉 Closing Time Coco - 94-99c, 2-5 minutes left (benched)
   runner_up_maker: {enabled: false}  # 🥈 Silver Medal Sid - 85-92c, 5-13 minutes left (benched)
+  # 2026-10-28: Sadie's idea outside the coins, on Training only (research/other_markets/README.md)
+  weather_maker:          # 🌤️ Weather Wendy - 92-99.5c daily-high favorites, midnight to 11 am city time (+3.8c per $1 replayed)
+    min_price: 0.92
+    max_price: 0.995
+  sports_closer:          # 🏁 Final Whistle Fiona - 97-99.5c game winners in the last 3 h to 2 h after (+1.2-1.7c replayed)
+    min_price: 0.97
+    max_price: 0.995
   longshot_buy:           # 🐦 Lucky the Pigeon - control group: buys long shots
     max_days: 2
     stake: 2

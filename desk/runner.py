@@ -306,10 +306,45 @@ class Desk:
             else:
                 events.append(r)
         quotes = await self.feed.refresh() if self.feed else {}
-        snap = Snapshot.build(_now(), events, list(self.broad_markets.values()), quotes, self.fees)
+        other = await self.fetch_other()
+        snap = Snapshot.build(_now(), events, list(self.broad_markets.values()) + other, quotes, self.fees)
         if any(s.wants_trades for s in self.strategies):
             snap.trades = await self.fetch_trades(snap)
         return snap
+
+    async def fetch_other(self) -> list[Market]:
+        """
+        The other_series markets about to be decided (weather today, games today), straight from the events
+        list with their prices: one call per series each run, not one per event.
+        """
+        now = _now()
+        lo, hi = now - timedelta(hours=3), now + timedelta(hours=self.config.other_horizon_hours)
+        series = list(self.config.other_series)
+        listed = await asyncio.gather(*(self.client.get_events(series_ticker=s, status="open", with_markets=True,
+                                                               page_size=200) for s in series), return_exceptions=True)
+        out = []
+        for s, events in zip(series, listed):
+            if isinstance(events, Exception):
+                logger.warning("Couldn't list events for %s: %s", s, events)
+                continue
+            try:
+                await self._fee_for_series(s)
+            except KalshiAPIError as e:
+                logger.warning("Couldn't get the fee schedule for %s: %s", s, e)
+            for e in events:
+                for m in e.markets:
+                    when = e.strike_date or m.expected_expiration_time or m.close_time
+                    if m.is_tradeable and when and lo <= when <= hi:
+                        out.append(m)
+        return out
+
+    def scoped(self, snap: Snapshot, scope: str) -> Snapshot:
+        """The coin employees see only coin markets, the "other" employees only other_series markets."""
+        if not self.config.other_series:
+            return snap
+        other = set(self.config.other_series)
+        markets = {t: m for t, m in snap.markets.items() if (m.series_ticker in other) == (scope == "other")}
+        return replace(snap, markets=markets)
 
     async def fetch_trades(self, snap: Snapshot) -> dict[str, list[dict]]:
         """Latest trades for the busiest markets (for tape-reading employees)."""
@@ -350,6 +385,7 @@ class Desk:
             for o in await _done(self.broker.cancel(self.pool.members)):  # bids waiting come down too
                 self._bid_ended(o, "bid pulled: daily stop")
         halted = bool(self.guard and self.guard.halted)
+        views = {scope: self.scoped(snap, scope) for scope in ("coins", "other")}
         # Higher levels go first, so they get first claim on a window's share of the pool
         for strat in sorted(self.strategies, key=lambda s: -self.multipliers.get(s.key, 1.0)):
             if strat.key in self.inactive:
@@ -365,7 +401,7 @@ class Desk:
             acct = self.accounts[strat.key]
             view = PoolAccountView(acct, self.broker.free_cash(strat.key)) if strat.key in self.pool.members else acct
             try:
-                intents = strat.evaluate(snap, view)
+                intents = strat.evaluate(views.get(strat.scope, views["coins"]), view)
             except Exception:
                 logger.exception("%s crashed while evaluating", strat.key)
                 self.journal.count(strat.key, "crashed")

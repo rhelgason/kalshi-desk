@@ -40,6 +40,11 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
 - **10-27: Sadie checks the coin before bidding** (`odds_margin: 0.0`, both books): she skips a bid when spot vs strike
   and 4 h vol give her side worse odds than her bid. Backtest +1.23c -> +2.06c per $1, half the bets (README section
   "What the open-source Kalshi bots do"). The feed now prices all 5 coins. Expect about half as many bets as before.
+- **10-28: two Training-only hires outside the coins** (research/other_markets/README.md; the real book has them
+  `enabled: false` and `other_series: []`): 🌤️ Weather Wendy (`weather_maker`, daily-high favorites 92-99.5c, midnight
+  to 11 am city time, replayed +3.8c per $1) and 🏁 Final Whistle Fiona (`sports_closer`, game winners at 97-99.5c from
+  3 h before Kalshi's expected end to 2 h after, +1.2-1.7c). Their markets come from desk.yaml `other_series` (one
+  events call per series each run); `Strategy.scope` keeps the coin staff off those markets and them off the coins.
 - **Fast Sadie trial** on the server (desk/fast.py, from 2026-10-26 07:12 UTC): always-on bid vs a 2-minute cron twin,
   pretend money from $87.63 each. `python -m desk fast-report`. So far it fills more, not better per $1.
 
