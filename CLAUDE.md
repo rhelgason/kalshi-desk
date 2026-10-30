@@ -28,7 +28,8 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
 
 - **Season 7, both books: Steady Sadie (`heavy_maker`) alone.** Stella, Coco and Sid are benched (`enabled: false`;
   Sadie still reads Stella's settings, hr.TWINS). Real money RESUMED 2026-10-26 ~09:35 UTC from $74.44 at **1% bets**
-  (real.settings pool.bet_pct 0.01, window_cap 0.04). Plan: 3% after a few hundred real bets if she is above zero.
+  (real.settings pool.bet_pct 0.01, window_cap 0.04). **10-30: raised to 2% (window_cap 0.08)** after +3.3c per $1 on 95 real bets
+  since the coin check; plan: 3% at ~300 real bets if still above zero.
   Training season 7 is seeded from Dec 10, 2025 ($1,000 -> $6,109 in the 1-minute replay, $10 cap) and live since.
   Season 7 on the real book was started on the server (this Mac has no Kalshi key): see deploy/SERVER.md.
 - **The finding (research/fast_coco/README.md):** resting bids on 92-99c favorites with 5-9 minutes left, replayed on
