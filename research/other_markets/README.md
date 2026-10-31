@@ -42,3 +42,18 @@ are expected by luck; the weather overnight row survived two different clocks (w
 fixed_clock.py scheduled time) and both halves. If it is ever tried: Training first, $10 cap, about 3 bets a day.
 Sports: no edge found pre-game, and makers pay a fee there. Matches the "Makers and Takers" paper (Burgi, Deng &
 Whelan): favourites are slightly underpriced in every Kalshi category, by about 1-5c, never by enough to get rich.
+
+## Wendy on two years of weather (2026-10-31)
+
+`wx_history.py` downloads every trade from 18:00 the evening before to 13:00 on the day, city time, for every
+daily-high market in the six cities since Nov 2024 (Kalshi's /historical endpoints hold markets settled before its
+cutoff; ~25,700 markets). `wx_years.py` replays Wendy as the bot runs her: 2-minute looks from midnight to 11 am,
+110 s bids at the side's last price, harsh fills, $10 a market.
+
+- All: 12,507 bets, **+0.83c per $1, t 3.7**, 3.3% lost. Far below the 60-day +3.8c: that window was a good one.
+- Year to Oct 2025: +0.21c (t 0.8), losing Nov 2024 - Mar 2025. Year to Oct 2026: +1.24c (t 5.2), every season up.
+- Every season positive over both years (winter weakest, +0.67c t 0.6). Prices: 95-97c best (+1.21c, t 2.8).
+- Cities: Chicago +1.99c (t 5.9) and Miami +1.53c (t 4.1) up in both years; LA +0.61c up in both; New York, Austin
+  and Denver about zero (lost in the first year, up in the second).
+- Verdict: a real edge about Sadie's size, not 3-4x it, and it was zero a year ago. Training only for now; the
+  candidate rule for real money would be Chicago + Miami (+LA), each up in both years on its own.
