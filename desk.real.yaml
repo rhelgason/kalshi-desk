@@ -39,8 +39,11 @@ bonus_pot:
   min_pool: 500           # the Employee of the Week's bonus starts once the real pool passes $500
 
 strategies:
-  # Only Sadie trades real money. Everyone else stays on Training.
-  heavy_maker: {odds_margin: 0.0}   # skip a bid when the coin's price gives her side worse odds than her bid (10-27)
+  # Only Sadie's rules trade real money (the coin specialists). Everyone else stays on Training.
+  heavy_maker: {odds_margin: 0.0, coins: []}   # coin check (10-27); since 10-31 she keeps the money and doesn't bid
+  # 10-31: the coin specialists bet the pool on Sadie's rules (added mid-season: new hires start with $0 of their
+  # own and share the pool, so the season and its chart carry on). Bitcoin Bea waits for her trade-tape test.
+  maker_btc: {enabled: false}
   late_maker: {enabled: false}
   weather_maker: {enabled: false}   # Training only (never on this book, so not a mid-season roster change)
   sports_closer: {enabled: false}

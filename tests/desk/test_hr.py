@@ -204,6 +204,16 @@ def test_twins_follow_their_siblings_settings():
     assert "enabled" not in hr.effective_strategy_config(base, roster)["nickel_maker"]  # Nora keeps working
 
 
+def test_coin_specialists_take_sadies_settings_which_take_stellas():
+    base = {"heavy_favorite": {"enabled": False, "min_price": 0.92}, "heavy_maker": {"odds_margin": 0.0, "coins": []},
+            "maker_eth": {}}
+    roster = {k: hr.EmployeeRecord(k) for k in ("heavy_maker", "maker_eth")}
+    roster["heavy_maker"].params = {"min_price": 0.93}  # tuned on Sadie: reaches the specialists too
+    cfg = hr.effective_strategy_config(base, roster)
+    assert cfg["maker_eth"] == {"min_price": 0.93, "odds_margin": 0.0}  # not Sadie's coins, not Stella's bench
+    assert cfg["heavy_maker"] == {"min_price": 0.93, "odds_margin": 0.0, "coins": []}
+
+
 def test_award_only_review_changes_no_levels_or_money():
     """The real-money book: the weekly award still happens, nothing else does."""
     led = Ledger(":memory:")

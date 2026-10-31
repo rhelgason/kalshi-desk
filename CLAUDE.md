@@ -46,6 +46,13 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
   to 11 am city time, replayed +3.8c per $1) and 🏁 Final Whistle Fiona (`sports_closer`, game winners at 97-99.5c from
   3 h before Kalshi's expected end to 2 h after, +1.2-1.7c). Their markets come from desk.yaml `other_series` (one
   events call per series each run); `Strategy.scope` keeps the coin staff off those markets and them off the coins.
+- **10-31: Sadie's bets split into five coin specialists, mid-season on both books** (no new season, so the real
+  book's season-7 chart carries on): 🐝 Bitcoin Bea `maker_btc`, 🦢 Ether Esther `maker_eth`, ☀️ Solar Sally `maker_sol`,
+  🌊 Ripple Rita `maker_xrp`, 🐕 Dogecoin Dot `maker_doge` (desk/strategies/bitcoin.py `CoinSpecialist`). They take
+  Sadie's settings through hr.TWINS (specialist -> Sadie -> Stella), so tune Sadie, not them. Sadie stays on staff with
+  `coins: []`: she holds the pool's money and bids nowhere (switching her off would drop that money from our books).
+  New hires join a pool with $0 of their own. Bea is Training only (`enabled: false` on the real book) until bitcoin's
+  trade-tape test (data/tape_btc) says otherwise. Wendy's two-year weather tape: research/other_markets/wx_history.py.
 - **Fast Sadie trial** on the server (desk/fast.py, from 2026-10-26 07:12 UTC): always-on bid vs a 2-minute cron twin,
   pretend money from $87.63 each. `python -m desk fast-report`. So far it fills more, not better per $1.
 

@@ -158,3 +158,18 @@ class TestPatientTwins:
         assert BreakoutBonnie().reprice(intent, seen, live).legs[0].limit_price == 0.54
         crossed = replace(seen, yes_bid=0.52, yes_ask=0.53)
         assert BreakoutBonnie().reprice(intent, seen, crossed).legs[0].limit_price == 0.52
+
+
+class TestCoinSpecialists:
+    def test_each_bids_only_on_her_own_coin_and_sadie_on_none(self, account):
+        from desk.strategies import DogecoinDot, EtherEsther
+
+        def m15(coin):
+            return make_market(f"KX{coin}15M-X7", yes_bid=0.950, yes_ask=0.953, series=f"KX{coin}15M",
+                               event=f"KX{coin}15M-X7", close_in=timedelta(minutes=7))
+
+        s = Snapshot.build(NOW, [], [m15("BTC"), m15("ETH"), m15("DOGE")])
+        assert [b.legs[0].ticker for b in EtherEsther().evaluate(s, account)] == ["KXETH15M-X7"]
+        assert [b.legs[0].ticker for b in DogecoinDot(coins=["BTC"]).evaluate(s, account)] == ["KXDOGE15M-X7"]
+        assert SteadySadie(coins=[]).evaluate(s, account) == []
+        assert len(SteadySadie().evaluate(s, account)) == 3

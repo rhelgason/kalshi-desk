@@ -53,7 +53,10 @@ CONTROL_GROUP = {"dart_monkey", "longshot_buy"}
 # of paying the ask. They follow the sibling's settings (including autotune's
 # changes), so the only difference between the two is how they buy.
 TWINS = {"nickel_maker": "nickel_picker", "early_maker": "early_favorite", "breakout_maker": "breakout",
-         "heavy_maker": "heavy_favorite"}
+         "heavy_maker": "heavy_favorite",
+         # The coin specialists (2026-10-31) take Sadie's settings, which take Stella's
+         "maker_btc": "heavy_maker", "maker_eth": "heavy_maker", "maker_sol": "heavy_maker",
+         "maker_xrp": "heavy_maker", "maker_doge": "heavy_maker"}
 # Employees that start at the bottom when first hired (unproven strategies)
 START_AS_INTERN = {"breakout", "early_favorite", "nickel_maker", "early_maker", "breakout_maker", "favorite_sports", "market_maker",
                    "runner_up_maker", "weather_maker", "sports_closer"}
@@ -214,18 +217,23 @@ def effective_strategy_config(base: dict[str, dict], roster: dict[str, EmployeeR
     """
     desk.yaml settings with the website's overrides on top. Fired employees are
     left out. A twin starts from its sibling's settings (desk.yaml plus the
-    sibling's overrides, e.g. from autotune), then its own on top.
+    sibling's overrides, e.g. from autotune), then its own on top. Twins can chain
+    (a coin specialist -> Sadie -> Stella); the oldest sibling's settings go first.
     """
     out = {}
     keys = set(base) | set(roster)
     for k in keys:
+        chain, s = [], TWINS.get(k)
+        while s and s not in chain:
+            chain.insert(0, s)
+            s = TWINS.get(s)
         cfg = {}
-        sibling = TWINS.get(k)
-        if sibling:
-            cfg.update({p: v for p, v in (base.get(sibling) or {}).items() if p != "enabled"})
+        for sibling in chain:
+            cfg.update({p: v for p, v in (base.get(sibling) or {}).items() if p not in ("enabled", "coins")})
         cfg.update(base.get(k) or {})
-        if sibling and roster.get(sibling):
-            cfg.update(roster[sibling].params or {})
+        for sibling in chain:
+            if roster.get(sibling):
+                cfg.update({p: v for p, v in (roster[sibling].params or {}).items() if p != "coins"})
         rec = roster.get(k)
         if rec:
             cfg.update(rec.params or {})

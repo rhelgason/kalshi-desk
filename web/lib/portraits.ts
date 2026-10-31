@@ -18,6 +18,32 @@ function art(rows: string[], palette: Record<string, string>, extra: [number, nu
 // The neck, shared by everyone
 const NECK = [".........SSSSSS.........", "..........SSSS.........."];
 
+// Sadie's apprentices (2026-10-31): her headband and cardigan, each in her own colours, holding her coin
+function apprentice(mark: string[], palette: Record<string, string>): Sprite {
+  const row = (h: string, mid: string) => "...GgGGG" + h + mid + h + "GGGgG...";
+  return art([
+    "........................",
+    "........HHHHHHHH........",
+    ".......HHHHHHHHHH.......",
+    "......HHHHHHHHHHHH......",
+    "......HHAAAAAAAAHH......",
+    "......HSSSSSSSSSSH......",
+    "......HSSSSSSSSSSH......",
+    "......HSkwSSSSkwSH......",
+    "......HSSSSssSSSSH......",
+    "......HSPSSSSSSPSH......",
+    ".......SSSSMMSSSS.......",
+    "........SSSSSSSS........",
+    ...NECK,
+    ".....GGGGGwSSwGGGGG.....",
+    "....GGGGGGGwwGGGGGGG....",
+    row("G", "GCCCCG"),
+    ...mark.map((m, i) => row(i === 1 || i === 2 ? "S" : "G", "C" + m + "C")),
+    row("G", "GCCCCG"),
+    "...GGGGGGGGGGGGGGGGGG...",
+  ], { S: "#d9a77c", s: "#c08a60", P: "#e8a0a0", M: "#b03a48", ...palette });
+}
+
 export const PORTRAITS: Record<string, Sprite> = {
   // 🎯 The Sniper: camo boonie hat with leaves, face paint, one eye squinting down the scope
   sniper: art([
@@ -437,4 +463,21 @@ export const PORTRAITS: Record<string, Sprite> = {
     "...KWKWKWKWKWKWKWKWKW...",
   ], { S: "#c68c5a", s: "#a8703f", H: "#1f1410", R: "#c0392b", M: "#7a2b2b", K: "#20242c", W: "#f2f2f2",
        L: "#2c5fa8", G: "#c0c6cc" }),
+
+  // Sadie's coin apprentices, one coin each: the coin in their hands carries its mark ("c")
+  // 🐝 Bitcoin Bea: honey-blonde, black-and-gold stripes, an orange coin with a B
+  maker_btc: apprentice(["cccC", "cCcc", "cccC", "cccc"],
+    { H: "#e0a630", A: "#1a1a1a", G: "#f2c230", g: "#1a1a1a", C: "#f7931a", c: "#fff4d6" }),
+  // 🦢 Ether Esther: silver-white hair, lilac cardigan, a slate coin with a diamond
+  maker_eth: apprentice(["CccC", "cccc", "cccc", "CccC"],
+    { H: "#e6e6ef", A: "#7d6cc4", G: "#b3a6e6", g: "#9283cf", C: "#3c3c5a", c: "#c9c3ff" }),
+  // ☀️ Solar Sally: copper hair, teal band, sunny cardigan, a purple coin with green stripes
+  maker_sol: apprentice(["cccc", "CCCc", "cCCC", "cccc"],
+    { H: "#b5532a", A: "#14b8a6", G: "#f5d042", g: "#e0b52a", C: "#7c3aed", c: "#34d399" }),
+  // 🌊 Ripple Rita: sea-black hair, white band, ocean-blue cardigan, a dark coin with a white X
+  maker_xrp: apprentice(["cCCc", "CccC", "CccC", "cCCc"],
+    { H: "#1b2a3a", A: "#f2f2f2", G: "#2e86c1", g: "#1f6aa0", C: "#23292f", c: "#f2f2f2" }),
+  // 🐕 Dogecoin Dot: shiba-orange hair, red collar band, cream cardigan, a gold coin with a D
+  maker_doge: apprentice(["ccCC", "cCcC", "cCcC", "ccCC"],
+    { H: "#d9822b", A: "#c0392b", G: "#efe3c8", g: "#d8c8a4", C: "#c2a633", c: "#fff4d6" }),
 };

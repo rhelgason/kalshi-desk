@@ -113,13 +113,20 @@ async def test_hosted_run_does_real_book_first_and_survives_its_failure(monkeypa
     assert (await cloud.run_all_books(str(tmp_path / "desk.yaml")))["ok"] and calls == ["desk.yaml"]
 
 
-def test_real_book_builds_only_sadie():
+def test_real_book_builds_sadie_and_her_coin_specialists():
+    """Since 2026-10-31 Sadie keeps the pool's money and bids nowhere; the specialists bet it on her rules."""
     from desk.strategies import build_strategies
 
     real = DeskConfig.load(ROOT / "desk.real.yaml")
-    [sadie] = build_strategies(hr_config(real))
-    assert sadie.key == "heavy_maker"
-    assert (sadie.min_price, sadie.max_price, sadie.min_seconds, sadie.max_seconds) == (0.92, 0.99, 300, 540)
+    staff = {s.key: s for s in build_strategies(hr_config(real))}
+    assert set(staff) == {"heavy_maker", "maker_eth", "maker_sol", "maker_xrp", "maker_doge"}  # bitcoin waits
+    assert staff["heavy_maker"].coins == []
+    for k, coin in (("maker_eth", "ETH"), ("maker_sol", "SOL"), ("maker_xrp", "XRP"), ("maker_doge", "DOGE")):
+        s = staff[k]
+        assert s.coins == [coin] and s.odds_margin == 0.0
+        assert (s.min_price, s.max_price, s.min_seconds, s.max_seconds) == (0.92, 0.99, 300, 540)
+    pretend = {s.key for s in build_strategies(hr_config(DeskConfig.load(ROOT / "desk.yaml")))}
+    assert {"heavy_maker", "maker_btc", "maker_eth", "maker_sol", "maker_xrp", "maker_doge"} <= pretend
 
 
 def hr_config(cfg):

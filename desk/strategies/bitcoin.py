@@ -234,15 +234,21 @@ class SteadySadie(PatientTwin, SteadyStella):
     )
     backtestable = False
 
-    def __init__(self, odds_margin: Optional[float] = None, **kw):
+    def __init__(self, odds_margin: Optional[float] = None, coins: Optional[list[str]] = None, **kw):
         # Skip a bid when the coin's own price gives her side worse odds than her bid + this margin
         # (None = never look). research/fast_coco/sadie_filters.py, Aug 25 - Oct 25 on 4 coins with an
         # exchange's spot and 4 hours of 1-minute vol: +1.23c -> +2.06c per $1 at 0, both halves, half the bets.
         # The bids she skips are the ones sellers hit because they know the coin just moved.
         self.odds_margin = odds_margin
+        # Only these coins' markets (None = every coin, [] = none: since 2026-10-31 the coin specialists bet
+        # and Sadie keeps the pool's money, so the chart carries on without a new season)
+        self.coins = coins
         super().__init__(**kw)
 
     def evaluate(self, snap: Snapshot, account: AccountView) -> list[TradeIntent]:
+        if self.coins is not None:
+            series = {f"KX{c}15M" for c in self.coins}
+            snap = replace(snap, markets={t: m for t, m in snap.markets.items() if m.series_ticker in series})
         bids = self.patient(super().evaluate(snap, account), snap, account)
         if self.odds_margin is None:
             return bids
@@ -252,6 +258,63 @@ class SteadySadie(PatientTwin, SteadyStella):
         leg = intent.legs[0]
         odds = side_odds(snap, snap.markets.get(leg.ticker), leg.side)
         return odds is not None and odds < leg.limit_price + self.odds_margin
+
+
+class CoinSpecialist(SteadySadie):
+    """
+    Sadie's rules on one coin (2026-10-31): the same bets split five ways, so each coin has its own report card.
+    Settings come from Sadie's (hr.TWINS), except the coin, which is the specialist's own.
+    """
+
+    coin = ""
+
+    def __init__(self, coins: Optional[list[str]] = None, **kw):
+        super().__init__(coins=[self.coin], **kw)
+
+
+class BitcoinBea(CoinSpecialist):
+    key = "maker_btc"
+    coin = "BTC"
+    persona = Persona(
+        "Bitcoin Bea", "Queen Bee", "🐝",
+        "Sadie's apprentice on the busiest hive in crypto. Lots of buzz, lots of bids, and she never chases a flower.",
+    )
+
+
+class EtherEsther(CoinSpecialist):
+    key = "maker_eth"
+    coin = "ETH"
+    persona = Persona(
+        "Ether Esther", "Swan Lake", "🦢",
+        "Sadie's apprentice on ether. Glides along on the surface, paddles like mad underneath, never pays the ask.",
+    )
+
+
+class SolarSally(CoinSpecialist):
+    key = "maker_sol"
+    coin = "SOL"
+    persona = Persona(
+        "Solar Sally", "Sun Chaser", "☀️",
+        "Sadie's apprentice on solana. Sunglasses on, bid posted, waits for the sellers to come to the beach.",
+    )
+
+
+class RippleRita(CoinSpecialist):
+    key = "maker_xrp"
+    coin = "XRP"
+    persona = Persona(
+        "Ripple Rita", "Tide Watcher", "🌊",
+        "Sadie's apprentice on XRP. Knows every wave comes back in, so she leaves her bid at the waterline.",
+    )
+
+
+class DogecoinDot(CoinSpecialist):
+    key = "maker_doge"
+    coin = "DOGE"
+    persona = Persona(
+        "Dogecoin Dot", "Good Girl", "🐕",
+        "Sadie's apprentice on dogecoin. Sits. Stays. Waits for the treat to come to her. Very patient. Much bid.",
+    )
 
 
 def side_odds(snap: Snapshot, m: Optional[Market], side: Side) -> Optional[float]:

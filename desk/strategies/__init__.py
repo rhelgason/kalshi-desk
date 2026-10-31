@@ -2,8 +2,8 @@ from desk.strategies.base import AccountView, Leg, Persona, Snapshot, Strategy, 
 from desk.strategies.arbitrage import CoverArb, PartitionArb
 from desk.strategies.fair_value import CryptoFairValue, MomentumMo, RubberBandRandy, Sniper, VegaVinny
 from desk.strategies.bitcoin import (
-    BreakoutBetty, BreakoutBonnie, ClosingTimeCoco, EarlyBirdEdie, EarlyBirdEllie, NickelNora, SilverMedalSid,
-    SteadySadie,
+    BitcoinBea, BreakoutBetty, BreakoutBonnie, ClosingTimeCoco, DogecoinDot, EarlyBirdEdie, EarlyBirdEllie, EtherEsther,
+    NickelNora, RippleRita, SilverMedalSid, SolarSally, SteadySadie,
 )
 from desk.strategies.other_markets import FinalWhistleFiona, WeatherWendy
 from desk.strategies.behavioral import (
@@ -15,7 +15,8 @@ from desk.strategies.behavioral import (
 # family that a 10-month backtest found an edge in (research/stella_backtest).
 STAFF: tuple[type[Strategy], ...] = (
     SteadyStella,  # heavy favorites mid-window, paying the ask (Training's yardstick for the twins)
-    SteadySadie,  # Stella's patient twin: the real book's only employee since 2026-10-24
+    SteadySadie,  # Stella's patient twin: the real book's only employee 2026-10-24 to 10-31; now keeps the pool's money
+    BitcoinBea, EtherEsther, SolarSally, RippleRita, DogecoinDot,  # Sadie's rules, one coin each (2026-10-31)
     ClosingTimeCoco, SilverMedalSid,  # resting bids late in the window / on the next tier of favorites
     WeatherWendy, FinalWhistleFiona,  # Training only: weather mornings and finished games (research/other_markets)
     LongshotLenny, DartMonkey,  # yardsticks: everyone should beat these
@@ -76,6 +77,7 @@ def build_strategies(config: dict[str, dict], registry: dict[str, type[Strategy]
 
 __all__ = [
     "AccountView", "Leg", "Persona", "Snapshot", "Strategy", "TradeIntent",
+    "BitcoinBea", "EtherEsther", "SolarSally", "RippleRita", "DogecoinDot",
     "CoverArb", "PartitionArb", "CryptoFairValue", "VegaVinny", "Sniper", "MomentumMo", "RubberBandRandy",
     "LongshotFade", "LongshotLenny", "NickelNick", "FrontRunnerFran", "SpreadSam", "WhaleWatcherWalt",
     "DartMonkey", "SteadyStella", "BreakoutBetty", "EarlyBirdEdie", "NickelNora", "EarlyBirdEllie", "BreakoutBonnie",
