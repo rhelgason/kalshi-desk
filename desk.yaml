@@ -60,8 +60,9 @@ strategies:
     max_seconds: 540
     max_spread: 0.02
   heavy_maker:            # 🐌 Steady Sadie - Stella's picks with resting bids (uses Stella's settings)
+    enabled: false        # 10-31: retired; her season-7 bets and money went to the coin specialists below
     odds_margin: 0.0      # skip a bid when the coin's price gives her side worse odds than her bid (10-27)
-    coins: []             # 10-31: she keeps the pool's money and the five coin specialists below bet it
+    coins: []             # (if ever back on staff, she mustn't double the specialists' bets)
   # Sadie's rules, one coin each (2026-10-31): they take Sadie's settings (hr.TWINS), so tune her, not them
   maker_btc: {}           # 🐝 Bitcoin Bea
   maker_eth: {}           # 🦢 Ether Esther

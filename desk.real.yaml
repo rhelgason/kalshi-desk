@@ -40,9 +40,10 @@ bonus_pot:
 
 strategies:
   # Only Sadie's rules trade real money (the coin specialists). Everyone else stays on Training.
-  heavy_maker: {odds_margin: 0.0, coins: []}   # coin check (10-27); since 10-31 she keeps the money and doesn't bid
-  # 10-31: the coin specialists bet the pool on Sadie's rules (added mid-season: new hires start with $0 of their
-  # own and share the pool, so the season and its chart carry on). Bitcoin Bea waits for her trade-tape test.
+  # Sadie retired 10-31: her season-7 bets went to the specialist for each coin and her starting money was split
+  # evenly between them (in the database first, so nothing dropped from the books). Her settings still feed theirs.
+  heavy_maker: {enabled: false, odds_margin: 0.0, coins: []}   # coin check (10-27)
+  # The coin specialists bet the pool on Sadie's rules. Bitcoin Bea waits for her trade-tape test.
   maker_btc: {enabled: false}
   late_maker: {enabled: false}
   weather_maker: {enabled: false}   # Training only (never on this book, so not a mid-season roster change)

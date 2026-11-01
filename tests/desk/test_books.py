@@ -50,7 +50,8 @@ def test_real_book_config_inherits_and_overrides():
     for k in ("heavy_favorite", "late_maker", "runner_up_maker"):
         assert real.strategies[k]["enabled"] is False and pretend.strategies[k]["enabled"] is False
     assert real.strategies["longshot_buy"]["enabled"] is False and pretend.strategies["longshot_buy"].get("enabled", True)
-    assert real.strategies["heavy_maker"].get("enabled", True) and pretend.strategies["heavy_maker"].get("enabled", True)
+    # Sadie retired 10-31 (her bets went to the coin specialists) but her settings still reach them
+    assert real.strategies["heavy_maker"]["enabled"] is False and pretend.strategies["heavy_maker"]["enabled"] is False
     assert "max_seconds" in real.strategies["heavy_favorite"]  # Stella's settings still reach her twin
 
 def test_bad_book_or_schema_is_refused(tmp_path):
@@ -113,20 +114,19 @@ async def test_hosted_run_does_real_book_first_and_survives_its_failure(monkeypa
     assert (await cloud.run_all_books(str(tmp_path / "desk.yaml")))["ok"] and calls == ["desk.yaml"]
 
 
-def test_real_book_builds_sadie_and_her_coin_specialists():
-    """Since 2026-10-31 Sadie keeps the pool's money and bids nowhere; the specialists bet it on her rules."""
+def test_real_book_builds_sadies_coin_specialists():
+    """Since 2026-10-31 the specialists bet the pool on Sadie's rules; Sadie herself is retired."""
     from desk.strategies import build_strategies
 
     real = DeskConfig.load(ROOT / "desk.real.yaml")
     staff = {s.key: s for s in build_strategies(hr_config(real))}
-    assert set(staff) == {"heavy_maker", "maker_eth", "maker_sol", "maker_xrp", "maker_doge"}  # bitcoin waits
-    assert staff["heavy_maker"].coins == []
+    assert set(staff) == {"maker_eth", "maker_sol", "maker_xrp", "maker_doge"}  # bitcoin waits
     for k, coin in (("maker_eth", "ETH"), ("maker_sol", "SOL"), ("maker_xrp", "XRP"), ("maker_doge", "DOGE")):
         s = staff[k]
         assert s.coins == [coin] and s.odds_margin == 0.0
         assert (s.min_price, s.max_price, s.min_seconds, s.max_seconds) == (0.92, 0.99, 300, 540)
     pretend = {s.key for s in build_strategies(hr_config(DeskConfig.load(ROOT / "desk.yaml")))}
-    assert {"heavy_maker", "maker_btc", "maker_eth", "maker_sol", "maker_xrp", "maker_doge"} <= pretend
+    assert {"maker_btc", "maker_eth", "maker_sol", "maker_xrp", "maker_doge"} <= pretend and "heavy_maker" not in pretend
 
 
 def hr_config(cfg):
