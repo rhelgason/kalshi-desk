@@ -74,3 +74,20 @@ drift to the final minute, then the average), 30 s / 120 s momentum, the previou
 - Previous market settled her way: +1.63c vs +0.69c, both halves, but it halves the bets and total dollars. Not used.
 - Momentum and the other coins: no usable pattern (the coins nearly always agree).
 Live from 2026-10-27 ~22:40 UTC in both books (`heavy_maker: {odds_margin: 0.0}`).
+
+## Bitcoin Bea's trade-tape test (2026-11-01)
+
+`btc_check.py` replays Sadie's cron rules with the coin check on bitcoin's real trade tape (data/tape_btc, 6,352
+markets, Aug 24 - Oct 31) next to the other four coins (data/tape62), $10 a market, harsh fills:
+
+| With the coin check | Bets | Lost | Per $1 | Halves | Weeks up |
+|---|---|---|---|---|---|
+| BTC | 846 | 3.2% | +2.11c | +3.33 / +0.89 | 8 of 11 |
+| ETH | 784 | 3.3% | +1.37c | +2.14 / +0.60 | 8 of 10 |
+| SOL | 820 | 2.7% | +1.92c | +1.47 / +2.37 | 8 of 10 |
+| XRP | 800 | 2.5% | +2.61c | +3.56 / +1.65 | 8 of 10 |
+| DOGE | 779 | 2.4% | +2.33c | +2.01 / +2.63 | 9 of 10 |
+
+Bitcoin passes the bar set before the test (clearly above zero, most weeks up, both halves up) and sits in the middle
+of the pack, so dropping it on 10-25 was about the old strategies, not Sadie's. Caveats: its second half is thin
+(+0.89c, like ETH's), one bad week (Oct 1: -4.3c), and its 97-99c bets lose (-0.45c) while 92-97c carry it.
