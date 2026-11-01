@@ -25,13 +25,13 @@ auto_hr: false            # no automatic reviews or promotions with real money: 
 pool_cash: 250
 starting_cash: 250
 
-crypto_series: [KXETH15M, KXSOL15M, KXXRP15M, KXDOGE15M]
+crypto_series: [KXBTC15M, KXETH15M, KXSOL15M, KXXRP15M, KXDOGE15M]   # bitcoin back 11-01 (Bea's tape test)
 crypto_symbols: [BTC, ETH, SOL, XRP, DOGE]
 other_series: []          # Wendy and Fiona's weather and sports markets are Training only
 
 live:
   max_order_dollars: 10   # no single order above this
-  max_orders_per_day: 1500 # Sadie posts a bid each look until one fills: ~1-3 per market, ~384 markets a day
+  max_orders_per_day: 2000 # a bid each look until one fills: ~1-3 per market, ~480 markets a day on 5 coins
   max_daily_loss: 40      # dollars down since midnight: halt until resumed (the pool's own stop is 10%)
   max_drift: 1            # dollars the books may differ from Kalshi's balance
 
@@ -43,8 +43,8 @@ strategies:
   # Sadie retired 10-31: her season-7 bets went to the specialist for each coin and her starting money was split
   # evenly between them (in the database first, so nothing dropped from the books). Her settings still feed theirs.
   heavy_maker: {enabled: false, odds_margin: 0.0, coins: []}   # coin check (10-27)
-  # The coin specialists bet the pool on Sadie's rules. Bitcoin Bea waits for her trade-tape test.
-  maker_btc: {enabled: false}
+  # The coin specialists bet the pool on Sadie's rules. Bitcoin Bea joined 11-01 after her trade-tape test
+  # (research/fast_coco/README.md: +2.1c per $1, both halves): a mid-season hire with $0 of her own, like the rest.
   late_maker: {enabled: false}
   weather_maker: {enabled: false}   # Training only (never on this book, so not a mid-season roster change)
   sports_closer: {enabled: false}

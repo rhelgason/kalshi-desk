@@ -42,7 +42,7 @@ def test_real_book_config_inherits_and_overrides():
     assert pretend.book == "pretend" and pretend.schema == "public" and pretend.real_book == "desk.real.yaml"
     assert real.book == "real" and real.schema == "real" and real.real_book is None
     assert real.trading == "live" and not real.auto_hr and pretend.trading == "paper" and pretend.auto_hr
-    assert real.crypto_series == ["KXETH15M", "KXSOL15M", "KXXRP15M", "KXDOGE15M"]  # no bitcoin (2026-10-25)
+    assert real.crypto_series == ["KXBTC15M", "KXETH15M", "KXSOL15M", "KXXRP15M", "KXDOGE15M"]  # bitcoin back 11-01
     # One employee switched off without dropping their settings or anyone else's
     assert real.strategies["dart_monkey"]["enabled"] is False
     assert real.strategies["dart_monkey"]["stake"] == pretend.strategies["dart_monkey"]["stake"]
@@ -120,8 +120,8 @@ def test_real_book_builds_sadies_coin_specialists():
 
     real = DeskConfig.load(ROOT / "desk.real.yaml")
     staff = {s.key: s for s in build_strategies(hr_config(real))}
-    assert set(staff) == {"maker_eth", "maker_sol", "maker_xrp", "maker_doge"}  # bitcoin waits
-    for k, coin in (("maker_eth", "ETH"), ("maker_sol", "SOL"), ("maker_xrp", "XRP"), ("maker_doge", "DOGE")):
+    assert set(staff) == {"maker_btc", "maker_eth", "maker_sol", "maker_xrp", "maker_doge"}
+    for k, coin in (("maker_btc", "BTC"), ("maker_eth", "ETH"), ("maker_sol", "SOL"), ("maker_xrp", "XRP"), ("maker_doge", "DOGE")):
         s = staff[k]
         assert s.coins == [coin] and s.odds_margin == 0.0
         assert (s.min_price, s.max_price, s.min_seconds, s.max_seconds) == (0.92, 0.99, 300, 540)
