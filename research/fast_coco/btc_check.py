@@ -4,7 +4,7 @@ Same replay as sadie_filters.py SRC=binance (a look every 120 s, 300-540 s left,
 best bid, 110 s bids, harsh fills, $10 a market), then the live rule: skip the market when the exchange's spot and
 4 hours of 1-minute vol give her side worse odds than her bid. Streams each tape (bitcoin's is 1 GB), so any coin works.
 Prints per-$1 results overall, by half, by week, and over the window every tape shares, so coins compare fairly.
-    python research/fast_coco/btc_check.py data/tape_btc:BTC data/tape62:ETH data/tape62:SOL ..."""
+    python research/fast_coco/btc_check.py data/tape_btc:BTC data/tape62:ETH data/tape62:SOL ...     env OUT=rows.json"""
 import gzip, json, math, os, sys
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -117,6 +117,8 @@ def show(label, rs):
           f" {c([r for r in rs if r['close'] >= half]):+6.2f}  weeks up {up}/{len(weeks)}")
 
 
+if os.environ.get("OUT"):
+    json.dump(rows, open(os.environ["OUT"], "w"))   # for sizing studies (sizing.py)
 coins = list(dict.fromkeys(r["coin"] for r in rows))
 lo = max(min(r["close"] for r in rows if r["coin"] == k) for k in coins)
 hi = min(max(r["close"] for r in rows if r["coin"] == k) for k in coins)

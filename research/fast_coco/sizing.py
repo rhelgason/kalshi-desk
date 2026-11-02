@@ -1,45 +1,86 @@
-"""Compound a maker rule's per-market results (maker_bets.py) at different bet sizes, from $100.
-Markets that close at the same moment share the bankroll (each gets FRACTION of it), so correlated losses hit together.
-Each bet's return per $1 is taken from the $10 replay (fills smaller than $10 scale down: the bet is
-FRACTION x bankroll x spent/10). Prints the end bankroll, worst day, deepest drawdown, and per half.
-    python sizing.py BETS.json [BETS2.json ...]   (several files = rules run side by side, each with its own share)"""
-import json, os, sys
-from collections import defaultdict
-from datetime import datetime, timezone
+"""How big should Sadie's rules bet, and should surer bets be bigger? (2026-11-02)
 
-files = sys.argv[1:]
-MAXBET = float(os.environ.get("MAXBET", "inf"))   # dollars per market: the book only holds so much
-rows = []
-for i, f in enumerate(files):
-    for r in json.load(open(f)):
-        r["rule"] = i; rows.append(r)
-by = defaultdict(list)
+Uses every bet btc_check.py replayed (OUT=data/sadie_rows.json: 5 coins, Aug 24 - Oct 31, trade tape, harsh fills),
+keeping the ones the coin check allows. Two questions:
+  1. Does the coin check's "how sure" (its odds minus our price) say which bets earn more per $1?
+  2. Pool replays from $80, in time order: each bet is a share of the pool (never more than the replay filled at that
+     market, so bigger bets can't fill liquidity that wasn't there), all bets closing together share a window cap.
+     Flat sizes vs bets scaled by sureness vs Kelly.
+    python research/fast_coco/sizing.py data/sadie_rows.json"""
+import json, math, sys
+from collections import defaultdict
+
+rows = [r for r in json.load(open(sys.argv[1])) if r["odds"] >= r["price"]]
+rows.sort(key=lambda r: r["close"])
+half = rows[len(rows) // 2]["close"]
 for r in rows:
-    by[r["close"]].append(r)
-times = sorted(by)
-day = lambda t: datetime.fromtimestamp(t - 7 * 3600, timezone.utc).strftime("%Y-%m-%d")
-days = sorted({day(t) for t in times})
-half = days[len(days) // 2]
-print(f"{len(rows)} bets over {len(days)} days ({days[0]} .. {days[-1]}), {len(rows)/len(days):.0f} a day")
-for frac in (0.01, 0.03, 0.05, 0.10, 0.20, 0.30):
-    res = {}
-    for label, sel in (("all", lambda d: True), ("1st half", lambda d: d < half), ("2nd half", lambda d: d >= half),
-                       ("last 7d", lambda d: d >= days[-7])):
-        B, peak, dd, worst, dayB, cur = 100.0, 100.0, 0.0, 0.0, 100.0, None
-        for t in times:
-            d = day(t)
-            if not sel(d):
-                continue
-            if d != cur:
-                if cur is not None:
-                    worst = min(worst, B / dayB - 1) if dayB > 0 else -1
-                cur, dayB = d, B
-            stake = min(frac * B, MAXBET)
-            B += sum(stake * r["spent"] / 10 * (r["pnl"] / r["spent"]) for r in by[t])
-            B = max(B, 0.0)
-            peak = max(peak, B); dd = min(dd, B / peak - 1)
-        worst = min(worst, B / dayB - 1) if dayB > 0 else -1
-        res[label] = (B, worst, dd)
-    a = res["all"]
-    print(f"  {frac*100:4.0f}% a bet: $100 -> ${a[0]:>10,.0f}  worst day {a[1]*100:+5.1f}%  deepest drop {a[2]*100:+5.1f}% | "
-          f"1st half ${res['1st half'][0]:,.0f}, 2nd half ${res['2nd half'][0]:,.0f}, last 7 days ${res['last 7d'][0]:,.0f}")
+    r["r"] = r["pnl"] / r["spent"]
+    r["edge"] = r["odds"] - r["price"]
+
+
+def c(rs):
+    s = sum(r["spent"] for r in rs)
+    return sum(r["pnl"] for r in rs) / s * 100 if s else float("nan")
+
+
+def show(label, rs):
+    if rs:
+        lost = sum(r["pnl"] < 0 for r in rs)
+        print(f"  {label:22s} {len(rs):5d} bets  lost {lost/len(rs)*100:4.1f}%  {c(rs):+6.2f}c per $1  halves "
+              f"{c([r for r in rs if r['close'] < half]):+6.2f} / {c([r for r in rs if r['close'] >= half]):+6.2f}")
+
+
+print(f"1. Per $1 by how sure the coin check is ({len(rows)} bets)")
+show("all", rows)
+print(" coin-check odds minus our price:")
+for lo, hi in ((0, 0.01), (0.01, 0.02), (0.02, 0.03), (0.03, 0.05), (0.05, 1)):
+    show(f"+{lo*100:.0f} to +{hi*100:.0f}c", [r for r in rows if lo <= r["edge"] < hi])
+print(" coin-check odds:")
+for lo, hi in ((0.92, 0.97), (0.97, 0.99), (0.99, 0.995), (0.995, 0.999), (0.999, 1.01)):
+    show(f"{lo*100:.1f} to {hi*100:.1f}%", [r for r in rows if lo <= r["odds"] < hi])
+
+# Kelly's answer for one bet, from the replay itself: the share of the pool that grows it fastest
+m1 = sum(r["r"] for r in rows) / len(rows)
+m2 = sum(r["r"] ** 2 for r in rows) / len(rows)
+print(f"\nKelly from the replay, if every bet were on its own: about {m1 / m2 * 100:.0f}% of the pool a bet")
+win = defaultdict(list)
+for r in rows:
+    win[r["close"]].append(r)
+same = sum(len(v) > 1 for v in win.values())
+both = [v for v in win.values() if len(v) > 1]
+together = sum(all(x["pnl"] < 0 for x in v) for v in both if any(x["pnl"] < 0 for x in v))
+anyloss = sum(any(x["pnl"] < 0 for x in v) for v in both)
+print(f"  ({same} of {len(win)} windows hold 2+ coins' bets; when one of those loses, every coin in it loses "
+      f"{together} of {anyloss} times, so the window cap matters)")
+
+
+def replay(size, cap):
+    pool, peak, worst, low = 80.0, 80.0, 0.0, 80.0
+    days = defaultdict(float)
+    for close, bets in sorted(win.items()):
+        stakes = [min(size(r) * pool, r["spent"]) for r in bets]
+        total = sum(stakes)
+        if total > cap * pool:
+            stakes = [s * cap * pool / total for s in stakes]
+        before = pool
+        for r, s in zip(bets, stakes):
+            if s >= 0.25:
+                pool += s * r["r"]
+        days[close // 86400] += pool - before
+        peak = max(peak, pool); worst = max(worst, 1 - pool / peak); low = min(low, pool)
+    return pool, worst, min(days.values()) if days else 0.0, low
+
+
+print("\n2. Pool replays from $80 (bet = share of pool, at most what filled; window cap shared)")
+print(f"  {'rule':40s} {'ends at':>9s} {'worst drop':>11s} {'worst day':>10s} {'lowest':>8s}")
+schemes = [(f"flat {f*100:.0f}%, cap {f*4*100:.0f}%", (lambda r, f=f: f), f * 4) for f in (0.01, 0.02, 0.03, 0.05, 0.08)]
+schemes += [
+    ("3% x sureness (1% to 6%), cap 12%", lambda r: min(max(r["edge"] / 0.02, 0.33), 2) * 0.03, 0.12),
+    ("3% x sureness (2% to 4%), cap 12%", lambda r: min(max(r["edge"] / 0.02, 0.67), 1.33) * 0.03, 0.12),
+    ("3%, only bets 2c+ sure, cap 12%", lambda r: 0.03 if r["edge"] >= 0.02 else 0, 0.12),
+    ("tenth-Kelly from coin odds, cap 12%", lambda r: max(r["edge"] / (1 - r["price"]), 0) * 0.1, 0.12),
+    ("quarter-Kelly from coin odds, cap 25%", lambda r: max(r["edge"] / (1 - r["price"]), 0) * 0.25, 0.25),
+]
+for label, size, cap in schemes:
+    end, worst, day, low = replay(size, cap)
+    print(f"  {label:40s} ${end:8,.0f} {worst*100:10.1f}% ${day:+9,.0f} ${low:7,.0f}")

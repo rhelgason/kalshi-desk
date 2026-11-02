@@ -57,3 +57,18 @@ cutoff; ~25,700 markets). `wx_years.py` replays Wendy as the bot runs her: 2-min
   and Denver about zero (lost in the first year, up in the second).
 - Verdict: a real edge about Sadie's size, not 3-4x it, and it was zero a year ago. Training only for now; the
   candidate rule for real money would be Chicago + Miami (+LA), each up in both years on its own.
+
+## Wendy's best hours (2026-11-02)
+
+Same two-year replay (`wx_years.py`, START/END in city hours on the day; negative = the evening before):
+
+| Hours | Bets | Per $1 | t | Notes |
+|---|---|---|---|---|
+| 6 pm - midnight (evening before) | 7,259 | +0.40c | 0.9 | NY and Austin lose |
+| **midnight - 6 am** | 7,794 | **+1.48c** | **5.4** | both years up (+1.12c, +1.61c), every season, every city up in both years |
+| 6 am - 11 am | 11,511 | +0.64c | 2.6 | Denver and Austin about zero |
+| midnight - 11 am (what she ran) | 12,507 | +0.83c | 3.7 | |
+| midnight - 4 am / 2 am - 8 am | 6,931 / 8,308 | +1.51c / +1.08c | 4.7 / 2.8 | the edge fades after ~6 am |
+
+Training's Wendy now stops at 6 am city time (desk.yaml `end_hour: 6`). Four windows were tried, so a little luck is
+in the winner, but t 5.4 with every city up in both years is far beyond what four tries would hand out by chance.

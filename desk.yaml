@@ -72,9 +72,11 @@ strategies:
   late_maker: {enabled: false}       # 🦉 Closing Time Coco - 94-99c, 2-5 minutes left (benched)
   runner_up_maker: {enabled: false}  # 🥈 Silver Medal Sid - 85-92c, 5-13 minutes left (benched)
   # 2026-10-28: Sadie's idea outside the coins, on Training only (research/other_markets/README.md)
-  weather_maker:          # 🌤️ Weather Wendy - 92-99.5c daily-high favorites, midnight to 11 am city time (+3.8c per $1 replayed)
+  weather_maker:          # 🌤️ Weather Wendy - 92-99.5c daily-high favorites, midnight to 6 am city time
     min_price: 0.92
     max_price: 0.995
+    end_hour: 6           # 11-02: two years of trades (wx_years.py): 0-6 am +1.48c per $1 (t 5.4, both years, all 6
+                          # cities up) vs 0-11 am +0.83c; 6-11 am adds +0.64c and the evening before +0.40c
   sports_closer:          # 🏁 Final Whistle Fiona - 97-99.5c game winners in the last 3 h to 2 h after (+1.2-1.7c replayed)
     min_price: 0.97
     max_price: 0.995

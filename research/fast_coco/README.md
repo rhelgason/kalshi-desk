@@ -91,3 +91,14 @@ markets, Aug 24 - Oct 31) next to the other four coins (data/tape62), $10 a mark
 Bitcoin passes the bar set before the test (clearly above zero, most weeks up, both halves up) and sits in the middle
 of the pack, so dropping it on 10-25 was about the old strategies, not Sadie's. Caveats: its second half is thin
 (+0.89c, like ETH's), one bad week (Oct 1: -4.3c), and its 97-99c bets lose (-0.45c) while 92-97c carry it.
+
+## How big to bet, and bigger bets when surer? (2026-11-02)
+
+`sizing.py` on the 4,029 bets btc_check.py replayed (5 coins, coin check on, `OUT=data/sadie_rows.json`):
+- **Sureness doesn't pick winners.** Per $1 is about +2c whether the coin check's odds beat our price by 0-1c
+  (+1.95c) or 5c+ (+2.07c); bets it calls 99.9%+ still lose 1.9% of the time. So scaling bets by sureness, or Kelly
+  from the coin odds, ends about where flat betting does (3% flat $641 from $80; sureness-scaled $667-673).
+- **Kelly** from the replay says ~67% of the pool a bet, which only means the edge is very steady; it ignores that
+  the 2c is an estimate, that several coins' bets share a window, and that fills run out. Pool replays from $80
+  (bets never bigger than the replay filled): 1% $170, 2% $353, 3% $641 (worst drop 13%), 5% $823 (22%), 8% $891.
+  Past ~3% the gain flattens because a market only fills ~$10 at our price: the limit is liquidity, not nerve.
