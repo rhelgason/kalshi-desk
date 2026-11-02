@@ -102,3 +102,20 @@ of the pack, so dropping it on 10-25 was about the old strategies, not Sadie's. 
   the 2c is an estimate, that several coins' bets share a window, and that fills run out. Pool replays from $80
   (bets never bigger than the replay filled): 1% $170, 2% $353, 3% $641 (worst drop 13%), 5% $823 (22%), 8% $891.
   Past ~3% the gain flattens because a market only fills ~$10 at our price: the limit is liquidity, not nerve.
+
+## Four thinner coins (2026-11-02)
+
+Same test as Bitcoin Bea's (`btc_check.py`), tape in data/tape_new (Sep 3 - Nov 2; ZEC's from Oct 12 so far), coin
+check on Binance 1-second prices (HYPE's only from Sep 24):
+
+| With the coin check | Bets | Lost | Per $1 | Halves | Weeks up |
+|---|---|---|---|---|---|
+| NEAR | 680 | 2.1% | **+2.29c** | +1.85 / +2.72 | 7 of 9 |
+| BNB | 750 | 2.7% | +1.56c | +1.73 / +1.40 | 7 of 9 |
+| HYPE | 481 | 4.2% | +0.50c | +1.21 / -0.19 | 3 of 6 |
+| ZEC (3 weeks) | 217 | 3.7% | +0.37c | -0.74 / +1.48 | 2 of 4 |
+
+NEAR is as good as the main five and BNB close behind; both pass the bar (above zero, both halves, most weeks up).
+The coin check matters even more here (BNB +0.53c -> +1.56c, NEAR +0.97c -> +2.29c without/with). HYPE and ZEC
+don't pass yet. All four keep running on Training; NEAR and BNB are the candidates for real money once Training's
+own fills agree.
