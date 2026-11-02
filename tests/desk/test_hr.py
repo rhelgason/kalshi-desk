@@ -233,3 +233,23 @@ def test_award_only_review_changes_no_levels_or_money():
     assert {k: r.level for k, r in roster.items()} == levels and roster["bad"].status == "active"
     assert accounts["star"].cash == 1000 and roster["star"].awards == 1
     assert hr.load_policy(led)["last_review"] == NOW.isoformat()
+
+
+@pytest.mark.parametrize("review", ["full", "award_only"])
+def test_award_goes_to_best_profit_per_dollar_not_most_dollars(review):
+    """A busy coin out-earns a quiet one at a smaller edge; the award (and the bonus pot) goes by cents per $1,
+    with small samples shrunk so a short lucky run doesn't win it."""
+    led = Ledger(":memory:")
+    keys = ["busy", "sharp", "lucky"]
+    roster = hr.load_roster(led, keys)
+    accounts = {k: PaperAccount(k, 1000) for k in keys}
+    policy = hr.load_policy(led)
+    policy["last_review"] = (NOW - timedelta(days=7)).isoformat()
+    when = (NOW - timedelta(days=1)).isoformat()
+    _settle(led, "busy", 40, n=200, ts=when)   # $40 on $2,000: +2c per $1
+    _settle(led, "sharp", 16, n=40, ts=when)   # $16 on $400: +4c per $1
+    _settle(led, "lucky", 10, n=20, ts=when)   # $10 on $200: +5c per $1, but only 20 bets
+    run = hr.run_review if review == "full" else hr.run_award
+    [award] = [a for a in run(led, roster, accounts, policy, NOW) if a["kind"] == "award"]
+    assert award["strategy"] == "sharp"
+    assert award["roi"] == pytest.approx(0.04) and award["settled"] == 40

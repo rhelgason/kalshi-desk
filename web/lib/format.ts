@@ -52,4 +52,10 @@ export const dollars = (x: number | null | undefined, signed = false) => {
 };
 
 /** What friends would call them: "Dart Monkey Dan" -> "Dan", "The Professor" stays "The Professor". */
-export const shortName = (n: string) => (n.startsWith("The ") ? n : n.split(" ").slice(-1)[0]);
+/** What the office calls someone: "Bitcoin Barnaby" -> "Barnaby", "Mochi the Doge" -> "Mochi", "The Sniper" stays. */
+export const shortName = (n: string) =>
+  n.startsWith("The ") ? n : n.includes(" the ") ? n.split(" ")[0] : n.split(" ").slice(-1)[0];
+
+/** Profit per dollar bet, in cents: 0.0213 -> "+2.1¢ per $1" */
+export const perDollar = (roi: number | null | undefined) =>
+  roi == null ? "–" : `${roi >= 0 ? "+" : "−"}${Math.abs(roi * 100).toFixed(1)}¢ per $1`;

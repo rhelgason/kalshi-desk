@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { defaultBook, getRealBook } from "@/lib/book";
 import { getHistory, getTodayRows, getKillSwitch, getLive, getPolicy, getSeasonStart, getSettlementsSince } from "@/lib/db";
-import { only, poolKeys, settledSeries, type RangeKey } from "@/lib/portfolio";
+import { headline, only, poolKeys, settledSeries, type RangeKey } from "@/lib/portfolio";
 
 /**
  * Read-only numbers for the iPhone home-screen widget (Scriptable; the design
@@ -99,6 +99,9 @@ export async function GET(req: NextRequest) {
     .map((r) => ({ key: r.strategy, name: names[r.strategy] ?? r.strategy, n: r.n, won: r.won,
                    pnl: Math.round(Number(r.pnl) * 100) / 100 }))
     .sort((a, b) => b.pnl - a.pnl);
+  // The same headline as the website (Kalshi's own balance for real money), not the bot's pool figure,
+  // which can be a few cents off it
+  const top = headline(live, book === "real", seasonStart ?? now - 86_400_000);
   const open = live.positions.filter((p) => members.includes(p.strategy)).length;
   const dollars = Math.round((pool.equity - pool.day_open) * 100) / 100;
   const day: Day = { dollars, today: pool.today, stopped: pool.stopped, braked: pool.braked, rows,
@@ -110,9 +113,9 @@ export async function GET(req: NextRequest) {
     stale: now - Date.parse(live.updated_at) > STALE_MS,
     season: policy.season,
     book, // "real" (real money) or "pretend"
-    equity: pool.equity,
-    capital: pool.capital,
-    pnl: pool.pnl,
+    equity: Math.round(top.worth * 100) / 100,
+    capital: top.putIn,
+    pnl: Math.round(top.profit * 100) / 100,
     in_play: pool.in_play,
     open_bets: open,
     safety: kill.halted ? "halted" : pool.stopped ? "stopped" : pool.braked ? "braked" : "clear",

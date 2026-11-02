@@ -130,7 +130,7 @@ export default function MoneyHero(props: {
         <div className="chips">
           {ordered.map((m) => (
             <button key={m.key} className={`chip ${benched.includes(m.key) ? "on" : ""}`} onClick={() => toggle(m.key)} aria-pressed={benched.includes(m.key)}>
-              <Avatar k={m.key} emoji={m.emoji} size={18} /> {m.name.split(" ").slice(-1)[0]} <span className={change[m.key] >= 0 ? "up" : "down"}>{dollars(change[m.key], true)}</span>
+              <Avatar k={m.key} emoji={m.emoji} size={18} /> {shortName(m.name)} <span className={change[m.key] >= 0 ? "up" : "down"}>{dollars(change[m.key], true)}</span>
             </button>
           ))}
           {!ordered.length && <span className="muted small">Nobody has won or lost anything in this range yet.</span>}

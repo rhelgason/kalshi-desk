@@ -17,7 +17,7 @@ import {
   getAnalysis, getBonusPot, getHistory, getLive, getNews, getPolicy, getRecentFills, getRoster, getSettlements, getSettlementsSince, withRoster,
 } from "@/lib/db";
 import { dollars } from "@/lib/format";
-import { only, parseRange, poolKeys, profitSeries, RANGES, settledSeries } from "@/lib/portfolio";
+import { headline, only, parseRange, poolKeys, profitSeries, RANGES, settledSeries } from "@/lib/portfolio";
 import { poolShare } from "@/lib/hr";
 
 export const dynamic = "force-dynamic";
@@ -57,13 +57,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
   const team = employees.filter((e) => members.has(e.key));
   const outside = employees.filter((e) => !members.has(e.key) && e.control).map((e) => e.name);
   const pool = live.pool;
-  // Only a check from this season counts: an older one may be another account (the demo)
-  const lastCheck = book === "real" ? live.trading?.books ?? null : null;
-  const books = lastCheck && Date.parse(lastCheck.at) >= season.since ? lastCheck : null;
-  // Live: the headline is the Kalshi account itself (cash + what Kalshi says open bets are worth)
-  const kalshi = books ? books.balance + (books.held ?? 0) : null;
-  const worth = kalshi ?? pool?.equity ?? team.reduce((s, e) => s + (e.equity ?? 0), 0);
-  const putIn = pool?.capital ?? team.reduce((s, e) => s + (e.starting_cash ?? 0), 0);
+  // Live: the headline is the Kalshi account itself (the widget shows the same number, lib/portfolio headline)
+  const { worth, putIn, kalshi, books } = headline(live, book === "real", season.since);
   const seasonStart = season.since;
   const now = Math.max(Date.parse(live.updated_at), Date.now() - 60_000);
 

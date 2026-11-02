@@ -2,7 +2,7 @@
 
 import { useId, useMemo, useState } from "react";
 import type { Point, Series } from "@/lib/types";
-import { axisMoney, dollars, pct } from "@/lib/format";
+import { axisMoney, dollars, pct, shortName } from "@/lib/format";
 import Avatar from "./Avatar";
 import { niceTicks, useWidth } from "./useWidth";
 import { lerpAt } from "@/lib/interp";
@@ -121,7 +121,7 @@ export default function CompareChart({ series, focus, given, members, height = 2
             <span className="swatch dashed" />
             <span className="info-name">Typical teammate</span>
             <strong className={mid >= 0 ? "up" : "down"}>{dollars(mid, true)}</strong>
-            {mine != null && <span className="muted">{me.label.split(" ").slice(-1)[0]} is {mine >= mid ? "ahead" : "behind"} by {dollars(Math.abs(mine - mid))}</span>}
+            {mine != null && <span className="muted">{shortName(me.label)} is {mine >= mid ? "ahead" : "behind"} by {dollars(Math.abs(mine - mid))}</span>}
           </div>
         )}
         {them && theirs != null && <Info s={them} v={theirs} color="var(--series-2)" />}

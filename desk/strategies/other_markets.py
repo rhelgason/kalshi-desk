@@ -82,9 +82,9 @@ class FavoriteBidder(PatientTwin, Strategy):
 class WeatherWendy(FavoriteBidder):
     key = "weather_maker"
     persona = Persona(
-        "Weather Wendy", "Early Riser", "🌤️",
-        "Up before dawn with a thermos, checking six skies. Never forecasts a thing: she just bets the "
-        "favorite is a little too cheap before breakfast.",
+        "Weather Wendell", "Chief Meteorologist", "🐸",
+        "A frog in a sou'wester who lives in a jar on the windowsill. Never forecasts a thing: he just bets the "
+        "favorite is a little too cheap before the flies wake up.",
     )
     series = ("KXHIGHNY", "KXHIGHLAX", "KXHIGHCHI", "KXHIGHMIA", "KXHIGHAUS", "KXHIGHDEN")
     ZONES = {"KXHIGHNY": "America/New_York", "KXHIGHLAX": "America/Los_Angeles", "KXHIGHCHI": "America/Chicago",
@@ -115,9 +115,9 @@ class WeatherWendy(FavoriteBidder):
 class FinalWhistleFiona(FavoriteBidder):
     key = "sports_closer"
     persona = Persona(
-        "Final Whistle Fiona", "Stadium Usher", "🏁",
-        "Has seen ten thousand games and never stayed for a comeback. Bets the winner once it's over, "
-        "pockets a penny, and beats the traffic.",
+        "Ziggy the Zebra", "Head Referee", "🦓",
+        "Born in stripes, so refereeing was the obvious career. Bets the winner once the game's decided and "
+        "blows the whistle before any comeback can start.",
     )
     series = ("KXNFLGAME", "KXNCAAFGAME", "KXMLBGAME", "KXNBAGAME")
     one_per_event = True

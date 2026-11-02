@@ -278,14 +278,7 @@ body { background: radial-gradient(ellipse at top, #1d1840 0%, var(--page) 60%) 
 .menu-list a:hover, .menu-list button:hover { background: var(--surface-2); text-decoration: none; }
 @media (max-width: 600px) { .brand-name { font-size: 12px; } .nav-btn, .menu > summary { font-size: 8px; padding: 8px; } }
 
-/* ---------- The office floor ---------- */
-.office { display: grid; gap: 0; border: 2px solid var(--border); box-shadow: 4px 4px 0 var(--shadow); border-radius: 4px; overflow: hidden; background: #2a2244; }
-.tape { background: #07060f; color: var(--coin); font-family: var(--pixel); font-size: 10px; overflow: hidden; white-space: nowrap; border-bottom: 4px solid #241d3d; }
-.tape-inner { display: inline-flex; animation: tape 60s linear infinite; padding: 8px 0; }
-.tape-inner span { padding-right: 60px; }
-@keyframes tape { to { transform: translateX(-50%); } }
 
-@media (prefers-reduced-motion: reduce) { .tape-inner { animation: none !important; } }
 .chip { display: inline-flex; align-items: center; gap: 4px; }
 .info-row .avatar { align-self: center; }
 .chart svg.avatar { width: auto; display: inline-block; }
@@ -300,17 +293,6 @@ body { background: radial-gradient(ellipse at top, #1d1840 0%, var(--page) 60%) 
   .money-row .note { margin: 0; }
 }
 
-/* ---------- The live office floor ---------- */
-/* Wider than the rest of the site on laptops; fills the phone's width */
-.office { width: min(calc(100vw - 48px), calc((100vh - 120px) * 512 / 288), 1700px); margin-left: 50%; transform: translateX(-50%);
-  border: 3px solid #14101f; box-shadow: 6px 6px 0 var(--shadow); background: #14101f; border-radius: 0; overflow: hidden; }
-@media (max-width: 720px) { .office { width: calc(100vw - 32px); } }
-.floor { position: relative; }
-.floor-canvas { display: block; width: 100%; aspect-ratio: 512 / 288; image-rendering: pixelated; touch-action: pan-y; }
-@media (max-width: 720px) { .floor-canvas { aspect-ratio: 1 / 1; } }
-.floor-card { position: absolute; left: 8px; right: 8px; bottom: 8px; display: flex; gap: 10px; align-items: center; padding: 8px 10px;
-  background: var(--surface-1); border: 3px solid #14101f; box-shadow: 3px 3px 0 var(--shadow); max-width: 420px; }
-.floor-card > div { flex: 1; min-width: 0; }
 .quip { font-size: 13px; color: var(--text-muted); font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .quip > span { font-style: normal; margin-right: 2px; }
 .hero-quote { margin-top: 8px; font-size: 16px; font-style: italic; }

@@ -276,8 +276,8 @@ class BitcoinBea(CoinSpecialist):
     key = "maker_btc"
     coin = "BTC"
     persona = Persona(
-        "Bitcoin Bea", "Queen Bee", "🐝",
-        "Sadie's apprentice on the busiest hive in crypto. Lots of buzz, lots of bids, and she never chases a flower.",
+        "Bitcoin Barnaby", "Dam Engineer", "🦫",
+        "A beaver in a hard hat who builds dams out of orange coins. Gnaws through every sell order that floats past, never swims upstream to chase one.",
     )
 
 
@@ -285,8 +285,8 @@ class EtherEsther(CoinSpecialist):
     key = "maker_eth"
     coin = "ETH"
     persona = Persona(
-        "Ether Esther", "Swan Lake", "🦢",
-        "Sadie's apprentice on ether. Glides along on the surface, paddles like mad underneath, never pays the ask.",
+        "Ethereal Ethel", "Resident Ghost", "👻",
+        "Has haunted the fourth floor since 1897. Drifts through walls, rattles a chain when a bid fills, and has never once paid the asking price.",
     )
 
 
@@ -294,8 +294,8 @@ class SolarSally(CoinSpecialist):
     key = "maker_sol"
     coin = "SOL"
     persona = Persona(
-        "Solar Sally", "Sun Chaser", "☀️",
-        "Sadie's apprentice on solana. Sunglasses on, bid posted, waits for the sellers to come to the beach.",
+        "Sunny Salazar", "Professional Sunbather", "🦎",
+        "An iguana who basks on the radiator until a favorite warms up, then flicks out a bid. Cold-blooded about losses, literally.",
     )
 
 
@@ -303,8 +303,8 @@ class RippleRita(CoinSpecialist):
     key = "maker_xrp"
     coin = "XRP"
     persona = Persona(
-        "Ripple Rita", "Tide Watcher", "🌊",
-        "Sadie's apprentice on XRP. Knows every wave comes back in, so she leaves her bid at the waterline.",
+        "Captain Ripley", "Deep-Sea Captain", "🐙",
+        "Eight arms, eight bids, one captain's hat. Has sailed the XRP tides for forty years and swears they always come back in.",
     )
 
 
@@ -312,8 +312,8 @@ class DogecoinDot(CoinSpecialist):
     key = "maker_doge"
     coin = "DOGE"
     persona = Persona(
-        "Dogecoin Dot", "Good Girl", "🐕",
-        "Sadie's apprentice on dogecoin. Sits. Stays. Waits for the treat to come to her. Very patient. Much bid.",
+        "Mochi the Doge", "Very Analyst", "🐕",
+        "A shiba inu in a suit, giving the market side-eye. Very patient. Much bid. Has never chased a ball that was already rolling. Wow.",
     )
 
 
@@ -324,8 +324,8 @@ class HypeHannah(CoinSpecialist):
     key = "maker_hype"
     coin = "HYPE"
     persona = Persona(
-        "Hype Hannah", "Hype Girl", "📣",
-        "The new kid on Sadie's rules, working Hyperliquid's coin. Loud outfit, quiet bids.",
+        "Hyper Hank", "Hype Hamster", "🐹",
+        "Runs forty kilometres a night on his wheel, four espressos deep, and still waits for the price to come to him. Cheeks full of pennies.",
     )
 
 
@@ -333,8 +333,8 @@ class BinanceBelle(CoinSpecialist):
     key = "maker_bnb"
     coin = "BNB"
     persona = Persona(
-        "Binance Belle", "Bell Ringer", "🔔",
-        "Sadie's rules on BNB. Rings once when a bid fills, never twice for the same window.",
+        "Bumble Belle", "Worker Bee", "🐝",
+        "Black-and-gold and all business. Makes honey a tenth of a cent at a time and never stings anyone over a bad fill.",
     )
 
 
@@ -342,8 +342,8 @@ class NearlyNadia(CoinSpecialist):
     key = "maker_near"
     coin = "NEAR"
     persona = Persona(
-        "Nearly Nadia", "Close Call", "🧭",
-        "Sadie's rules on NEAR. Lives by 'nearly certain'. Has a compass, mostly for the look.",
+        "Nearsighted Ned", "Tunnel Vision", "👓",
+        "A mole who can't see past his own nose, so he only bets on what's right in front of him: the near-certain favorite.",
     )
 
 
@@ -351,8 +351,8 @@ class ZcashZoe(CoinSpecialist):
     key = "maker_zec"
     coin = "ZEC"
     persona = Persona(
-        "Zcash Zoe", "Incognito", "🕶️",
-        "Sadie's rules on zcash. Shades on indoors, bids in the dark, says nothing about her winnings.",
+        "Zed the Raccoon", "Masked Bandit", "🦝",
+        "Wears the mask for privacy, not crime. Mostly. Bids from the dumpster behind the exchange and keeps his winnings shielded.",
     )
 
 

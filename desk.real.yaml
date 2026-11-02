@@ -25,10 +25,10 @@ auto_hr: false            # no automatic reviews or promotions with real money: 
 pool_cash: 250
 starting_cash: 250
 
-crypto_series: [KXBTC15M, KXETH15M, KXSOL15M, KXXRP15M, KXDOGE15M,   # bitcoin back 11-01 (Bea's tape test)
+crypto_series: [KXBTC15M, KXETH15M, KXSOL15M, KXXRP15M, KXDOGE15M,   # bitcoin back 11-01 (Barnaby's tape test)
                 KXNEAR15M, KXBNB15M, KXZEC15M]   # 11-02: passed the same test (research/fast_coco/README.md)
 crypto_symbols: [BTC, ETH, SOL, XRP, DOGE, NEAR, BNB, ZEC]
-other_series: []          # Wendy and Fiona's weather and sports markets are Training only
+other_series: []          # Wendell and Ziggy's weather and sports markets are Training only
 
 live:
   max_order_dollars: 10   # no single order above this
@@ -44,11 +44,11 @@ strategies:
   # Sadie retired 10-31: her season-7 bets went to the specialist for each coin and her starting money was split
   # evenly between them (in the database first, so nothing dropped from the books). Her settings still feed theirs.
   heavy_maker: {enabled: false, odds_margin: 0.0, coins: []}   # coin check (10-27)
-  # The coin specialists bet the pool on Sadie's rules. Bitcoin Bea joined 11-01 after her trade-tape test
+  # The coin specialists bet the pool on Sadie's rules. Bitcoin Barnaby joined 11-01 after his trade-tape test
   # (research/fast_coco/README.md: +2.1c per $1, both halves): a mid-season hire with $0 of her own, like the rest.
   late_maker: {enabled: false}
-  # 11-02: Nadia (NEAR), Belle (BNB) and Zoe (ZEC) passed the trade-tape test and joined mid-season ($0 of their own,
-  # like Bea). Hype Hannah stays on Training: HYPE didn't pass (+0.4c per $1, second half down).
+  # 11-02: Ned (NEAR), Belle (BNB) and Zed (ZEC) passed the trade-tape test and joined mid-season ($0 of their own,
+  # like Barnaby). Hyper Hank stays on Training: HYPE didn't pass (+0.4c per $1, second half down).
   maker_hype: {enabled: false}
   weather_maker: {enabled: false}   # Training only (never on this book, so not a mid-season roster change)
   sports_closer: {enabled: false}

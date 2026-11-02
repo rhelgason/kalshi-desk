@@ -20,7 +20,8 @@ after the pool loses `pool.daily_stop` in a day, and bets are halved while the
 pool is more than `pool.brake_drawdown` below its high.
 
 Each review period (default 7 days) the review:
-  - names an Employee of the Week/Month (best profit in the period); a bonus is
+  - names an Employee of the Week/Month (best profit per dollar bet in the period, see
+    PeriodStats.award_score); a bonus is
     only paid if `award_bonus` is set (off with the pool: it would be money from nowhere)
   - judges the period by profit per dollar bet: promotes employees above
     `promote_roi` (if the season's evidence says it isn't luck), demotes ones
@@ -264,6 +265,21 @@ class PeriodStats:
         """Profit per dollar bet (bet sizes follow the pool, so this is the fair yardstick)."""
         return self.pnl / self.wagered if self.wagered else 0.0
 
+    @property
+    def award_score(self) -> float:
+        """
+        What the award (and with it the bonus pot) goes by: profit per dollar bet, not dollars. Dollars mostly
+        measure how many bets someone got: a busy coin's specialist out-earns a quiet one at the same edge, and
+        the bonus should go to the better bettor. Win rate is no good either: at 92-99c a 97% win rate can
+        still lose money. Shrunk toward zero for small samples (AWARD_PRIOR_BETS), so 20 lucky bets at +4c
+        don't beat 300 bets at +2c.
+        """
+        return self.roi * self.settled / (self.settled + AWARD_PRIOR_BETS)
+
+
+# Bets' worth of "no edge" every award candidate starts with (see PeriodStats.award_score)
+AWARD_PRIOR_BETS = 30
+
 
 def period_stats(ledger: Ledger, accounts: dict[str, PaperAccount], since: datetime) -> dict[str, PeriodStats]:
     since_iso = since.isoformat()
@@ -328,7 +344,7 @@ def run_review(ledger: Ledger, roster: dict[str, EmployeeRecord], accounts: dict
 
     # Award
     award = award_name(float(policy["review_days"]))
-    candidates = sorted((k for k in eligible if stats[k].pnl > 0), key=lambda k: stats[k].pnl, reverse=True)
+    candidates = sorted((k for k in eligible if stats[k].pnl > 0), key=lambda k: stats[k].award_score, reverse=True)
     if candidates:
         winner = candidates[0]
         bonus = min(float(policy["award_bonus"]), float(policy["reserve"]))
@@ -337,7 +353,8 @@ def run_review(ledger: Ledger, roster: dict[str, EmployeeRecord], accounts: dict
             policy["reserve"] = float(policy["reserve"]) - bonus
             accounts[winner].apply_transfer(bonus)
             ledger.record_transfer(winner, bonus, f"{award} bonus")
-        act(winner, "award", title=award, pnl=round(stats[winner].pnl, 2), bonus=bonus)
+        act(winner, "award", title=award, pnl=round(stats[winner].pnl, 2), roi=round(stats[winner].roi, 4),
+            settled=stats[winner].settled, bonus=bonus)
 
     for k in eligible:
         rec, st = roster[k], stats[k]
@@ -384,7 +401,7 @@ def run_review(ledger: Ledger, roster: dict[str, EmployeeRecord], accounts: dict
 
     act(None, "review", standings=[
         {"key": k, "pnl": round(stats[k].pnl, 2), "roi": round(stats[k].roi, 4), "settled": stats[k].settled}
-        for k in sorted(working, key=lambda k: stats[k].pnl, reverse=True)
+        for k in sorted(working, key=lambda k: stats[k].award_score, reverse=True)
     ], period_start=since.isoformat())
 
     for rec in roster.values():
@@ -398,8 +415,8 @@ def run_award(ledger: Ledger, roster: dict[str, EmployeeRecord], accounts: dict[
               policy: dict, now: Optional[datetime] = None) -> list[dict]:
     """
     The award part of a review, alone: for a book without automatic HR (real money).
-    Same rule as run_review (best positive earner with enough settled bets, never
-    the control group), no bonus, no level changes. Schedules the next one.
+    Same rule as run_review (best profit per dollar bet among those who made money with enough
+    settled bets, never the control group), no bonus, no level changes. Schedules the next one.
     """
     now = now or _now()
     since = datetime.fromisoformat(policy["last_review"]) if policy.get("last_review") else now - timedelta(
@@ -409,10 +426,11 @@ def run_award(ledger: Ledger, roster: dict[str, EmployeeRecord], accounts: dict[
                 and stats[k].settled >= policy["min_settled"] and stats[k].pnl > 0]
     actions = []
     if eligible:
-        winner = max(eligible, key=lambda k: stats[k].pnl)
+        winner = max(eligible, key=lambda k: stats[k].award_score)
         roster[winner].awards += 1
         ledger.upsert_employee(roster[winner].to_row())
-        detail = {"title": award_name(float(policy["review_days"])), "pnl": round(stats[winner].pnl, 2), "bonus": 0.0}
+        detail = {"title": award_name(float(policy["review_days"])), "pnl": round(stats[winner].pnl, 2),
+                  "roi": round(stats[winner].roi, 4), "settled": stats[winner].settled, "bonus": 0.0}
         ledger.record_event("award", detail, strategy=winner)
         actions.append({"strategy": winner, "kind": "award", **detail})
     policy["last_review"] = now.isoformat()

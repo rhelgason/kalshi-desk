@@ -65,6 +65,15 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
 - **Fast Sadie trial** on the server (desk/fast.py, from 2026-10-26 07:12 UTC): always-on bid vs a 2-minute cron twin,
   pretend money from $87.63 each. `python -m desk fast-report`. So far it fills more, not better per $1.
 
+- **11-02: the cast got a makeover** (names, portraits, bios, quips only; keys, books and settings unchanged). Older notes
+  above use the old names: `maker_btc` Bea -> 🦫 Bitcoin Barnaby (beaver), `maker_eth` Esther -> 👻 Ethereal Ethel (ghost),
+  `maker_sol` Sally -> 🦎 Sunny Salazar (iguana), `maker_xrp` Rita -> 🐙 Captain Ripley (octopus), `maker_doge` Dot -> 🐕
+  Mochi the Doge, `maker_hype` Hannah -> 🐹 Hyper Hank (hamster), `maker_bnb` -> 🐝 Bumble Belle (bee), `maker_near` Nadia
+  -> 👓 Nearsighted Ned (mole), `maker_zec` Zoe -> 🦝 Zed the Raccoon, `weather_maker` Wendy -> 🐸 Weather Wendell (frog),
+  `sports_closer` Fiona -> 🦓 Ziggy the Zebra. The office floor page is gone. The weekly award (and the bonus pot) now
+  goes to the best profit per $1 bet (shrunk for small samples, hr.PeriodStats.award_score), not the most dollars.
+  The phone widget shows the website's headline (lib/portfolio.ts `headline`: Kalshi's own balance on real money).
+
 ## Things worth knowing
 
 - **Sadie's edge lives in brief dips.** A resting bid fills when a seller hits it for a moment. If fills only

@@ -29,7 +29,8 @@ export default async function Handbook() {
         <h2>📘 Employee handbook</h2>
         <p className="sub">
           How the desk runs itself. Every {policy.review_days} days a performance review crowns the{" "}
-          {awardName(policy.review_days)}, promotes strong performers to bigger bets, and benches the ones who keep
+          {awardName(policy.review_days)} (most profit per dollar bet, not most dollars: a busy coin shouldn't win just for
+          betting more), promotes strong performers to bigger bets, and benches the ones who keep
           losing. {admin ? "You can change any rule below." : "Only the manager can change these rules."}
         </p>
         <div className="table-wrap">

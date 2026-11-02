@@ -1,5 +1,5 @@
 import type { Employee, NewsItem } from "@/lib/types";
-import { ago, money } from "@/lib/format";
+import { ago, money, perDollar } from "@/lib/format";
 
 /** The office news: hires, promotions, awards, suspensions, retunes, and admin changes. */
 export default function NewsFeed({ items, employees }: { items: NewsItem[]; employees: Pick<Employee, "key" | "name" | "emoji">[] }) {
@@ -29,7 +29,7 @@ function describe(n: NewsItem, name: React.ReactNode): { icon: string; text: Rea
   const d = n.detail;
   switch (n.kind) {
     case "award":
-      return { icon: "🏆", text: <>{name} is <strong>{d.title}</strong> ({money(d.pnl)} this period){d.bonus ? <>, with a {money(d.bonus, false)} bonus</> : null}</> };
+      return { icon: "🏆", text: <>{name} is <strong>{d.title}</strong> ({d.roi != null ? <>{perDollar(d.roi)} on {d.settled} bets, </> : null}{money(d.pnl)} this period){d.bonus ? <>, with a {money(d.bonus, false)} bonus</> : null}</> };
     case "review":
       return { icon: "📋", text: <>Performance review finished for {d.standings?.length ?? 0} employees</> };
     case "season":

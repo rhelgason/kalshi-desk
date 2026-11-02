@@ -1,4 +1,4 @@
-import type { Point } from "./types";
+import type { LiveStatus, Point } from "./types";
 
 /** Chart time ranges. Each picks its own point spacing so a chart has ~150-200 points. */
 export const RANGES = {
@@ -151,3 +151,20 @@ export function only(h: History, keys: Iterable<string>): History {
 /** Who's in the office pool: the bot says; before it does, everyone but the control group. */
 export const poolKeys = (live: { pool?: { members: string[] }; employees: { key: string; control?: boolean }[] }) =>
   live.pool?.members ?? live.employees.filter((e) => !e.control).map((e) => e.key);
+
+/**
+ * The headline: what the book is worth and how much was put in. Shared by the website and the phone widget so
+ * they never disagree. For real money it's Kalshi's own account (cash + what Kalshi says open bets are worth)
+ * once this season has a check; otherwise the office pool's own figure.
+ */
+export function headline(live: LiveStatus, real: boolean, seasonStart: number) {
+  const members = new Set(poolKeys(live));
+  const team = live.employees.filter((e) => members.has(e.key));
+  const check = real ? live.trading?.books ?? null : null;
+  // Only a check from this season counts: an older one may be another account (the demo)
+  const books = check && Date.parse(check.at) >= seasonStart ? check : null;
+  const kalshi = books ? books.balance + (books.held ?? 0) : null;
+  const worth = kalshi ?? live.pool?.equity ?? team.reduce((s, e) => s + (e.equity ?? 0), 0);
+  const putIn = live.pool?.capital ?? team.reduce((s, e) => s + (e.starting_cash ?? 0), 0);
+  return { worth, putIn, profit: worth - putIn, kalshi, books };
+}

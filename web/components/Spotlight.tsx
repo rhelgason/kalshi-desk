@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Employee, NewsItem, Policy } from "@/lib/types";
 import { awardName } from "@/lib/hr";
-import { money } from "@/lib/format";
+import { money, perDollar } from "@/lib/format";
 import type { BonusPot } from "@/lib/db";
 import Avatar from "./Avatar";
 
@@ -22,7 +22,7 @@ export default function Spotlight({ award, employees, policy, pot, startsAt, poo
             <div>
               <div className="label">🏆 {award!.detail.title ?? title}</div>
               <Link href={`/employee/${winner.key}`} className="spot-name">{winner.name}</Link>
-              <div className="muted">{award!.detail.why ? <>{money(award!.detail.pnl)} · {award!.detail.why}</> : <>{money(award!.detail.pnl)} last period</>}{award!.detail.bonus ? ` · earned a ${money(award!.detail.bonus, false)} bonus` : ""}</div>
+              <div className="muted">{award!.detail.roi != null ? <>{perDollar(award!.detail.roi)} · </> : null}{award!.detail.why ? <>{money(award!.detail.pnl)} · {award!.detail.why}</> : <>{money(award!.detail.pnl)} last period</>}{award!.detail.bonus ? ` · earned a ${money(award!.detail.bonus, false)} bonus` : ""}</div>
             </div>
           </>
         ) : (
@@ -31,7 +31,7 @@ export default function Spotlight({ award, employees, policy, pot, startsAt, poo
             <div>
               <div className="label">{title}</div>
               <div className="spot-name">To be decided</div>
-              <div className="muted">Best earner wins. No pressure.</div>
+              <div className="muted">Best cents per $1 wins, not most dollars. No pressure.</div>
             </div>
           </>
         )}
