@@ -19,8 +19,7 @@ import { isAdmin } from "@/lib/admin";
 import { advise, betsPerDay, light } from "@/lib/advice";
 import { HOW_THEY_BET, quip } from "@/lib/voice";
 import { getAnalysis, getHistory, getLive, getNews, getPolicy, getRecentFills, getRoster, getSeasonStart, getSettlementStats, getTuningRuns, getCoinStats, withRoster } from "@/lib/db";
-import { viewedBook, viewedCoin } from "@/lib/book";
-import { COIN_NAMES, onCoin } from "@/lib/coin";
+import { viewedBook } from "@/lib/book";
 import { cents, dollars, money, pct, tone } from "@/lib/format";
 import { parseRange, poolKeys, profitSeries } from "@/lib/portfolio";
 import { poolShare } from "@/lib/hr";
@@ -35,14 +34,14 @@ export default async function EmployeePage({ params, searchParams }: {
   const range = parseRange((await searchParams).range);
   let data;
   try {
-    const [book, coin] = await Promise.all([viewedBook(), viewedCoin()]);
+    const book = await viewedBook();
     const policy = await getPolicy(book);
     const [live, history, seasonStart, fills, analysis, roster, news, tuning, admin, stats, coins] = await Promise.all([
       getLive(book), getHistory(book, policy.season, range), getSeasonStart(book, policy.season),
-      getRecentFills(book, policy.season, coin === "all" ? 8 : 40, key), getAnalysis(book), getRoster(book), getNews(book, 20, key),
+      getRecentFills(book, policy.season, 8, key), getAnalysis(book), getRoster(book), getNews(book, 20, key),
       getTuningRuns(key), isAdmin(), getSettlementStats(book, policy.season, key), getCoinStats(book, policy.season),
     ]);
-    data = { coin, live, history, seasonStart, fills: fills.filter((f) => onCoin(f.ticker, coin)).slice(0, 8), accuracy: analysis.accuracy, evidence: analysis.evidence, realism: analysis.realism,
+    data = { live, history, seasonStart, fills, accuracy: analysis.accuracy, evidence: analysis.evidence, realism: analysis.realism,
              roster, news, tuning, policy, admin, stats, coins: coins.filter((r) => r.strategy === key) };
   } catch (e) {
     return <Setup error={String(e)} />;
@@ -52,9 +51,7 @@ export default async function EmployeePage({ params, searchParams }: {
   const e = withRoster([base], data.roster)[0];
   const lastTune = data.tuning[0];
   const acc = data.accuracy.find((a) => a.strategy === key);
-  const positions = data.live.positions.filter((p) => p.strategy === key && onCoin(p.ticker, data.coin));
-  // With one coin picked in the header, the win count is that coin's bets only
-  const picked = data.coin === "all" ? null : data.coins.find((c) => c.coin === data.coin) ?? { n: 0, won: 0, pnl: 0 };
+  const positions = data.live.positions.filter((p) => p.strategy === key);
 
   const ev = data.evidence[key];
   const status = light(e, ev);
@@ -120,12 +117,11 @@ export default async function EmployeePage({ params, searchParams }: {
       <div className="grid three">
         <section className="card">
           <h2>Bets won</h2>
-          <WinDonut wins={picked ? picked.won : data.stats.wins} losses={picked ? picked.n - picked.won : data.stats.losses} open={positions.length} />
-          {picked && <p className="muted small">{COIN_NAMES[data.coin]} bets only ({dollars(picked.pnl, true)} this season)</p>}
+          <WinDonut wins={data.stats.wins} losses={data.stats.losses} open={positions.length} />
           {data.coins.length > 1 && (
             <ul className="coin-split small">
               {data.coins.sort((a, b) => a.coin.localeCompare(b.coin)).map((c) => (
-                <li key={c.coin} className={c.coin === data.coin ? "picked" : undefined}>
+                <li key={c.coin}>
                   <span>{c.coin === "BTC" ? "Bitcoin" : c.coin === "ETH" ? "Ether" : c.coin}</span>
                   <span className="muted">{c.won}/{c.n} won</span>
                   <strong className={c.pnl >= 0 ? "up" : "down"}>{dollars(c.pnl, true)}</strong>

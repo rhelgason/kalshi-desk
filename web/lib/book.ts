@@ -1,6 +1,5 @@
 import { cookies } from "next/headers";
 import { cache } from "react";
-import { COIN_COOKIE, parseCoin, type Coin } from "./coin";
 import { getKillSwitch, getLive, isLongPause, type Book } from "./db";
 
 export type { Book };
@@ -47,9 +46,6 @@ export const viewedBook = cache(async (): Promise<Book> => {
   if (picked === "real" && (await getRealBook())) return "real";
   return defaultBook();
 });
-
-/** The coin this visitor picked in the header (all coins until they pick one). */
-export const viewedCoin = cache(async (): Promise<Coin> => parseCoin((await cookies()).get(COIN_COOKIE)?.value));
 
 /**
  * What to call a book on screen: Live (orders on Kalshi, numbers from the Kalshi account)

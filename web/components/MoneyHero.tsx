@@ -1,12 +1,10 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
-import type { Coin } from "@/lib/coin";
 import { betCount, winCount, type PortfolioPoint, type Settlement } from "@/lib/portfolio";
 import type { Point, PoolSummary, Position } from "@/lib/types";
 import { dollars, pct, shortName } from "@/lib/format";
 import Avatar from "./Avatar";
-import CoinGauges from "./CoinGauges";
 import PoolGauges, { type PoolRecord } from "./PoolGauges";
 import PortfolioChart from "./PortfolioChart";
 
@@ -53,12 +51,11 @@ export default function MoneyHero(props: {
   /** the chart's range in a few words for the cards ("today", "this week", "lifetime") */
   scope: string;
   team: Member[]; outside: string[];
-  /** the pool's finished bets (one coin's, in a coin view) and open bets, for the cards */
+  /** the pool's finished bets and open bets, for the cards */
   settled: Settled[]; positions: Position[]; tz: string;
   /** the real-money kill switch, when it's on: why */
   halted?: string | null;
-  view: { kind: "pool"; pool: PoolSummary | null; worth: number; putIn: number; profit: number; since: string }
-    | { kind: "coin"; coin: Coin; coinName: string; since: string; wholePool: number };
+  view: { pool: PoolSummary | null; worth: number; putIn: number; profit: number; since: string };
 }) {
   const { points, team, view, settled, positions } = props;
   const [benched, setBenched] = useState<string[]>([]);
@@ -93,7 +90,7 @@ export default function MoneyHero(props: {
       lifetime: { n: betCount(rows), won: winCount(rows) } };
   };
   const startWorth = first ? first.worth : 0;
-  const whatIf = view.kind === "pool" && view.pool && benched.length ? {
+  const whatIf = view.pool && benched.length ? {
     inPlay: positions.filter((p) => !benched.includes(p.strategy)).reduce((s, p) => s + p.cost, 0),
     change: altResult,
     record: record((k) => !benched.includes(k)),
@@ -101,30 +98,15 @@ export default function MoneyHero(props: {
 
   const toggle = (k: string) => setBenched((b) => (b.includes(k) ? b.filter((x) => x !== k) : [...b, k]));
   const word = (v: number) => <strong className={v >= 0 ? "up" : "down"}>{v >= 0 ? "up" : "down"} {dollars(Math.abs(v))}</strong>;
-  const altSeason = (view.kind === "pool" ? view.profit : settled.reduce((s, r) => s + r.pnl, 0)) - minus((m) => m.season);
+  const altSeason = view.profit - minus((m) => m.season);
 
   return (
     <section className="card money-hero">
       {props.top}
-      {view.kind === "coin" ? (
-        <>
-          <div className={`big-number ${settled.reduce((s, r) => s + r.pnl, 0) >= 0 ? "up" : "down"}`}>
-            {dollars(settled.reduce((s, r) => s + r.pnl, 0), true)}
-          </div>
-          <div className="muted">
-            Profit from {betCount(settled)} finished {view.coinName} bet{betCount(settled) === 1 ? "" : "s"} since {view.since}
-            {settled.length ? <> ({pct(winCount(settled) / betCount(settled), false, 0)} won)</> : null}.
-            {" "}The whole pool is {dollars(view.wholePool)} across all coins.
-          </div>
-        </>
-      ) : (
-        <>
-          <div className="big-number">{dollars(view.worth)}</div>
-          <div className={`change ${view.profit >= 0 ? "up" : "down"}`}>
-            {view.profit >= 0 ? "▲" : "▼"} {dollars(Math.abs(view.profit))} ({pct(Math.abs(view.profit / (view.putIn || 1)), false, 1)}) {view.profit >= 0 ? "profit" : "loss"} since {view.since}
-          </div>
-        </>
-      )}
+      <div className="big-number">{dollars(view.worth)}</div>
+      <div className={`change ${view.profit >= 0 ? "up" : "down"}`}>
+        {view.profit >= 0 ? "▲" : "▼"} {dollars(Math.abs(view.profit))} ({pct(Math.abs(view.profit / (view.putIn || 1)), false, 1)}) {view.profit >= 0 ? "profit" : "loss"} since {view.since}
+      </div>
       {benched.length > 0 && (
         <div className="whatif-line">
           🔮 Without {names(out)}: <strong className={altSeason >= 0 ? "up" : "down"}>{dollars(altSeason, true)}</strong> since {view.since}
@@ -160,17 +142,14 @@ export default function MoneyHero(props: {
         )}
       </div>
 
-      {view.kind === "coin"
-        ? <CoinGauges coin={view.coin} settled={settled} positions={positions} benched={benched} from={t0} scope={props.scope}
-            names={Object.fromEntries(team.map((m) => [m.key, m.name]))} />
-        : view.pool && <PoolGauges pool={view.pool} record={record(() => true)} whatIf={whatIf} halted={props.halted}
-            change={actual} start={startWorth} scope={props.scope} />}
-      {benched.length > 0 && view.kind === "pool" && (
+      {view.pool && <PoolGauges pool={view.pool} record={record(() => true)} whatIf={whatIf} halted={props.halted}
+        change={actual} start={startWorth} scope={props.scope} />}
+      {benched.length > 0 && (
         <p className="muted small" style={{ margin: "4px 0 0" }}>Orange-edged cards are the what-if; the rest show what really happened.</p>
       )}
 
       {props.tabs}
-      <PortfolioChart points={points} alt={alt} profitOnly={view.kind === "coin" ? `${view.coinName} profit` : undefined} />
+      <PortfolioChart points={points} alt={alt} />
       {props.showChange && first && (
         <p className="range-change">
           {props.period}: <strong className={actual >= 0 ? "up" : "down"}>{actual >= 0 ? "▲ up" : "▼ down"} {dollars(Math.abs(actual))}</strong>

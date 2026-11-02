@@ -4,8 +4,7 @@ import Link from "next/link";
 import Avatar from "@/components/Avatar";
 import NavButtons from "@/components/NavButtons";
 import PullToRefresh from "@/components/PullToRefresh";
-import CoinSwitch from "@/components/CoinSwitch";
-import { getRealBook, viewedBook, viewedCoin } from "@/lib/book";
+import { getRealBook, viewedBook } from "@/lib/book";
 import { isAdmin } from "@/lib/admin";
 import { logoutAction } from "./actions";
 import "./globals.css";
@@ -22,7 +21,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = { themeColor: "#0f0d1f", viewportFit: "cover" };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const [admin, real, book, coin] = await Promise.all([isAdmin(), getRealBook(), viewedBook(), viewedCoin()]);
+  const [admin, real, book] = await Promise.all([isAdmin(), getRealBook(), viewedBook()]);
   return (
     <html lang="en" className={pixel.variable}>
       <body>
@@ -35,7 +34,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </Link>
             <nav className="nav">
               <NavButtons book={book} hasLive={!!real} />
-              <CoinSwitch value={coin} />
               <details className="menu">
                 <summary aria-label="More">☰</summary>
                 <div className="menu-list">

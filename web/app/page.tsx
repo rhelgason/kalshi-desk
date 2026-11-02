@@ -12,13 +12,12 @@ import TeamList from "@/components/TeamList";
 import TradeFeed from "@/components/TradeFeed";
 import { isAdmin } from "@/lib/admin";
 import { advise, betsPerDay, light } from "@/lib/advice";
-import { bookLabel, getRealBook, viewedBook, viewedCoin } from "@/lib/book";
-import { COIN_NAMES, onCoin } from "@/lib/coin";
+import { bookLabel, getRealBook, viewedBook } from "@/lib/book";
 import {
   getAnalysis, getBonusPot, getHistory, getLive, getNews, getPolicy, getRecentFills, getRoster, getSettlements, getSettlementsSince, withRoster,
 } from "@/lib/db";
 import { dollars } from "@/lib/format";
-import { betCount, only, parseRange, poolKeys, profitSeries, RANGES, settledSeries, winCount } from "@/lib/portfolio";
+import { only, parseRange, poolKeys, profitSeries, RANGES, settledSeries } from "@/lib/portfolio";
 import { poolShare } from "@/lib/hr";
 
 export const dynamic = "force-dynamic";
@@ -35,19 +34,19 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
   const sinceIso = days == null ? null : new Date(Date.now() - days * 86_400_000 - 60_000).toISOString();
   let data;
   try {
-    const [book, realBook, coin] = await Promise.all([viewedBook(), getRealBook(), viewedCoin()]);
+    const [book, realBook] = await Promise.all([viewedBook(), getRealBook()]);
     const policy = await getPolicy(book);
     const [live, fills, roster, news, analysis, history, season, admin, settled, pot] = await Promise.all([
-      getLive(book), getRecentFills(book, policy.season, coin === "all" ? 25 : 80), getRoster(book), getNews(book, 40),
+      getLive(book), getRecentFills(book, policy.season, 25), getRoster(book), getNews(book, 40),
       getAnalysis(book), getHistory(book, policy.season, range),
       range === "season" ? null : getHistory(book, policy.season, "season"), isAdmin(), sinceIso ? getSettlementsSince(book, policy.season, sinceIso) : getSettlements(book, policy.season),
       getBonusPot(book),
     ]);
-    data = { book, realBook, coin, live, fills, roster, news, policy, analysis, history, season: season ?? history, admin, settled, pot };
+    data = { book, realBook, live, fills, roster, news, policy, analysis, history, season: season ?? history, admin, settled, pot };
   } catch (e) {
     return <Setup error={String(e)} />;
   }
-  const { book, realBook, coin, live, fills, roster, news, policy, analysis, history, season, admin, settled, pot } = data;
+  const { book, realBook, live, fills, roster, news, policy, analysis, history, season, admin, settled, pot } = data;
   const label = bookLabel(book, realBook);
   if (!live) return <Setup error="The bot hasn't published a status yet. Is it running?" />;
 
@@ -68,31 +67,18 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
   const seasonStart = season.since;
   const now = Math.max(Date.parse(live.updated_at), Date.now() - 60_000);
 
-  // One coin: everything below comes from that coin's finished bets (an account value can't be split by coin)
-  const coinView = coin !== "all";
-  const mine = settled.filter((s) => members.has(s.strategy) && (!coinView || s.coin === coin));
-  const coinProfit = mine.reduce((s, r) => s + r.pnl, 0);
-  const profit = coinView ? coinProfit : worth - putIn;
-
-  let points;
-  if (coinView) {
-    const from = days == null ? seasonStart : Math.max(seasonStart, now - days * 86_400_000);
-    let run = mine.filter((s) => s.t < from).reduce((s, r) => s + r.pnl, 0);
-    points = [{ t: from, worth: run, putIn: 0 }];
-    for (const s of mine.filter((s) => s.t >= from)) points.push({ t: s.t, worth: (run += s.pnl), putIn: 0 });
-    points.push({ t: now, worth: coinProfit, putIn: 0 });
-  } else {
-    // Finished bets only: a bet still riding counts at what it cost, so the line doesn't dip
-    // (or jump) while it waits to settle. The headline above is the live account value.
-    points = settledSeries(only(history, members), mine, Math.max(history.since, seasonStart), now);
-  }
+  const mine = settled.filter((s) => members.has(s.strategy));
+  const profit = worth - putIn;
+  // Finished bets only: a bet still riding counts at what it cost, so the line doesn't dip
+  // (or jump) while it waits to settle. The headline above is the live account value.
+  const points = settledSeries(only(history, members), mine, Math.max(history.since, seasonStart), now);
   const first = points[0];
 
-  // Each employee's running profit on this coin, from their settled bets since `since`
-  const coinRuns = (since: number) => {
+  // Each employee's running profit from their settled bets since `since`
+  const settledRuns = (since: number) => {
     const out: Record<string, { t: number; v: number }[]> = {};
     const sums: Record<string, number> = {};
-    for (const s of settled.filter((s) => !coinView || s.coin === coin)) {
+    for (const s of settled) {
       sums[s.strategy] = (sums[s.strategy] ?? 0) + s.pnl;
       if (s.t >= since) (out[s.strategy] ??= [{ t: since, v: sums[s.strategy] - s.pnl }]).push({ t: s.t, v: sums[s.strategy] });
     }
@@ -100,17 +86,10 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
     for (const [k, v] of Object.entries(sums)) out[k] ??= [{ t: since, v }];
     return { out, sums };
   };
-  const trends = coinView ? coinRuns(seasonStart).out : profitSeries(season);
+  const trends = profitSeries(season);
   // The chart and its what-if follow finished bets (see points above)
-  const rangeProfits = coinRuns(first?.t ?? seasonStart).out;
-  const settledTotals = coinRuns(0).sums;
-  const coinTotals = coinView ? settledTotals : {};
-  const pnlOf = (k: string, all?: number) => (coinView ? coinTotals[k] ?? 0 : all ?? 0);
-  const coinCounts: Record<string, { n: number; won: number; pnl: number }> = {};
-  for (const s of settled.filter((s) => s.coin === coin)) {
-    const c = (coinCounts[s.strategy] ??= { n: 0, won: 0, pnl: 0 });
-    c.n += betCount([s]); c.won += winCount([s]); c.pnl += s.pnl;
-  }
+  const rangeProfits = settledRuns(first?.t ?? seasonStart).out;
+  const settledTotals = settledRuns(0).sums;
 
   const rows = employees
     .map((e) => ({
@@ -120,7 +99,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
     }))
     .sort((a, b) => {
       const away = (r: typeof a) => (r.light.key === "benched" || r.light.key === "fired" ? 1 : 0);
-      return away(a) - away(b) || pnlOf(b.e.key, b.e.pnl) - pnlOf(a.e.key, a.e.pnl);
+      return away(a) - away(b) || (b.e.pnl ?? 0) - (a.e.pnl ?? 0);
     });
   const todo = rows.filter((r) => r.advice.tone === "act");
   // Yardsticks are supposed to lose, so they don't count as "carrying" or "dragging"
@@ -129,8 +108,6 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
   const worst = working[working.length - 1];
   const award = news.find((n) => n.kind === "award") ?? null;
   const since = new Date(seasonStart).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  const coinName = COIN_NAMES[coin].toLowerCase();
-  const on = coinView ? ` on ${coinName}` : "";
   const end = points[points.length - 1].t;
 
   return (
@@ -140,11 +117,11 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
       <MoneyHero
         top={
           <div className="row-btns" style={{ justifyContent: "space-between" }}>
-            <span className="label">{coinView ? `${COIN_NAMES[coin]} only` : kalshi != null ? "On Kalshi" : "Your money"}</span>
+            <span className="label">{kalshi != null ? "On Kalshi" : "Your money"}</span>
             <span className={`badge book-${label.name.toLowerCase()}`} title={label.title}>{label.badge}</span>
           </div>
         }
-        under={coinView ? undefined : (
+        under={(
           <>
             {books && <KalshiCheck books={books} env={realBook?.env ?? "demo"} equity={pool?.equity ?? null} />}
             <div className="muted">
@@ -158,21 +135,19 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
         team={rows.filter(({ e }) => members.has(e.key)).map(({ e, light: l }) => ({
           key: e.key, name: e.name, emoji: e.emoji, light: l.key, bets: analysis.evidence[e.key]?.bets ?? 0,
           profit: [...(rangeProfits[e.key] ?? []), { t: end, v: settledTotals[e.key] ?? 0 }],
-          season: pnlOf(e.key, e.pnl),
+          season: e.pnl ?? 0,
         }))}
         outside={outside}
         settled={mine} tz={tz}
         halted={book === "real" && live.trading?.halted ? live.trading.reason || "Stopped by the manager" : null}
-        positions={live.positions.filter((p) => members.has(p.strategy) && onCoin(p.ticker, coin))}
-        view={coinView
-          ? { kind: "coin", coin, coinName, since, wholePool: worth }
-          : { kind: "pool", pool: pool ?? null, worth, putIn, profit, since }}
+        positions={live.positions.filter((p) => members.has(p.strategy))}
+        view={{ pool: pool ?? null, worth, putIn, profit, since }}
         footer={best && worst && (
           <p className="summary">
-            {pnlOf(best.e.key, best.e.pnl) > 0
-              ? <><strong>{best.e.name}</strong> is carrying the team{on} ({dollars(pnlOf(best.e.key, best.e.pnl), true)})</>
-              : <>Nobody&apos;s making money{on} yet</>}
-            {worst !== best && pnlOf(worst.e.key, worst.e.pnl) < 0 && <>, and <strong>{worst.e.name}</strong> is doing worst ({dollars(pnlOf(worst.e.key, worst.e.pnl), true)})</>}.
+            {(best.e.pnl ?? 0) > 0
+              ? <><strong>{best.e.name}</strong> is carrying the team ({dollars(best.e.pnl ?? 0, true)})</>
+              : <>Nobody&apos;s making money yet</>}
+            {worst !== best && (worst.e.pnl ?? 0) < 0 && <>, and <strong>{worst.e.name}</strong> is doing worst ({dollars(worst.e.pnl ?? 0, true)})</>}.
           </p>
         )}
       />
@@ -201,15 +176,15 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
       </section>
 
       <section className="card">
-        <h2>Your team{coinView ? `: ${coinName} only` : ""}</h2>
+        <h2>Your team</h2>
         <Spotlight award={award} employees={employees} policy={policy} pot={pot} startsAt={book === "real" ? 500 : 0} pool={live.pool?.equity ?? 0} />
-        <TeamList rows={rows} coin={coinView ? { name: coin, stats: coinCounts } : undefined}
+        <TeamList rows={rows}
           star={award?.strategy ?? undefined} starTitle={award?.detail.title} />
       </section>
 
       <details className="card fold">
-        <summary><h2>Latest bets{on}</h2></summary>
-        <TradeFeed fills={fills.filter((f) => onCoin(f.ticker, coin)).slice(0, 25)} employees={employees} />
+        <summary><h2>Latest bets</h2></summary>
+        <TradeFeed fills={fills.slice(0, 25)} employees={employees} />
       </details>
       <details className="card fold">
         <summary><h2>Office news</h2></summary>

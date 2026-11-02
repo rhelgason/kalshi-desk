@@ -5,7 +5,6 @@ import { redirect } from "next/navigation";
 import { login, logout, requireAdmin } from "@/lib/admin";
 import { cookies } from "next/headers";
 import { BOOK_COOKIE, viewedBook, type Book } from "@/lib/book";
-import { COIN_COOKIE, parseCoin } from "@/lib/coin";
 import { bookTag, db, getPolicy } from "@/lib/db";
 import { LEVELS, levelTitle } from "@/lib/hr";
 import type { Policy } from "@/lib/types";
@@ -198,9 +197,3 @@ export async function pickBook(book: Book) {
   revalidatePath("/", "layout");
 }
 
-/** The header's coin switcher: All / BTC / ETH for every page. */
-export async function pickCoin(coin: string) {
-  (await cookies()).set(COIN_COOKIE, parseCoin(coin),
-    { path: "/", maxAge: 365 * 86_400, sameSite: "lax", httpOnly: true, secure: true });
-  revalidatePath("/", "layout");
-}

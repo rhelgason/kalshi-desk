@@ -339,19 +339,13 @@ body { background: radial-gradient(ellipse at top, #1d1840 0%, var(--page) 60%) 
 .badge.book-live { border-color: var(--up, #3ddc84); color: var(--up, #3ddc84); }
 .coin-split { list-style: none; margin: 10px 0 0; padding: 0; }
 .coin-split li { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; border-top: 1px solid var(--grid); }
-.coin-split li.picked span:first-child { font-weight: 700; color: var(--text-primary); }
 
-/* Header: Live / Training / Office, then the coin switcher */
+/* Header: Live / Training / Office */
 .views { display: flex; gap: 8px; }
 .views[data-pending] { opacity: 0.6; }
 button.nav-btn { font-family: var(--pixel); line-height: inherit; }
 .nav-btn.view-live[aria-current="page"] { background: #3ddc84; }
-.coin-switch { gap: 2px; margin: 0; }
-.coin-switch button { font: inherit; font-family: var(--pixel); font-size: 8px; padding: 9px 7px; border: 0; border-radius: 2px;
-  background: transparent; color: var(--text-secondary); cursor: pointer; white-space: nowrap; }
-.coin-switch button[aria-current="true"] { background: var(--coin); color: #1b1733; }
-.coin-switch[data-pending] { opacity: 0.6; }
-@media (max-width: 600px) { .coin-switch button { padding: 8px 5px; font-size: 7px; } .views { gap: 6px; } }
+@media (max-width: 600px) { .views { gap: 6px; } }
 
 /* What-if, at the top of the money card: the cards it changes get an orange edge */
 .money-hero .whatif { margin: 12px 0 4px; padding: 10px 0 0; }
