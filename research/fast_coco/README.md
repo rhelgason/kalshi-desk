@@ -105,7 +105,7 @@ of the pack, so dropping it on 10-25 was about the old strategies, not Sadie's. 
 
 ## Four thinner coins (2026-11-02)
 
-Same test as Bitcoin Bea's (`btc_check.py`), tape in data/tape_new (Sep 3 - Nov 2; ZEC's from Oct 12 so far), coin
+Same test as Bitcoin Bea's (`btc_check.py`), tape in data/tape_new (Sep 3 - Nov 2), coin
 check on Binance 1-second prices (HYPE's only from Sep 24):
 
 | With the coin check | Bets | Lost | Per $1 | Halves | Weeks up |
@@ -113,9 +113,10 @@ check on Binance 1-second prices (HYPE's only from Sep 24):
 | NEAR | 680 | 2.1% | **+2.29c** | +1.85 / +2.72 | 7 of 9 |
 | BNB | 750 | 2.7% | +1.56c | +1.73 / +1.40 | 7 of 9 |
 | HYPE | 481 | 4.2% | +0.50c | +1.21 / -0.19 | 3 of 6 |
-| ZEC (3 weeks) | 217 | 3.7% | +0.37c | -0.74 / +1.48 | 2 of 4 |
+| ZEC | 617 | 2.6% | +1.67c | +2.38 / +0.97 | 6 of 9 |
 
-NEAR is as good as the main five and BNB close behind; both pass the bar (above zero, both halves, most weeks up).
-The coin check matters even more here (BNB +0.53c -> +1.56c, NEAR +0.97c -> +2.29c without/with). HYPE and ZEC
-don't pass yet. All four keep running on Training; NEAR and BNB are the candidates for real money once Training's
-own fills agree.
+NEAR is as good as the main five; BNB and ZEC close behind; all three pass the bar (above zero, both halves, most
+weeks up). ZEC's first 3 weeks alone read +0.37c: a few hundred bets can't tell +0.5c from +2c (one lost bet is
+~-100c against ~+4c wins, so the error on 500 bets is about +-1c). HYPE fails on its own data (+0.36c +- 0.96c,
+second half down, loses 4.2% vs ~2.5% elsewhere), but that is still within luck of the others; it stays on Training.
+The coin check matters even more here (BNB +0.53c -> +1.56c, NEAR +0.97c -> +2.29c, ZEC +0.64c -> +1.67c).
