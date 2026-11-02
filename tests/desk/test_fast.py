@@ -6,6 +6,7 @@ from datetime import timedelta
 from desk import fast
 from desk.fast import FAST, TWIN, Bid, CoinTape, FastDesk, Live, favorite, match
 from desk.kalshi.models import Level, Orderbook, Side
+from desk.strategies.bitcoin import patient_price
 from desk.paper.ledger import Ledger
 from tests.desk.conftest import NOW, make_market
 
@@ -158,3 +159,21 @@ def test_moving_a_bid_never_commits_more_than_the_stake():
     assert d.post(FAST, live, Side.YES, 0.957, now + 1.5) is None
     d.apply_trades(live, [trade(now + 0.5, 0.95, 100, "no", "late")])
     assert d.accounts[FAST].trades == 1 and d.committed(FAST, m.ticker) <= fast.stake(d.accounts[FAST]) + 1e-9
+
+
+def test_checked_twin_skips_a_favorite_the_coin_disagrees_with():
+    """The checked pair (2026-11-02) bids a tick over the best bid, and only when the coin's price backs the favorite."""
+    from desk.fast import TWIN_C
+    for spot, bids in ((101.0, 1), (99.0, 0)):   # YES = finishes above 100: comfortably above vs below the line
+        m = make_market("KXSOL15M-X", series="KXSOL15M", floor=100.0, yes_bid=0.95, yes_ask=0.96,
+                        close_in=timedelta(minutes=7))
+        d, live = desk_with(m)
+        calm_coin(d)
+        d.coins["SOL-USD"].push(T0, spot)
+        d.vols["SOL-USD"] = 0.5
+        lm = d.live_market(live, _book(m.ticker, 0.95, 0.04))
+        d.twin_step(live, lm, T0, TWIN_C)
+        mine = [b for b in d.bids if b.bot == TWIN_C]
+        assert len(mine) == bids
+        if mine:   # one tick over the best bid (capped under the ask), like the hosted bot
+            assert mine[0].price == patient_price(lm, Side.YES, 1)

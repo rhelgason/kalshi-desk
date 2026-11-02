@@ -17,7 +17,12 @@ harsh fills. 94-99c with 5-10 minutes left made +1.3c per $1 in October on all f
 the 5-6 minute slice was positive in all 9 weeks from Aug 25); Coco's 2-5 minutes was the weakest stretch.
 Following the price earns the same per $1 as the cron but fills about 1.8x as often.
 
-Both bet pretend money (3% of their own pot, at most $10, one market's worth at a time) in the database's
+Since 2026-11-02 a second pair runs beside them on today's real-money rules (92-99c, 5-9 minutes, a tick over
+the best bid, and the coin check: skip a bid when the coin's spot vs the strike and 4 hours of Kraken vol give the
+side worse odds than the bid): `fast_check` always on, `twin_check` exactly the hosted bot. The first pair keeps its
+rules so its history stays comparable.
+
+All four bet pretend money (3% of their own pot, at most $10, one market's worth at a time) in the database's
 "fast" schema. Fills come from the real tape like Training's (desk.paper.broker.PaperBroker.match): a trade
 through our price fills us, a trade at it fills a 30% queue share.
 """
@@ -47,6 +52,8 @@ logger = logging.getLogger(__name__)
 SCHEMA = "fast"
 COINS = {"KXETH15M": "ETH-USD", "KXSOL15M": "SOL-USD", "KXXRP15M": "XRP-USD", "KXDOGE15M": "DOGE-USD"}
 FAST, TWIN = "fast_maker", "heavy_maker_twin"
+FAST_C, TWIN_C = "fast_check", "twin_check"   # the same pair on the real book's rules with the coin check (11-02)
+BOTS = (FAST, TWIN, FAST_C, TWIN_C)
 START_CASH = 87.63           # the real book's pool when the trials began (2026-10-25)
 BET_PCT, MAX_BET = 0.03, 10.0
 MIN_PRICE, MAX_PRICE, MAX_SPREAD = 0.94, 0.99, 0.02
@@ -59,6 +66,21 @@ ORDER_LATENCY = 0.15         # seconds before a posted/cancelled bid takes effec
 TAPE_GRACE = 5.0             # a cancelled bid still counts against the stake until the tape has caught up with it
 TWIN_EVERY, TWIN_OFFSET, TWIN_TTL = 120, 5, 110   # pg_cron's */2 schedule, the run's ~5s, a cron bid's life
 SERVER_COST = float(os.environ.get("FAST_SERVER_COST", "6"))  # dollars a month (DigitalOcean)
+
+
+@dataclass(frozen=True)
+class Rules:
+    min_price: float = MIN_PRICE
+    max_price: float = MAX_PRICE
+    min_seconds: int = MIN_SECONDS
+    max_seconds: int = MAX_SECONDS
+    improve: int = IMPROVE_TICKS
+    check: bool = False          # the coin check (desk.strategies.bitcoin.side_odds)
+
+
+RULES = {FAST: Rules(), TWIN: Rules(),
+         FAST_C: Rules(0.92, 0.99, 300, 540, 1, True), TWIN_C: Rules(0.92, 0.99, 300, 540, 1, True)}
+VOL_EVERY = 300              # seconds between Kraken realized-vol refreshes (what the hosted bot does)
 
 
 def _ts(s: str) -> float:
@@ -178,12 +200,12 @@ def match(bid: Bid, trade: dict) -> float:
     return math.floor(min(qty, bid.remaining) * 100) / 100
 
 
-def favorite(m: Market) -> Optional[tuple[Side, float]]:
-    """The pick: the side priced 94-99c with a tight spread, and the bid to post for it (at the best bid)."""
+def favorite(m: Market, rules: Rules = Rules()) -> Optional[tuple[Side, float]]:
+    """The pick: the side priced in the band with a tight spread, and the bid to post for it (at or over the best bid)."""
     for side in (Side.YES, Side.NO):
         bid, ask = m.bid(side), m.ask(side)
-        if MIN_PRICE <= ask <= MAX_PRICE and 0 < ask - bid <= MAX_SPREAD + 1e-9:
-            price = patient_price(m, side, IMPROVE_TICKS)
+        if rules.min_price <= ask <= rules.max_price and 0 < ask - bid <= MAX_SPREAD + 1e-9:
+            price = patient_price(m, side, rules.improve)
             if price:
                 return side, price
     return None
@@ -214,21 +236,22 @@ class FastDesk:
         self.bids: list[Bid] = []
         self.writes: asyncio.Queue = asyncio.Queue()
         self.stats = {"started_at": _iso(time.time()), "book_reads": 0, "trade_reads": 0, "errors": 0,
-                      "pulls": 0, "fills": {FAST: 0, TWIN: 0}, "coinbase_msgs": 0, "last_error": None}
+                      "pulls": 0, "fills": {b: 0 for b in BOTS}, "coinbase_msgs": 0, "last_error": None}
         self.accounts: dict[str, PaperAccount] = {}
         self.last_twin_look = int(time.time() - TWIN_OFFSET) // TWIN_EVERY
         self.last_equity_hour = None
         self.cool: dict[str, float] = {}
+        self.vols: dict[str, float] = {}   # coinbase product -> annualized realized vol (Kraken, 4 h of 1-minute)
 
     # --- bookkeeping -------------------------------------------------
 
     def load(self) -> None:
         have = {r["strategy"] for r in self.ledger._rows("SELECT strategy FROM accounts")}
-        for k in (FAST, TWIN):
+        for k in BOTS:
             if k not in have:
                 self.ledger.set_starting_cash(k, START_CASH)
                 self.ledger.record_event("fast", {"action": "opened", "cash": START_CASH}, strategy=k)
-        self.accounts = self.ledger.load_accounts(START_CASH, [FAST, TWIN])
+        self.accounts = self.ledger.load_accounts(START_CASH, list(BOTS))
 
     def write(self, fn, *a, **kw) -> None:
         """Database writes go through one background task, so the price loop never waits on them."""
@@ -283,43 +306,68 @@ class FastDesk:
         return replace(live.market, yes_bid=yb, no_bid=nb, yes_ask=round(1 - nb, 4) if nb else 0.0,
                        no_ask=round(1 - yb, 4) if yb else 0.0)
 
-    def fast_step(self, live: Live, m: Market, now: float, look: bool) -> None:
+    def odds(self, live: Live, side: Side, now: float) -> Optional[float]:
+        """The chance `side` wins, from the coin's live price vs the strike and its realized vol: the hosted bot's
+        coin check (desk.strategies.bitcoin.side_odds), with Coinbase's price instead of Kraken/Deribit's."""
+        m = live.market
+        product = COINS[m.series_ticker or m.ticker.split("-")[0]]
+        spot, vol = self.coins[product].at(int(now)), self.vols.get(product)
+        secs = m.close_time.timestamp() - now
+        if not (spot and vol and m.floor_strike) or not (m.strike_type or "").startswith("greater"):
+            return None
+        sd = vol / math.sqrt(365 * 24 * 3600) * math.sqrt(max(secs - 60, 0) + 60 * 61 * 121 / 6 / 3600)
+        up = 0.5 * (1 + math.erf(math.log(spot / m.floor_strike) / max(sd, 1e-12) / math.sqrt(2)))
+        return up if side is Side.YES else 1 - up
+
+    def pick(self, bot: str, live: Live, m: Market, now: float) -> Optional[tuple[Side, float]]:
+        rules = RULES[bot]
+        p = favorite(m, rules)
+        if p and rules.check:
+            o = self.odds(live, p[0], now)
+            if o is not None and o < p[1]:   # the coin says the favorite is shakier than its price
+                return None
+        return p
+
+    def fast_step(self, live: Live, m: Market, now: float, look: bool, bot: str = FAST) -> None:
         """A bid always at the favorite's best bid while it's in the band and the window: follow the price, come
         down when the pick goes away, and pull (keeping a ghost) when the coin jumps toward the line."""
+        rules = RULES[bot]
         t = live.market.ticker
         left = live.market.seconds_to_close(datetime.fromtimestamp(now, timezone.utc)) or 0
         coin = self.coins[COINS[live.market.series_ticker or t.split("-")[0]]]
         move = coin.move(now)
-        mine = [b for b in self.bids if b.bot == FAST and b.ticker == t and not b.ghost and b.live_until > now]
+        mine = [b for b in self.bids if b.bot == bot and b.ticker == t and not b.ghost and b.live_until > now]
         for b in mine:
             against = None if move is None else (move if b.side is Side.YES else -move)
             if against is not None and against < -PULL_SIGMA:
                 self.cancel(b, now, ghost=True, move=round(against, 2))
-                self.cool[t] = now + PULL_COOL
+                self.cool[bot + t] = now + PULL_COOL
                 self.stats["pulls"] += 1
                 self.write(self.ledger.record_event, "pull", {
                     "ticker": t, "side": b.side.value, "price": b.price, "count": b.remaining,
-                    "move_sigma": round(against, 2), "seconds_left": round(left)}, strategy=FAST)
+                    "move_sigma": round(against, 2), "seconds_left": round(left)}, strategy=bot)
         mine = [b for b in mine if b.live_until > now + ORDER_LATENCY]
-        pick = favorite(m) if move is not None and MIN_SECONDS <= left <= MAX_SECONDS else None
+        pick = self.pick(bot, live, m, now) if move is not None and rules.min_seconds <= left <= rules.max_seconds else None
         for b in mine:
             if not pick or (b.side, b.price) != pick:
                 self.cancel(b, now)   # the price moved, the pick went away, or the window closed
-        if pick and now >= self.cool.get(t, 0) and not any((b.side, b.price) == pick for b in mine):
-            self.post(FAST, live, pick[0], pick[1], now,
+        if pick and now >= self.cool.get(bot + t, 0) and not any((b.side, b.price) == pick for b in mine):
+            self.post(bot, live, pick[0], pick[1], now,
                       reason=f"fast: {pick[0].value} {pick[1]:.3f}, {left:.0f}s left")
 
-    def twin_step(self, live: Live, m: Market, now: float) -> None:
-        """The cron version: one look per 2-minute run, a bid that lives 110 seconds, no coin feed."""
+    def twin_step(self, live: Live, m: Market, now: float, bot: str = TWIN) -> None:
+        """The cron version: one look per 2-minute run, a bid that lives 110 seconds (the checked twin is the
+        hosted bot's rules exactly)."""
+        rules = RULES[bot]
         left = live.market.seconds_to_close(datetime.fromtimestamp(now, timezone.utc)) or 0
-        if not (MIN_SECONDS <= left <= MAX_SECONDS):
+        if not (rules.min_seconds <= left <= rules.max_seconds):
             return
         t = live.market.ticker
-        if any(b.bot == TWIN and b.ticker == t and b.live_until > now for b in self.bids):
+        if any(b.bot == bot and b.ticker == t and b.live_until > now for b in self.bids):
             return
-        pick = favorite(m)
+        pick = self.pick(bot, live, m, now)
         if pick:
-            self.post(TWIN, live, pick[0], pick[1], now, ttl=TWIN_TTL,
+            self.post(bot, live, pick[0], pick[1], now, ttl=TWIN_TTL,
                       reason=f"twin: {pick[0].value} {pick[1]:.3f}, {left:.0f}s left")
 
     def apply_trades(self, live: Live, trades: list[dict]) -> None:
@@ -346,7 +394,7 @@ class FastDesk:
 
     def summarize(self, ticker: str) -> None:
         """One decisions row per bot per market: how many bids it posted, the last price, what filled."""
-        for bot in (FAST, TWIN):
+        for bot in BOTS:
             mine = [b for b in self.bids if b.ticker == ticker and b.bot == bot and not b.ghost]
             if not mine:
                 continue
@@ -369,7 +417,7 @@ class FastDesk:
             pnl = round(g.filled * ((1.0 if won else 0.0) - g.price), 4)
             self.write(self.ledger.record_event, "pull_outcome", {
                 "ticker": t, "side": g.side.value, "price": g.price, "would_have_filled": g.filled,
-                "won": won, "pnl_if_kept": pnl, "move_sigma": g.pulled_move}, strategy=FAST)
+                "won": won, "pnl_if_kept": pnl, "move_sigma": g.pulled_move}, strategy=g.bot)
         self.bids = [b for b in self.bids if b.ticker != t]
         live.settled = True
 
@@ -398,6 +446,22 @@ class FastDesk:
                 self.stats["last_error"] = f"coinbase: {e}"[:200]
                 logger.warning("Coinbase feed dropped (%s); reconnecting", e)
                 await asyncio.sleep(3)
+
+    async def vol_feed(self) -> None:
+        """Each coin's realized vol from 4 hours of Kraken 1-minute closes, every 5 minutes, for the coin check."""
+        from desk.feeds.crypto import CryptoFeed
+
+        feed = CryptoFeed(tuple(p.split("-")[0] for p in COINS.values()))
+        while True:
+            for product in COINS.values():
+                try:
+                    v = await feed.kraken_realized_vol(product.split("-")[0])
+                    if v:
+                        self.vols[product] = v
+                except Exception as e:
+                    self.stats["errors"] += 1
+                    self.stats["last_error"] = f"vol: {e}"[:200]
+            await asyncio.sleep(VOL_EVERY)
 
     async def discover(self) -> None:
         while True:
@@ -438,8 +502,10 @@ class FastDesk:
                             continue
                         m = self.live_market(live, book)
                         self.fast_step(live, m, now, twin_look)
+                        self.fast_step(live, m, now, twin_look, FAST_C)
                         if twin_look:
                             self.twin_step(live, m, now)
+                            self.twin_step(live, m, now, TWIN_C)
                     if twin_look:
                         self.last_twin_look = slot
                 except Exception as e:
@@ -511,14 +577,14 @@ class FastDesk:
                 "ghosts": sum(1 for b in self.bids if b.ghost),
                 "accounts": {k: {"cash": round(a.cash, 2), "equity": round(a.equity({}), 2),
                                  "trades": a.trades, "open": sorted(a.positions)} for k, a in self.accounts.items()},
-                "server_cost_per_month": SERVER_COST,
+                "server_cost_per_month": SERVER_COST, "vols": {k: round(v, 3) for k, v in self.vols.items()},
             })
             await asyncio.sleep(30)
 
     async def run(self) -> None:
         self.load()
         logger.info("Fast desk up: %s", {k: round(a.equity({}), 2) for k, a in self.accounts.items()})
-        await asyncio.gather(self.writer(), self.coinbase(), self.discover(), self.books(), self.tape(),
+        await asyncio.gather(self.writer(), self.coinbase(), self.vol_feed(), self.discover(), self.books(), self.tape(),
                              self.settlements(), self.health())
 
 
@@ -537,42 +603,49 @@ async def run_fast(db_url: str) -> None:
 # ----------------------------------------------------------------------
 
 def fast_report(ledger: Ledger, server_since: Optional[str] = None) -> str:
-    """Month by month: Fast Sadie against her 2-minute twin, what pulling did, and the server's cost."""
+    """Month by month, for each pair: the always-on bot against its 2-minute twin, what pulling did, the server's cost."""
     rows = ledger._rows("SELECT strategy, ts, pnl FROM settlements ORDER BY ts")
     fills = ledger._rows("SELECT strategy, ts, count, price FROM fills ORDER BY ts")
-    events = ledger._rows("SELECT ts, kind, detail FROM events WHERE kind = 'pull_outcome' ORDER BY ts")
-    months: dict[str, dict] = {}
+    events = ledger._rows("SELECT ts, kind, strategy, detail FROM events WHERE kind = 'pull_outcome' ORDER BY ts")
+    accts = ledger.load_accounts(START_CASH, list(BOTS))
+    out = []
+    for fast, twin, title in ((FAST, TWIN, "Fast Sadie (always-on server) vs her twin (the 2-minute cron version)"),
+                              (FAST_C, TWIN_C, "Since 11-02, the real book's rules with the coin check: always-on vs "
+                                               "the hosted bot's exact rules")):
+        months: dict[str, dict] = {}
 
-    def month(ts: str) -> dict:
-        return months.setdefault(ts[:7], {"pnl": {FAST: 0.0, TWIN: 0.0}, "bets": {FAST: 0, TWIN: 0},
-                                          "bet_dollars": {FAST: 0.0, TWIN: 0.0}, "pulls": 0, "pull_saved": 0.0})
-    for r in rows:
-        if r["strategy"] in (FAST, TWIN):
-            mo = month(r["ts"]); mo["pnl"][r["strategy"]] += float(r["pnl"]); mo["bets"][r["strategy"]] += 1
-    for f in fills:
-        if f["strategy"] in (FAST, TWIN):
-            month(f["ts"])["bet_dollars"][f["strategy"]] += float(f["count"]) * float(f["price"])
-    for e in events:
-        d = json.loads(e["detail"]) if isinstance(e["detail"], str) else e["detail"]
-        mo = month(e["ts"]); mo["pulls"] += 1; mo["pull_saved"] -= float(d.get("pnl_if_kept") or 0)
-    accts = ledger.load_accounts(START_CASH, [FAST, TWIN])
-    lines = ["Fast Sadie (always-on server) vs her twin (the 2-minute cron version), pretend money, same tape",
-             f"{'month':8} {'fast P&L':>9} {'twin P&L':>9} {'server':>8} {'cost':>6} {'net':>8} "
-             f"{'fast c/$':>9} {'twin c/$':>9} {'pulls':>6} {'pulls saved':>12}"]
-    tot = {"fast": 0.0, "twin": 0.0, "cost": 0.0}
-    for k in sorted(months):
-        mo = months[k]
-        f, tw = mo["pnl"][FAST], mo["pnl"][TWIN]
-        cost = SERVER_COST
-        tot["fast"] += f; tot["twin"] += tw; tot["cost"] += cost
-        cpd = lambda b: (mo["pnl"][b] / mo["bet_dollars"][b] * 100) if mo["bet_dollars"][b] else 0.0
-        lines.append(f"{k:8} {f:+9.2f} {tw:+9.2f} {f - tw:+8.2f} {cost:6.2f} {f - tw - cost:+8.2f} "
-                     f"{cpd(FAST):+8.2f}c {cpd(TWIN):+8.2f}c {mo['pulls']:6d} {mo['pull_saved']:+12.2f}")
-    lines.append(f"{'total':8} {tot['fast']:+9.2f} {tot['twin']:+9.2f} {tot['fast'] - tot['twin']:+8.2f} "
-                 f"{tot['cost']:6.2f} {tot['fast'] - tot['twin'] - tot['cost']:+8.2f}")
-    lines.append(f"Pots now: Fast Sadie ${accts[FAST].equity({}):,.2f}, twin ${accts[TWIN].equity({}):,.2f} "
-                 f"(both started at ${START_CASH})")
-    lines.append("'server' = what the always-on version made beyond the twin; 'net' subtracts the server's cost "
-                 "(a whole month is charged even for a partial one). 'pulls saved' = losses avoided minus "
-                 "wins missed by pulling bids.")
-    return "\n".join(lines)
+        def month(ts: str) -> dict:
+            return months.setdefault(ts[:7], {"pnl": {fast: 0.0, twin: 0.0}, "bets": {fast: 0, twin: 0},
+                                              "bet_dollars": {fast: 0.0, twin: 0.0}, "pulls": 0, "pull_saved": 0.0})
+        for r in rows:
+            if r["strategy"] in (fast, twin):
+                mo = month(r["ts"]); mo["pnl"][r["strategy"]] += float(r["pnl"]); mo["bets"][r["strategy"]] += 1
+        for f in fills:
+            if f["strategy"] in (fast, twin):
+                month(f["ts"])["bet_dollars"][f["strategy"]] += float(f["count"]) * float(f["price"])
+        for e in events:
+            if e["strategy"] != fast:
+                continue
+            d = json.loads(e["detail"]) if isinstance(e["detail"], str) else e["detail"]
+            mo = month(e["ts"]); mo["pulls"] += 1; mo["pull_saved"] -= float(d.get("pnl_if_kept") or 0)
+        lines = [title + ", pretend money, same tape",
+                 f"{'month':8} {'fast P&L':>9} {'twin P&L':>9} {'server':>8} {'cost':>6} {'net':>8} "
+                 f"{'fast c/$':>9} {'twin c/$':>9} {'pulls':>6} {'pulls saved':>12}"]
+        tot = {"fast": 0.0, "twin": 0.0, "cost": 0.0}
+        for k in sorted(months):
+            mo = months[k]
+            f, tw = mo["pnl"][fast], mo["pnl"][twin]
+            cost = SERVER_COST
+            tot["fast"] += f; tot["twin"] += tw; tot["cost"] += cost
+            cpd = lambda b: (mo["pnl"][b] / mo["bet_dollars"][b] * 100) if mo["bet_dollars"][b] else 0.0
+            lines.append(f"{k:8} {f:+9.2f} {tw:+9.2f} {f - tw:+8.2f} {cost:6.2f} {f - tw - cost:+8.2f} "
+                         f"{cpd(fast):+8.2f}c {cpd(twin):+8.2f}c {mo['pulls']:6d} {mo['pull_saved']:+12.2f}")
+        lines.append(f"{'total':8} {tot['fast']:+9.2f} {tot['twin']:+9.2f} {tot['fast'] - tot['twin']:+8.2f} "
+                     f"{tot['cost']:6.2f} {tot['fast'] - tot['twin'] - tot['cost']:+8.2f}")
+        lines.append(f"Pots now: always-on ${accts[fast].equity({}):,.2f}, twin ${accts[twin].equity({}):,.2f} "
+                     f"(both started at ${START_CASH})")
+        out.append("\n".join(lines))
+    out.append("'server' = what the always-on version made beyond the twin; 'net' subtracts the server's cost "
+               "(a whole month is charged even for a partial one, and to each pair). 'pulls saved' = losses avoided "
+               "minus wins missed by pulling bids.")
+    return "\n\n".join(out)
