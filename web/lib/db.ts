@@ -2,6 +2,7 @@ import { unstable_cache } from "next/cache";
 import postgres from "postgres";
 import { LEVELS, mergePolicy } from "./hr";
 import { coinOfTicker } from "./coin";
+import type { Bet } from "./records";
 import { binFor, RANGES, type History, type RangeKey, type Settlement } from "./portfolio";
 import type {
   Accuracy, BacktestSummary, Evidence, Fill, LiveStatus, NewsItem, Point, Policy, Realism, RosterRow, TuningRun,
@@ -276,6 +277,23 @@ async function getSettlementStatsQuery(book: Book, season: number, strategy: str
   };
 }
 
+/** Every settled bet this season with what it cost (fills joined by employee and market): records and player cards. */
+async function getBetsQuery(book: Book, season: number): Promise<Bet[]> {
+  const rows = await db(book)`
+    SELECT s.ts, s.strategy, s.ticker, s.pnl, f.cost, f.price
+    FROM settlements s
+    LEFT JOIN (
+      SELECT strategy, ticker, sum(count * price + fee) AS cost, max(price) AS price
+      FROM fills WHERE season = ${season} GROUP BY strategy, ticker
+    ) f ON f.strategy = s.strategy AND f.ticker = s.ticker
+    WHERE s.season = ${season}
+    ORDER BY s.ts`;
+  return rows.map((r) => ({
+    t: Date.parse(r.ts), strategy: r.strategy, coin: coinOfTicker(r.ticker), pnl: Number(r.pnl),
+    cost: r.cost == null ? null : Number(r.cost), price: r.price == null ? null : Number(r.price),
+  }));
+}
+
 export type Activity = {
   lastFill: { ts: string; side: string; count: number; price: number } | null;
   betsLastHour: number;
@@ -414,6 +432,7 @@ export const getBtcSeries = sturdy("getBtcSeries", getBtcSeriesQuery);
 export const getPoolRecord = sturdy("getPoolRecord", getPoolRecordQuery);
 export const getCoinStats = sturdy("getCoinStats", getCoinStatsQuery);
 export const getSettlements = sturdy("getSettlements", getSettlementsQuery);
+export const getBets = sturdy("getBets", getBetsQuery);
 export const getSettlementsSince = sturdy("getSettlementsSince", getSettlementsSinceQuery);
 
 /** Each employee's bets settled today (in the pool's timezone): the widget's "today" story. */
