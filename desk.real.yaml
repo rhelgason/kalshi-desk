@@ -25,13 +25,14 @@ auto_hr: false            # no automatic reviews or promotions with real money: 
 pool_cash: 250
 starting_cash: 250
 
-crypto_series: [KXBTC15M, KXETH15M, KXSOL15M, KXXRP15M, KXDOGE15M]   # bitcoin back 11-01 (Bea's tape test)
-crypto_symbols: [BTC, ETH, SOL, XRP, DOGE]
+crypto_series: [KXBTC15M, KXETH15M, KXSOL15M, KXXRP15M, KXDOGE15M,   # bitcoin back 11-01 (Bea's tape test)
+                KXNEAR15M, KXBNB15M, KXZEC15M]   # 11-02: passed the same test (research/fast_coco/README.md)
+crypto_symbols: [BTC, ETH, SOL, XRP, DOGE, NEAR, BNB, ZEC]
 other_series: []          # Wendy and Fiona's weather and sports markets are Training only
 
 live:
   max_order_dollars: 10   # no single order above this
-  max_orders_per_day: 2000 # a bid each look until one fills: ~1-3 per market, ~480 markets a day on 5 coins
+  max_orders_per_day: 3200 # a bid each look until one fills: ~1-3 per market, ~770 markets a day on 8 coins
   max_daily_loss: 40      # dollars down since midnight: halt until resumed (the pool's own stop is 10%)
   max_drift: 1            # dollars the books may differ from Kalshi's balance
 
@@ -46,11 +47,9 @@ strategies:
   # The coin specialists bet the pool on Sadie's rules. Bitcoin Bea joined 11-01 after her trade-tape test
   # (research/fast_coco/README.md: +2.1c per $1, both halves): a mid-season hire with $0 of her own, like the rest.
   late_maker: {enabled: false}
-  # The four thinner coins' specialists are Training only (2026-11-02)
+  # 11-02: Nadia (NEAR), Belle (BNB) and Zoe (ZEC) passed the trade-tape test and joined mid-season ($0 of their own,
+  # like Bea). Hype Hannah stays on Training: HYPE didn't pass (+0.4c per $1, second half down).
   maker_hype: {enabled: false}
-  maker_bnb: {enabled: false}
-  maker_near: {enabled: false}
-  maker_zec: {enabled: false}
   weather_maker: {enabled: false}   # Training only (never on this book, so not a mid-season roster change)
   sports_closer: {enabled: false}
   heavy_favorite: {enabled: false}

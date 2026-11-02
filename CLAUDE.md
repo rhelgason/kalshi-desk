@@ -58,7 +58,10 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
 - **11-02, Training experiments:** four thinner 15-minute coins get specialists on Sadie's rules (📣 Hype Hannah
   `maker_hype`, 🔔 Binance Belle `maker_bnb`, 🧭 Nearly Nadia `maker_near`, 🕶️ Zcash Zoe `maker_zec`; Kraken-only prices;
   real book `enabled: false`; trade tape downloading to data/tape_new). Wendy bids midnight-6 am only (two-year
-  replay). Fiona's year of end-of-game trades: research/other_markets/sports_history.py -> fiona_years.py. Wendy's two-year weather tape: research/other_markets/wx_history.py.
+  replay). Fiona's year of end-of-game trades: research/other_markets/sports_history.py -> fiona_years.py.
+- **11-02: Nadia (NEAR), Belle (BNB) and Zoe (ZEC) on real money too** (owner's go) after passing the trade-tape test
+  (+2.3c / +1.6c / +1.7c per $1, both halves); Hype Hannah stays Training-only. Real book: 8 coins, 3% bets,
+  window cap 12% shared, max_orders_per_day 3200. Fast trial has a second, coin-checked pair (fast_check/twin_check). Wendy's two-year weather tape: research/other_markets/wx_history.py.
 - **Fast Sadie trial** on the server (desk/fast.py, from 2026-10-26 07:12 UTC): always-on bid vs a 2-minute cron twin,
   pretend money from $87.63 each. `python -m desk fast-report`. So far it fills more, not better per $1.
 
