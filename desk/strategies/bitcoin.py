@@ -317,6 +317,45 @@ class DogecoinDot(CoinSpecialist):
     )
 
 
+# 2026-11-02: four more of Kalshi's 15-minute coins, Training only, to see whether Sadie's rules carry over to
+# thinner markets (each trades about half of dogecoin's volume). An older taker replay found BNB and HYPE too
+# thin and losing (SteadyStella's notes); resting bids may fare differently. Trade-tape test: data/tape_new.
+class HypeHannah(CoinSpecialist):
+    key = "maker_hype"
+    coin = "HYPE"
+    persona = Persona(
+        "Hype Hannah", "Hype Girl", "📣",
+        "The new kid on Sadie's rules, working Hyperliquid's coin. Loud outfit, quiet bids.",
+    )
+
+
+class BinanceBelle(CoinSpecialist):
+    key = "maker_bnb"
+    coin = "BNB"
+    persona = Persona(
+        "Binance Belle", "Bell Ringer", "🔔",
+        "Sadie's rules on BNB. Rings once when a bid fills, never twice for the same window.",
+    )
+
+
+class NearlyNadia(CoinSpecialist):
+    key = "maker_near"
+    coin = "NEAR"
+    persona = Persona(
+        "Nearly Nadia", "Close Call", "🧭",
+        "Sadie's rules on NEAR. Lives by 'nearly certain'. Has a compass, mostly for the look.",
+    )
+
+
+class ZcashZoe(CoinSpecialist):
+    key = "maker_zec"
+    coin = "ZEC"
+    persona = Persona(
+        "Zcash Zoe", "Incognito", "🕶️",
+        "Sadie's rules on zcash. Shades on indoors, bids in the dark, says nothing about her winnings.",
+    )
+
+
 def side_odds(snap: Snapshot, m: Optional[Market], side: Side) -> Optional[float]:
     """
     The chance `side` wins a 15-minute up/down market, from the coin's spot vs. the strike and its realized

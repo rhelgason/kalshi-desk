@@ -54,7 +54,11 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
   specialist for each coin, split her starting money evenly between them and rebuilt their value history, then the
   code went out (database first, or her money would have dropped from the books). New hires join a pool with $0.
 - **11-01: Bitcoin Bea on real money too** (bitcoin back in desk.real.yaml `crypto_series`) after her trade-tape test
-  (research/fast_coco/btc_check.py: +2.11c per $1 with the coin check, halves +3.33 / +0.89, 8 of 11 weeks up). Wendy's two-year weather tape: research/other_markets/wx_history.py.
+  (research/fast_coco/btc_check.py: +2.11c per $1 with the coin check, halves +3.33 / +0.89, 8 of 11 weeks up).
+- **11-02, Training experiments:** four thinner 15-minute coins get specialists on Sadie's rules (📣 Hype Hannah
+  `maker_hype`, 🔔 Binance Belle `maker_bnb`, 🧭 Nearly Nadia `maker_near`, 🕶️ Zcash Zoe `maker_zec`; Kraken-only prices;
+  real book `enabled: false`; trade tape downloading to data/tape_new). Wendy bids midnight-6 am only (two-year
+  replay). Fiona's year of end-of-game trades: research/other_markets/sports_history.py -> fiona_years.py. Wendy's two-year weather tape: research/other_markets/wx_history.py.
 - **Fast Sadie trial** on the server (desk/fast.py, from 2026-10-26 07:12 UTC): always-on bid vs a 2-minute cron twin,
   pretend money from $87.63 each. `python -m desk fast-report`. So far it fills more, not better per $1.
 

@@ -17,9 +17,10 @@ tick_seconds: 15          # how often everyone looks at the market
 # the only one that made money in both the 60 days used to pick it and the 30 days after.
 # BNB and HYPE are left out: too thin for $10 bets, and they lost in both periods.
 # The real book (desk.real.yaml) stays on bitcoin only.
-crypto_series: [KXBTC15M, KXETH15M, KXSOL15M, KXXRP15M, KXDOGE15M]
+crypto_series: [KXBTC15M, KXETH15M, KXSOL15M, KXXRP15M, KXDOGE15M,
+                KXHYPE15M, KXBNB15M, KXNEAR15M, KXZEC15M]   # the last four: 11-02 experiment
 slow_series: []
-crypto_symbols: [BTC, ETH, SOL, XRP, DOGE]
+crypto_symbols: [BTC, ETH, SOL, XRP, DOGE, HYPE, BNB, NEAR, ZEC]
 crypto_horizon_hours: 1
 # Non-coin markets for Wendy and Fiona (2026-10-28, research/other_markets): six cities' daily highs and
 # football/baseball/basketball winners. The coin staff never see these, and these two never see the coins.
@@ -69,6 +70,11 @@ strategies:
   maker_sol: {}           # ☀️ Solar Sally
   maker_xrp: {}           # 🌊 Ripple Rita
   maker_doge: {}          # 🐕 Dogecoin Dot
+  # 11-02: four thinner 15-minute coins, to see whether Sadie's rules carry over (Training only)
+  maker_hype: {}          # 📣 Hype Hannah
+  maker_bnb: {}           # 🔔 Binance Belle
+  maker_near: {}          # 🧭 Nearly Nadia
+  maker_zec: {}           # 🕶️ Zcash Zoe
   late_maker: {enabled: false}       # 🦉 Closing Time Coco - 94-99c, 2-5 minutes left (benched)
   runner_up_maker: {enabled: false}  # 🥈 Silver Medal Sid - 85-92c, 5-13 minutes left (benched)
   # 2026-10-28: Sadie's idea outside the coins, on Training only (research/other_markets/README.md)

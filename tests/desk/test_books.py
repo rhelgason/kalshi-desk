@@ -127,6 +127,11 @@ def test_real_book_builds_sadies_coin_specialists():
         assert (s.min_price, s.max_price, s.min_seconds, s.max_seconds) == (0.92, 0.99, 300, 540)
     pretend = {s.key for s in build_strategies(hr_config(DeskConfig.load(ROOT / "desk.yaml")))}
     assert {"maker_btc", "maker_eth", "maker_sol", "maker_xrp", "maker_doge"} <= pretend and "heavy_maker" not in pretend
+    # The thinner coins (2026-11-02) are Training only, and Training watches their markets and prices
+    assert {"maker_hype", "maker_bnb", "maker_near", "maker_zec"} <= pretend
+    pretend_cfg = DeskConfig.load(ROOT / "desk.yaml")
+    assert {"KXHYPE15M", "KXBNB15M", "KXNEAR15M", "KXZEC15M"} <= set(pretend_cfg.crypto_series)
+    assert {"HYPE", "BNB", "NEAR", "ZEC"} <= set(pretend_cfg.crypto_symbols)
 
 
 def hr_config(cfg):

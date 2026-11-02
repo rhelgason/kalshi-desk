@@ -59,6 +59,26 @@ const LINES: Record<string, Lines> = {
     down: ["No treat this time.", "Doge chased its own tail.", "Bad bone. Very sad."],
     idle: ["Sitting. Staying.", "Waiting for the treat to come to me.", "No dogecoin favorite yet."],
   },
+  maker_hype: {
+    up: ["Believe the hype!", "Small coin, big energy, tiny profit.", "Called it. Loudly."],
+    down: ["Hype bubble popped.", "Okay, that was overhyped.", "Megaphone off for a minute."],
+    idle: ["Hyping myself up for a favorite.", "Quiet market. Suspiciously quiet.", "No HYPE favorite yet."],
+  },
+  maker_bnb: {
+    up: ["Ding!", "Rang the bell once. Paid once.", "BNB, booked."],
+    down: ["Cracked bell.", "That one didn't ring true.", "Saved by the bell? Not this time."],
+    idle: ["Polishing the bell.", "Waiting for the window's halfway chime.", "No BNB favorite yet."],
+  },
+  maker_near: {
+    up: ["Nearly certain, fully paid.", "Close call, right call.", "NEAR, and yet so profitable."],
+    down: ["Nearly had it.", "Compass pointed the wrong way.", "A near miss. Literally."],
+    idle: ["Checking my compass.", "Nearly time.", "No NEAR favorite yet."],
+  },
+  maker_zec: {
+    up: ["No comment.", "Shielded profit.", "Didn't see me, did you?"],
+    down: ["Off the record: ouch.", "Incognito, but not invincible.", "Pretend you didn't see that."],
+    idle: ["Lurking.", "In the shadows, bid ready.", "No zcash favorite yet."],
+  },
   nickel_maker: {
     up: ["Never paid full price in my life, darling.", "Got it at a discount. As always.", "Clip, clip, cash.", "Retail is for amateurs."],
     down: ["They only sold because it was going bad. Rude.", "Even a bargain can be a bad deal.", "Returning this one. Oh wait, I can't."],
@@ -135,6 +155,10 @@ export const HOW_THEY_BET: Record<string, string> = {
   maker_sol: "Sadie's rules on solana only: with 5 to 9 minutes left in a 15-minute window, a bid a tenth of a cent over the best bid on a 92–99¢ favorite, skipped when the coin's own price says the favorite is shakier than its price. She takes Sadie's settings, so tuning Sadie tunes her too. When Sadie retired on Oct 31 she took over Sadie's bets on this coin, so her record covers the whole season.",
   maker_xrp: "Sadie's rules on XRP only: with 5 to 9 minutes left in a 15-minute window, a bid a tenth of a cent over the best bid on a 92–99¢ favorite, skipped when the coin's own price says the favorite is shakier than its price. She takes Sadie's settings, so tuning Sadie tunes her too. When Sadie retired on Oct 31 she took over Sadie's bets on this coin, so her record covers the whole season.",
   maker_doge: "Sadie's rules on dogecoin only: with 5 to 9 minutes left in a 15-minute window, a bid a tenth of a cent over the best bid on a 92–99¢ favorite, skipped when the coin's own price says the favorite is shakier than its price. She takes Sadie's settings, so tuning Sadie tunes her too. When Sadie retired on Oct 31 she took over Sadie's bets on this coin, so her record covers the whole season.",
+  maker_hype: "Sadie's rules on Hyperliquid's HYPE only: with 5 to 9 minutes left in a 15-minute window, a bid a tenth of a cent over the best bid on a 92–99¢ favorite, skipped when the coin's own price says the favorite is shakier than its price. She takes Sadie's settings, so tuning Sadie tunes her too. Hired Nov 2 on Training to see whether the edge carries over to Kalshi's thinner coins (each trades about half of dogecoin's volume).",
+  maker_bnb: "Sadie's rules on BNB only: with 5 to 9 minutes left in a 15-minute window, a bid a tenth of a cent over the best bid on a 92–99¢ favorite, skipped when the coin's own price says the favorite is shakier than its price. She takes Sadie's settings, so tuning Sadie tunes her too. Hired Nov 2 on Training to see whether the edge carries over to Kalshi's thinner coins (each trades about half of dogecoin's volume).",
+  maker_near: "Sadie's rules on NEAR only: with 5 to 9 minutes left in a 15-minute window, a bid a tenth of a cent over the best bid on a 92–99¢ favorite, skipped when the coin's own price says the favorite is shakier than its price. She takes Sadie's settings, so tuning Sadie tunes her too. Hired Nov 2 on Training to see whether the edge carries over to Kalshi's thinner coins (each trades about half of dogecoin's volume).",
+  maker_zec: "Sadie's rules on zcash only: with 5 to 9 minutes left in a 15-minute window, a bid a tenth of a cent over the best bid on a 92–99¢ favorite, skipped when the coin's own price says the favorite is shakier than its price. She takes Sadie's settings, so tuning Sadie tunes her too. Hired Nov 2 on Training to see whether the edge carries over to Kalshi's thinner coins (each trades about half of dogecoin's volume).",
   nickel_maker: "Nick's twin sister and the office's coupon queen. She picks the same heavy favorites, but instead of paying the asking price she offers a little less and waits up to two minutes for someone to sell. Cheaper, and no fee, but she misses some bets and tends to get filled when the price is slipping.",
   early_maker: "Edie's calm twin. Same early favorites, but she names a slightly lower price and knits while she waits for a seller. Kalshi charges no fee on a bid that someone else fills, so every win is worth a bit more, if she gets filled at all.",
   breakout_maker: "Wipeout's twin sister. When bitcoin makes a big move she bets it keeps going like Wipeout does, but from an inflatable flamingo: she posts a lower price and waits for the wave to come to her. Wipeout's bets are near 50¢, where Kalshi's fee is biggest, so Bonnie saves the most by not paying it. Training only for now.",

@@ -480,4 +480,17 @@ export const PORTRAITS: Record<string, Sprite> = {
   // 🐕 Dogecoin Dot: shiba-orange hair, red collar band, cream cardigan, a gold coin with a D
   maker_doge: apprentice(["ccCC", "cCcC", "cCcC", "ccCC"],
     { H: "#d9822b", A: "#c0392b", G: "#efe3c8", g: "#d8c8a4", C: "#c2a633", c: "#fff4d6" }),
+  // The four thinner coins (2026-11-02, Training only)
+  // 📣 Hype Hannah: hot-pink hair, mint band, neon-green cardigan, a teal coin with an H
+  maker_hype: apprentice(["cCCc", "cccc", "cccc", "cCCc"],
+    { H: "#ff4fa3", A: "#7fffd4", G: "#7ddc3a", g: "#5fb82a", C: "#0f9d8a", c: "#e9fff9" }),
+  // 🔔 Binance Belle: black bob, gold band, black-and-gold cardigan, a yellow coin with a diamond
+  maker_bnb: apprentice(["CccC", "cCCc", "cCCc", "CccC"],
+    { H: "#16130f", A: "#f3ba2f", G: "#2b2b2b", g: "#f3ba2f", C: "#f3ba2f", c: "#16130f" }),
+  // 🧭 Nearly Nadia: chestnut hair, white band, forest cardigan, a black coin with an N
+  maker_near: apprentice(["cCCc", "ccCc", "cCcc", "cCCc"],
+    { H: "#7a4a24", A: "#f2f2f2", G: "#2f6b4f", g: "#24543e", C: "#111111", c: "#e6e6e6" }),
+  // 🕶️ Zcash Zoe: platinum hair, black band, charcoal cardigan, a gold coin with a Z
+  maker_zec: apprentice(["cccc", "CCcC", "cCCC", "cccc"],
+    { H: "#ece6d2", A: "#111111", G: "#3a3a40", g: "#2a2a30", C: "#e8b130", c: "#2a2111" }),
 };

@@ -46,6 +46,11 @@ strategies:
   # The coin specialists bet the pool on Sadie's rules. Bitcoin Bea joined 11-01 after her trade-tape test
   # (research/fast_coco/README.md: +2.1c per $1, both halves): a mid-season hire with $0 of her own, like the rest.
   late_maker: {enabled: false}
+  # The four thinner coins' specialists are Training only (2026-11-02)
+  maker_hype: {enabled: false}
+  maker_bnb: {enabled: false}
+  maker_near: {enabled: false}
+  maker_zec: {enabled: false}
   weather_maker: {enabled: false}   # Training only (never on this book, so not a mid-season roster change)
   sports_closer: {enabled: false}
   heavy_favorite: {enabled: false}

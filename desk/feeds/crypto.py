@@ -31,7 +31,8 @@ MINUTES_PER_YEAR = 365 * 24 * 60
 # sources fail, betting on a minutes-old bitcoin price is worse than not betting
 MAX_QUOTE_AGE_SECONDS = 90.0
 
-KRAKEN_PAIRS = {"BTC": "XBTUSD", "ETH": "ETHUSD", "SOL": "SOLUSD", "XRP": "XRPUSD", "DOGE": "XDGUSD"}
+KRAKEN_PAIRS = {"BTC": "XBTUSD", "ETH": "ETHUSD", "SOL": "SOLUSD", "XRP": "XRPUSD", "DOGE": "XDGUSD",
+                "HYPE": "HYPEUSD", "BNB": "BNBUSD", "NEAR": "NEARUSD", "ZEC": "ZECUSD"}
 DERIBIT_INDEX = {"BTC": "btc_usd", "ETH": "eth_usd", "SOL": "sol_usd", "XRP": "xrp_usd", "DOGE": "doge_usd"}
 DERIBIT_DVOL = {"BTC", "ETH"}
 
@@ -158,7 +159,7 @@ class CryptoFeed:
         async def one(sym: str) -> None:
             kraken, deribit = await asyncio.gather(self.kraken_mid(sym), self.deribit_index(sym))
             sources = {k: v for k, v in (("kraken", kraken), ("deribit", deribit)) if v}
-            if len(sources) == 1:
+            if len(sources) == 1 and sym in DERIBIT_INDEX:  # HYPE/BNB/NEAR/ZEC only ever have Kraken
                 logger.warning("%s price from %s only (the other source failed)", sym, next(iter(sources)))
             if not sources:
                 prev = self.quotes.get(sym)
@@ -199,6 +200,10 @@ SERIES_UNDERLYING = {
     "KXSOL15M": "SOL",
     "KXXRP15M": "XRP",
     "KXDOGE15M": "DOGE",
+    "KXHYPE15M": "HYPE",
+    "KXBNB15M": "BNB",
+    "KXNEAR15M": "NEAR",
+    "KXZEC15M": "ZEC",
     "KXBTCD": "BTC",  # hourly above/below
     "KXBTC": "BTC",   # hourly ranges
     "KXETHD": "ETH",
