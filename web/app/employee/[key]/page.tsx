@@ -15,10 +15,11 @@ import Setup from "@/components/Setup";
 import ManagerBar from "@/components/ManagerBar";
 import { DailyBars, MoneySplit, WinDonut } from "@/components/MiniCharts";
 import TradeFeed from "@/components/TradeFeed";
+import PlayerCard from "@/components/PlayerCard";
 import { isAdmin } from "@/lib/admin";
 import { advise, betsPerDay, light } from "@/lib/advice";
 import { HOW_THEY_BET, quip } from "@/lib/voice";
-import { getAnalysis, getHistory, getLive, getNews, getPolicy, getRecentFills, getRoster, getSeasonStart, getSettlementStats, getTuningRuns, getCoinStats, withRoster } from "@/lib/db";
+import { getAnalysis, getHistory, getLive, getNews, getPolicy, getRecentFills, getRoster, getSeasonStart, getSettlementStats, getTuningRuns, getCoinStats, getBets, withRoster } from "@/lib/db";
 import { viewedBook } from "@/lib/book";
 import { cents, dollars, money, pct, tone } from "@/lib/format";
 import { parseRange, poolKeys, profitSeries } from "@/lib/portfolio";
@@ -36,13 +37,14 @@ export default async function EmployeePage({ params, searchParams }: {
   try {
     const book = await viewedBook();
     const policy = await getPolicy(book);
-    const [live, history, seasonStart, fills, analysis, roster, news, tuning, admin, stats, coins] = await Promise.all([
+    const [live, history, seasonStart, fills, analysis, roster, news, tuning, admin, stats, coins, bets] = await Promise.all([
       getLive(book), getHistory(book, policy.season, range), getSeasonStart(book, policy.season),
       getRecentFills(book, policy.season, 8, key), getAnalysis(book), getRoster(book), getNews(book, 20, key),
       getTuningRuns(key), isAdmin(), getSettlementStats(book, policy.season, key), getCoinStats(book, policy.season),
+      getBets(book, policy.season),
     ]);
     data = { live, history, seasonStart, fills, accuracy: analysis.accuracy, evidence: analysis.evidence, realism: analysis.realism,
-             roster, news, tuning, policy, admin, stats, coins: coins.filter((r) => r.strategy === key) };
+             roster, news, tuning, policy, admin, stats, coins: coins.filter((r) => r.strategy === key), bets };
   } catch (e) {
     return <Setup error={String(e)} />;
   }
@@ -73,20 +75,17 @@ export default async function EmployeePage({ params, searchParams }: {
     <div className="stack">
       <AutoRefresh seconds={60} />
       <Link href="/" className="muted">← Home</Link>
-      <div className="hero">
-        <Avatar k={e.key} emoji={e.emoji} size={80} />
-        <div>
-          <h1>{e.name} <Trophies n={e.awards} /></h1>
-          <div className="row-btns" style={{ marginTop: 4 }}>
-            <span className={`light ${status.key}`}>{status.icon} {status.label}</span>
-            <LevelBadge level={e.level} title={e.level_title} />
-            <StatusBadge e={e} />
-          </div>
-          <div className="hero-quote">“{quip(e)}”</div>
-          <p className="how-they-bet">{HOW_THEY_BET[e.key] ?? e.blurb}</p>
-          {e.note && <div className="notice" style={{ marginTop: 8 }}>📝 {e.note}</div>}
-        </div>
-      </div>
+      <PlayerCard e={e} bets={data.bets.filter((b) => b.strategy === key)} tz={data.live.pool?.settings?.timezone || "America/Vancouver"}
+        team={poolKeys(data.live).map((k) => ({ key: k, bets: data.bets.filter((b) => b.strategy === k) }))}
+        quote={quip(e)}
+        badges={<>
+          <span className={`light ${status.key}`}>{status.icon} {status.label}</span>
+          <LevelBadge level={e.level} title={e.level_title} />
+          <StatusBadge e={e} />
+          <Trophies n={e.awards} />
+        </>} />
+      <p className="how-they-bet">{HOW_THEY_BET[e.key] ?? e.blurb}</p>
+      {e.note && <div className="notice">📝 {e.note}</div>}
 
       <div className="money-row">
         <div className="card tile">

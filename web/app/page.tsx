@@ -9,12 +9,13 @@ import Setup from "@/components/Setup";
 import Spotlight from "@/components/Spotlight";
 import StatusPill from "@/components/StatusPill";
 import TeamList from "@/components/TeamList";
-import TradeFeed from "@/components/TradeFeed";
+import LatestBets from "@/components/LatestBets";
+import Records from "@/components/Records";
 import { isAdmin } from "@/lib/admin";
 import { advise, betsPerDay, light } from "@/lib/advice";
 import { bookLabel, getRealBook, viewedBook } from "@/lib/book";
 import {
-  getAnalysis, getBonusPot, getHistory, getLive, getNews, getPolicy, getRecentFills, getRoster, getSettlements, getSettlementsSince, withRoster,
+  getAnalysis, getBets, getBonusPot, getHistory, getLive, getNews, getPolicy, getRecentFills, getRoster, getSettlements, getSettlementsSince, withRoster,
 } from "@/lib/db";
 import { dollars } from "@/lib/format";
 import { headline, only, parseRange, poolKeys, profitSeries, RANGES, settledSeries } from "@/lib/portfolio";
@@ -36,17 +37,17 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
   try {
     const [book, realBook] = await Promise.all([viewedBook(), getRealBook()]);
     const policy = await getPolicy(book);
-    const [live, fills, roster, news, analysis, history, season, admin, settled, pot] = await Promise.all([
+    const [live, fills, roster, news, analysis, history, season, admin, settled, pot, bets] = await Promise.all([
       getLive(book), getRecentFills(book, policy.season, 25), getRoster(book), getNews(book, 40),
       getAnalysis(book), getHistory(book, policy.season, range),
       range === "season" ? null : getHistory(book, policy.season, "season"), isAdmin(), sinceIso ? getSettlementsSince(book, policy.season, sinceIso) : getSettlements(book, policy.season),
-      getBonusPot(book),
+      getBonusPot(book), getBets(book, policy.season),
     ]);
-    data = { book, realBook, live, fills, roster, news, policy, analysis, history, season: season ?? history, admin, settled, pot };
+    data = { book, realBook, live, fills, roster, news, policy, analysis, history, season: season ?? history, admin, settled, pot, bets };
   } catch (e) {
     return <Setup error={String(e)} />;
   }
-  const { book, realBook, live, fills, roster, news, policy, analysis, history, season, admin, settled, pot } = data;
+  const { book, realBook, live, fills, roster, news, policy, analysis, history, season, admin, settled, pot, bets } = data;
   const label = bookLabel(book, realBook);
   if (!live) return <Setup error="The bot hasn't published a status yet. Is it running?" />;
 
@@ -104,6 +105,10 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
   const award = news.find((n) => n.kind === "award") ?? null;
   const since = new Date(seasonStart).toLocaleDateString("en-US", { month: "short", day: "numeric" });
   const end = points[points.length - 1].t;
+  // The last 24 hours of the pool's finished bets, for the latest-bets heading
+  const dayAgo = Date.now() - 86_400_000;
+  const recent = bets.filter((b) => members.has(b.strategy) && b.t >= dayAgo);
+  const lastDay = { n: recent.length, won: recent.filter((b) => b.pnl > 0).length, pnl: recent.reduce((s, b) => s + b.pnl, 0) };
 
   return (
     <div className="stack">
@@ -147,6 +152,11 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
         )}
       />
 
+      <LatestBets fills={fills.slice(0, 25)} employees={employees} day={lastDay}
+        positions={live.positions.filter((p) => members.has(p.strategy))} />
+
+      <Records bets={bets.filter((b) => members.has(b.strategy))} employees={employees} tz={tz} />
+
       <section className="card">
         <h2>Needs your attention</h2>
         {todo.length ? (
@@ -177,10 +187,6 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
           star={award?.strategy ?? undefined} starTitle={award?.detail.title} />
       </section>
 
-      <details className="card fold">
-        <summary><h2>Latest bets</h2></summary>
-        <TradeFeed fills={fills.slice(0, 25)} employees={employees} />
-      </details>
       <details className="card fold">
         <summary><h2>Office news</h2></summary>
         <NewsFeed items={news.filter((n) => n.kind !== "review").slice(0, 25)} employees={employees} />
