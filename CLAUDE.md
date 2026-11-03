@@ -6,6 +6,9 @@ on Kalshi, `desk.real.yaml`). Hosting: Supabase Postgres + pg_cron, the bot and 
 background jobs on GitHub Actions (see deploy/README.md). Local commands read the same Supabase
 database through `DATABASE_URL` in `.env` (session pooler, port 5432).
 
+**Pushing to main deploys** (2026-11-03): both Vercel projects build production from GitHub, each only when its own
+files change (deploy/README.md). Run any database change the new code needs BEFORE pushing.
+
 Tests: `python -m pytest -q` (all offline). Web type-check: `cd web && node_modules/.bin/tsc --noEmit -p .`
 
 ## Links (nothing secret here; secrets live in `.env`, Vercel, and the server's /etc/kalshi-desk.env)

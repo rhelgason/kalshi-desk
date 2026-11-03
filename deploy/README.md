@@ -42,7 +42,12 @@ neither can bill you; going over a limit pauses things instead.
 ## Common tasks
 
 ```bash
-# Deploy code changes to the bot (from the repo root) or the dashboard (from web/)
+# Deploys happen on their own: both Vercel projects are linked to GitHub (2026-11-03) and a push to main
+# builds production. Each skips the build when the push doesn't touch its files (Vercel's "ignored build step"):
+#   bot        git diff HEAD^ HEAD --quiet -- desk desk.yaml desk.real.yaml api vercel.json requirements.txt ...
+#   dashboard  root directory web/, git diff HEAD^ HEAD --quiet -- .
+# So a database change the new code depends on (e.g. deploy/dissolve_sadie_2026-10-31.py) must run BEFORE the push.
+# By hand, if ever needed (the bot from the repo root):
 npx vercel deploy --prod
 
 # Pause / resume the bot (run in Supabase's SQL editor)
