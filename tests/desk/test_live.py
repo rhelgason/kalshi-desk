@@ -283,3 +283,27 @@ async def test_waiting_bids_dont_count_as_missing_cash(live):
     await broker.poll(NOW + timedelta(seconds=30))
     filled = await reconcile(client, accounts, broker.pool_members, broker.resting, baseline=first.baseline)
     assert abs(filled.drift) < 1e-6 and filled.ok
+
+
+async def test_a_market_kalshi_hasnt_paid_out_yet_doesnt_halt_trading(live, monkeypatch):
+    """2026-11-02: we settled a ZEC win, but Kalshi still held it (and its money) for 6+ minutes: trading halted.
+    A recently settled market that Kalshi still holds as we held it is on its way, not a mismatch."""
+    broker, client, ledger, accounts = live
+    desk = _desk(live, monkeypatch)
+    desk.pool.update(1000, NOW)
+    client.asks[(T, "no")] = (0.95, 100)
+    await desk.broker.execute(TradeIntent("e0", [Leg(T, Side.NO, 0.95, 4)], "", intent_id="z"), {}, {})
+    await desk.reconcile_live()  # baseline, the bet open on both sides
+    desk.broker.settle(T, 0.0)   # we see the result: NO won, our books are paid
+    for _ in range(3):           # Kalshi hasn't paid yet: the position and its $4 are still "out"
+        await desk.reconcile_live()
+        assert not desk.guard.halted
+    assert desk.guard.books()["strikes"] == 0
+    del client.position[T]; client.cash += 4.0   # now Kalshi pays
+    await desk.reconcile_live()
+    assert not desk.guard.halted and desk.guard.books()["strikes"] == 0
+    # A settlement older than 30 minutes that Kalshi still holds is a real problem
+    client.position[T] = -4.0
+    monkeypatch.setattr(desk, "recently_settled", lambda minutes=30: {})
+    await desk.reconcile_live(); await desk.reconcile_live()
+    assert desk.guard.halted

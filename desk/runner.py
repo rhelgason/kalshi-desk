@@ -823,6 +823,27 @@ class Desk:
                     self._bid_ended(o, "bid pulled: trading halted")
             self.journal.info["halted"] = self.guard.state.get("reason") or True
 
+    def recently_settled(self, minutes: float = 30) -> dict[str, tuple[float, float]]:
+        """Markets the pool settled in the last `minutes`: ticker -> (net contracts held, YES minus NO, and what
+        they pay). Kalshi can take minutes to pay one out (desk/live/reconcile.py)."""
+        since = (_now() - timedelta(minutes=minutes)).isoformat()
+        members = sorted(self.pool.members)
+        if not members:
+            return {}
+        who = ",".join("?" * len(members))
+        settled = {(r["strategy"], r["ticker"]): float(r["yes_value"]) for r in self.ledger._rows(
+            f"SELECT strategy, ticker, yes_value FROM settlements WHERE season = ? AND ts >= ? AND strategy IN ({who})",
+            (self.season, since, *members))}
+        out: dict[str, tuple[float, float]] = {}
+        for (k, t), yes_value in settled.items():
+            for f in self.ledger._rows("SELECT side, count FROM fills WHERE season = ? AND strategy = ? AND ticker = ?",
+                                       (self.season, k, t)):
+                n, side = float(f["count"]), f["side"]
+                net, pay = out.get(t, (0.0, 0.0))
+                won = yes_value if side == "yes" else 1 - yes_value
+                out[t] = (round(net + (n if side == "yes" else -n), 2), round(pay + n * won, 4))
+        return out
+
     async def reconcile_live(self) -> None:
         from desk.live.reconcile import reconcile
 
@@ -836,7 +857,7 @@ class Desk:
             books = {"season": self.season}  # a new season is a new pool: measure from scratch
         try:
             r = await reconcile(self.client, self.accounts, self.pool.members, self.broker.resting,
-                                baseline=books.get("baseline"))
+                                baseline=books.get("baseline"), settling=self.recently_settled())
         except KalshiAPIError as e:
             logger.warning("Couldn't check our books against Kalshi: %s", e)
             return

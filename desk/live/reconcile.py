@@ -15,7 +15,11 @@ Each run compares two things for the office pool's members:
              the pool's); after that, drift is any change in the difference.
 
 Markets that settle can differ for a run (Kalshi pays before our next check
-sees the result), so the desk only halts when a mismatch lasts two runs.
+sees the result), so the desk only halts when a mismatch lasts two runs. The other
+way round, Kalshi can take several minutes to pay a market we've already settled
+(2026-11-02: a ZEC win still held on Kalshi 6+ minutes after its result, which
+halted trading): a recently settled market that Kalshi still holds exactly as we
+held it is "settling", not a mismatch, and its payout counts as on its way.
 """
 
 from __future__ import annotations
@@ -65,7 +69,9 @@ def our_books(accounts: dict[str, PaperAccount], members: set[str], resting: lis
 
 
 async def reconcile(client: KalshiClient, accounts: dict[str, PaperAccount], members: set[str], resting: list,
-                    baseline: Optional[float] = None, tolerance: float = 0.011) -> Reconciliation:
+                    baseline: Optional[float] = None, tolerance: float = 0.011,
+                    settling: Optional[dict[str, tuple[float, float]]] = None) -> Reconciliation:
+    """`settling`: markets we settled recently, ticker -> (net contracts we held, what they pay us)."""
     positions = await client.get_positions()
     theirs = {}
     for p in positions:
@@ -75,6 +81,10 @@ async def reconcile(client: KalshiClient, accounts: dict[str, PaperAccount], mem
     account = await client.get_account()
     balance = account["cash"]
     ours, expected = our_books(accounts, members, resting)
+    for t, (net, payout) in (settling or {}).items():
+        if abs(ours.get(t, 0.0)) < 0.005 and t in theirs and abs(theirs[t] - net) <= tolerance:
+            del theirs[t]          # Kalshi hasn't paid it yet: the position is still there,
+            balance += payout      # and so is its money, on the way
     base = balance - expected if baseline is None else baseline
     both = {t: (ours.get(t, 0.0), theirs.get(t, 0.0)) for t in set(ours) | set(theirs)}
     mismatches = {t: v for t, v in both.items() if abs(v[0] - v[1]) > tolerance}
