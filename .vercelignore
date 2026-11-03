@@ -1,5 +1,6 @@
-# Only the desk package, its config, and Python metadata go to the cloud bot
-web/
+# Only the desk package, its config, and Python metadata go to the cloud bot.
+# Not web/: GitHub builds of the dashboard (root directory web) read this file too, and the bot's
+# function already leaves web/ out (vercel.json excludeFiles).
 tests/
 data/
 deploy/
