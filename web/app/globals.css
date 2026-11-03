@@ -443,3 +443,8 @@ html:not([data-theme]) .record-value, html[data-theme="office"] .record-value { 
 html[data-theme="office"] .player-name { font-family: var(--pixel); font-size: 18px; line-height: 1.4; color: var(--coin); text-shadow: 2px 2px 0 var(--shadow); }
 html[data-theme="office"] .player-card { border-radius: 4px; }
 html[data-theme="office"] .player-stats dd:not(.player-note) { font-family: var(--pixel); font-size: 13px; line-height: 1.7; }
+
+/* ---------- Paused real money: the Resume banner on the home page ---------- */
+.resume-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-color: #f0a030; }
+.resume-banner .sub { margin: 4px 0 0; }
+.resume-banner .btn { white-space: nowrap; }

@@ -36,6 +36,14 @@ class FakeKalshi:
         self.cash = cash
         self.cancel_all_calls = 0
         self.sent: list[dict] = []
+        self.allocation: dict[int, int] = {}
+        self.allocation_sets = 0
+
+    async def get_target_allocation(self):
+        return dict(self.allocation)
+
+    async def set_target_allocation(self, percents):
+        self.allocation = dict(percents); self.allocation_sets += 1
 
     def _fill(self, oid, ticker, side, n, price, fee):
         self.fills.append({"fill_id": f"f{len(self.fills) + 1}", "order_id": oid, "ticker": ticker,
@@ -199,8 +207,9 @@ async def test_a_lasting_mismatch_halts_trading_and_pulls_bids(live, monkeypatch
     assert not desk.guard.halted
     client.position[T] = 5.0  # Kalshi holds something our books don't know about
     await desk.broker.place(bet(price=0.40, post_only=True, ttl_seconds=600), NOW)
-    await desk.reconcile_live()
-    assert not desk.guard.halted  # one odd reading can be a settlement in flight
+    for _ in range(2):
+        await desk.reconcile_live()
+        assert not desk.guard.halted  # one or two odd readings can be a fill or a payout in flight
     await desk.reconcile_live()
     assert desk.guard.halted and "positions differ" in desk.guard.state["reason"]
     assert client.cancel_all_calls == 1 and desk.broker.resting == []
@@ -302,8 +311,35 @@ async def test_a_market_kalshi_hasnt_paid_out_yet_doesnt_halt_trading(live, monk
     del client.position[T]; client.cash += 4.0   # now Kalshi pays
     await desk.reconcile_live()
     assert not desk.guard.halted and desk.guard.books()["strikes"] == 0
-    # A settlement older than 30 minutes that Kalshi still holds is a real problem
+    # A settlement older than the allowance that Kalshi still holds is a real problem
     client.position[T] = -4.0
-    monkeypatch.setattr(desk, "recently_settled", lambda minutes=30: {})
-    await desk.reconcile_live(); await desk.reconcile_live()
+    monkeypatch.setattr(desk, "recently_settled", lambda minutes=720: {})
+    for _ in range(3):
+        await desk.reconcile_live()
     assert desk.guard.halted
+
+
+async def test_differences_that_fix_themselves_on_different_markets_dont_halt(live, monkeypatch):
+    """2026-11-03: a payout Kalshi made before we saw the result (BNB), then two fills Kalshi showed seconds
+    before our books (BNB, then SOL), on back-to-back checks: three markets, each right by the next check."""
+    broker, client, ledger, accounts = live
+    desk = _desk(live, monkeypatch)
+    desk.pool.update(1000, NOW)
+    await desk.reconcile_live()  # baseline
+    for t in ("KXBNB-A", "KXBNB-B", "KXSOL-C"):
+        client.position[t] = -2.5   # Kalshi has it this check...
+        await desk.reconcile_live()
+        assert not desk.guard.halted
+        del client.position[t]      # ...and the next check agrees again
+    await desk.reconcile_live()
+    assert not desk.guard.halted and desk.guard.books()["strikes"] == 0
+
+
+async def test_the_bot_keeps_cash_on_the_weather_shard_too(live, monkeypatch):
+    """2026-11-03: Kalshi refused every weather bid for "insufficient balance": all the cash was on the coins' shard."""
+    broker, client, ledger, accounts = live
+    desk = _desk(live, monkeypatch)
+    desk.config.shards = {2: 80, 0: 20}
+    desk.pool.update(1000, NOW)
+    await desk.reconcile_live(); await desk.reconcile_live()
+    assert client.allocation == {2: 80, 0: 20} and client.allocation_sets == 1

@@ -66,6 +66,8 @@ class DeskConfig:
     # the bot runs. `live` holds the hard limits (desk/live/guard.py DEFAULT_LIMITS).
     trading: str = "paper"
     live: dict[str, Any] = field(default_factory=dict)
+    # Real money: percent of the Kalshi cash to keep on each exchange shard (crypto trades on 2, weather on 0)
+    shards: dict[int, int] = field(default_factory=dict)
 
     # Books: the pretend pool (training data, every employee) and the real-money
     # pool run side by side, each with its own roster, levels and records.

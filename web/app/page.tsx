@@ -11,11 +11,12 @@ import StatusPill from "@/components/StatusPill";
 import TeamList from "@/components/TeamList";
 import LatestBets from "@/components/LatestBets";
 import Records from "@/components/Records";
+import ResumeBanner from "@/components/ResumeBanner";
 import { isAdmin } from "@/lib/admin";
 import { advise, betsPerDay, light } from "@/lib/advice";
 import { bookLabel, getRealBook, viewedBook } from "@/lib/book";
 import {
-  getAnalysis, getBets, getBonusPot, getHistory, getLive, getNews, getPolicy, getRecentFills, getRoster, getSettlements, getSettlementsSince, withRoster,
+  getAnalysis, getBets, getBonusPot, getHistory, getKillSwitch, getLive, getNews, getPolicy, getRecentFills, getRoster, getSettlements, getSettlementsSince, withRoster,
 } from "@/lib/db";
 import { dollars } from "@/lib/format";
 import { headline, only, parseRange, poolKeys, profitSeries, RANGES, settledSeries } from "@/lib/portfolio";
@@ -37,17 +38,17 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
   try {
     const [book, realBook] = await Promise.all([viewedBook(), getRealBook()]);
     const policy = await getPolicy(book);
-    const [live, fills, roster, news, analysis, history, season, admin, settled, pot, bets] = await Promise.all([
+    const [live, fills, roster, news, analysis, history, season, admin, settled, pot, bets, kill] = await Promise.all([
       getLive(book), getRecentFills(book, policy.season, 25), getRoster(book), getNews(book, 40),
       getAnalysis(book), getHistory(book, policy.season, range),
       range === "season" ? null : getHistory(book, policy.season, "season"), isAdmin(), sinceIso ? getSettlementsSince(book, policy.season, sinceIso) : getSettlements(book, policy.season),
-      getBonusPot(book), getBets(book, policy.season),
+      getBonusPot(book), getBets(book, policy.season), realBook ? getKillSwitch("real") : null,
     ]);
-    data = { book, realBook, live, fills, roster, news, policy, analysis, history, season: season ?? history, admin, settled, pot, bets };
+    data = { book, realBook, live, fills, roster, news, policy, analysis, history, season: season ?? history, admin, settled, pot, bets, kill };
   } catch (e) {
     return <Setup error={String(e)} />;
   }
-  const { book, realBook, live, fills, roster, news, policy, analysis, history, season, admin, settled, pot, bets } = data;
+  const { book, realBook, live, fills, roster, news, policy, analysis, history, season, admin, settled, pot, bets, kill } = data;
   const label = bookLabel(book, realBook);
   if (!live) return <Setup error="The bot hasn't published a status yet. Is it running?" />;
 
@@ -113,6 +114,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
   return (
     <div className="stack">
       <AutoRefresh seconds={60} />
+      {/* A paused real book shows on both views (not a long, deliberate pause), with Resume right here */}
+      {kill?.halted && !kill.long && <ResumeBanner kill={kill} admin={admin} />}
 
       <MoneyHero
         top={

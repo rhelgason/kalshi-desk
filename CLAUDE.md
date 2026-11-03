@@ -69,6 +69,11 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
   before Kalshi's expected end, MLB and NHL from 1 h before (both lost money earlier), to 2 h after; football dropped.
 - **11-03: 🐸 Weather Wendell on real money** (owner's go; desk.real.yaml `other_series` = his six cities, mid-season hire
   with $0, starts as Intern = half-size bets). The settling allowance in reconcile is now 12 h (weather pays out slowly).
+- **11-03: pauses.** The safety check now halts only when the SAME market differs from Kalshi on 3 checks in a row
+  (runner.MISMATCH_CHECKS): fills and payouts reach Kalshi and us seconds apart, and three different one-check races
+  in a row had halted trading. Paused? The home page shows a banner with ▶️ Resume (manager login), phone-friendly.
+  Kalshi pays for orders from the market's shard only (coins 2, weather 0): desk.real.yaml `shards` has the bot keep
+  the cash split (before it, all 1,409 of Wendell's first bids were refused for "insufficient balance").
 - **Fast Sadie trial** on the server (desk/fast.py, from 2026-10-26 07:12 UTC): always-on bid vs a 2-minute cron twin,
   pretend money from $87.63 each. `python -m desk fast-report`. So far it fills more, not better per $1.
 

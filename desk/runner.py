@@ -56,6 +56,9 @@ NOTIFY = "_notify"  # status row: when the last daily phone summary went out
 DAILY_HOUR = 21  # 9 PM  # smallest bet the pool places (Kalshi's own step is 0.01 contracts)
 
 
+# Checks in a row (2 minutes apart) a difference from Kalshi must last before real trading halts
+MISMATCH_CHECKS = 3
+
 class Desk:
     def __init__(
         self,
@@ -843,6 +846,22 @@ class Desk:
             out[t] = (round(net + (n if side == "yes" else -n), 2), round(pay + n * won, 4))
         return out
 
+    async def split_cash(self) -> None:
+        """Kalshi pays for an order from its market's exchange shard only: coins trade on shard 2, weather on 0.
+        desk.real.yaml `shards` says how to split the cash (percent per shard), and Kalshi keeps it that way
+        (it rebalances every ~10 s). Checked once per bot process. Without it, every weather bid was refused
+        for "insufficient balance" (11-03: all the cash sat on the coins' shard)."""
+        want = {int(k): int(v) for k, v in (self.config.shards or {}).items()}
+        if not want or getattr(self, "_cash_split", False):
+            return
+        try:
+            if await self.client.get_target_allocation() != want:
+                await self.client.set_target_allocation(want)
+                logger.warning("Asked Kalshi to keep the cash split by shard: %s", want)
+            self._cash_split = True
+        except KalshiAPIError as e:
+            logger.warning("Couldn't check how Kalshi splits our cash between shards: %s", e)
+
     async def reconcile_live(self) -> None:
         from desk.live.reconcile import reconcile
 
@@ -851,6 +870,7 @@ class Desk:
             self.journal.count(f.strategy, "maker fills")
             logger.info("%s REAL MAKER FILL %s %gx %s @ %.3f", self.personas.get(f.strategy, f.strategy),
                         f.side.upper(), f.count, f.ticker, f.avg_price)
+        await self.split_cash()
         books = self.guard.books()
         if books.get("season") != self.season:
             books = {"season": self.season}  # a new season is a new pool: measure from scratch
@@ -860,15 +880,21 @@ class Desk:
         except KalshiAPIError as e:
             logger.warning("Couldn't check our books against Kalshi: %s", e)
             return
-        bad = bool(r.mismatches) or abs(r.drift) > float(self.guard.limits["max_drift"])
+        # A difference only counts while it lasts. Fills, payouts and results reach Kalshi and our books seconds
+        # apart, so one market can differ for one check and be gone by the next (11-03: BNB, then BNB again, then
+        # SOL, on three checks in a row, halted trading though each fixed itself). A market has to differ on
+        # MISMATCH_CHECKS checks in a row, or the cash (with every position agreeing) on as many, to halt.
+        seen = books.get("seen") or {}
+        seen = {t: seen.get(t, 0) + 1 for t in r.mismatches}
+        drifting = not r.mismatches and abs(r.drift) > float(self.guard.limits["max_drift"])
+        strikes = max([*seen.values(), books.get("strikes", 0) + 1 if drifting else 0])
         books.update(baseline=r.baseline if books.get("baseline") is None else books["baseline"],
-                     strikes=books.get("strikes", 0) + 1 if bad else 0,
-                     last={**r.to_dict(), "at": _now().isoformat()})
+                     strikes=strikes, seen=seen, last={**r.to_dict(), "at": _now().isoformat()})
         self.journal.info["books"] = {"balance": r.balance, "drift": r.drift, "mismatches": len(r.mismatches)}
-        if bad:
-            logger.warning("Our books differ from Kalshi (check %d): drift $%.2f, positions %s",
-                           books["strikes"], r.drift, r.mismatches)
-        if books["strikes"] >= 2:
+        if r.mismatches or drifting:
+            logger.warning("Our books differ from Kalshi (check %d of %d): drift $%.2f, positions %s",
+                           strikes, MISMATCH_CHECKS, r.drift, r.mismatches)
+        if strikes >= MISMATCH_CHECKS:
             what = (f"positions differ on {', '.join(sorted(r.mismatches))}" if r.mismatches
                     else f"cash is off by ${r.drift:+.2f}")
             self.guard.halt(f"our books don't match Kalshi: {what}")

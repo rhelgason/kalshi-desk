@@ -14,8 +14,9 @@ Each run compares two things for the office pool's members:
              The first reading sets a baseline (money in the account that isn't
              the pool's); after that, drift is any change in the difference.
 
-Markets that settle can differ for a run (Kalshi pays before our next check
-sees the result), so the desk only halts when a mismatch lasts two runs. The other
+Markets that settle or fill can differ for a run (Kalshi pays before our next check
+sees the result, or shows a fill seconds before our books book it), so the desk only
+halts when the same market differs on three checks in a row (runner.MISMATCH_CHECKS). The other
 way round, Kalshi can take several minutes to pay a market we've already settled
 (2026-11-02: a ZEC win still held on Kalshi 6+ minutes after its result, which
 halted trading): a recently settled market that Kalshi still holds exactly as we
