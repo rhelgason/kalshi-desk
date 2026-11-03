@@ -121,7 +121,11 @@ def test_real_book_builds_sadies_coin_specialists():
 
     real = DeskConfig.load(ROOT / "desk.real.yaml")
     staff = {s.key: s for s in build_strategies(hr_config(real))}
-    assert set(staff) == {"maker_btc", "maker_eth", "maker_sol", "maker_xrp", "maker_doge", "maker_near", "maker_bnb", "maker_zec"}
+    assert set(staff) == {"maker_btc", "maker_eth", "maker_sol", "maker_xrp", "maker_doge", "maker_near", "maker_bnb", "maker_zec",
+                          "weather_maker"}
+    # Weather Wendell joined 2026-11-03 on Training's rules, with his six cities' markets
+    w = staff["weather_maker"]
+    assert (w.min_price, w.max_price, w.end_hour) == (0.92, 0.995, 6) and set(real.other_series) == set(w.series)
     for k, coin in (("maker_btc", "BTC"), ("maker_eth", "ETH"), ("maker_sol", "SOL"), ("maker_xrp", "XRP"), ("maker_doge", "DOGE"),
                     ("maker_near", "NEAR"), ("maker_bnb", "BNB"), ("maker_zec", "ZEC")):
         s = staff[k]

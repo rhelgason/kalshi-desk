@@ -28,7 +28,8 @@ starting_cash: 250
 crypto_series: [KXBTC15M, KXETH15M, KXSOL15M, KXXRP15M, KXDOGE15M,   # bitcoin back 11-01 (Barnaby's tape test)
                 KXNEAR15M, KXBNB15M, KXZEC15M]   # 11-02: passed the same test (research/fast_coco/README.md)
 crypto_symbols: [BTC, ETH, SOL, XRP, DOGE, NEAR, BNB, ZEC]
-other_series: []          # Wendell and Ziggy's weather and sports markets are Training only
+# 11-03: Weather Wendell's six cities (owner's go); Ziggy's sports stay Training only
+other_series: [KXHIGHNY, KXHIGHLAX, KXHIGHCHI, KXHIGHMIA, KXHIGHAUS, KXHIGHDEN]
 
 live:
   max_order_dollars: 10   # no single order above this
@@ -50,7 +51,9 @@ strategies:
   # 11-02: Ned (NEAR), Belle (BNB) and Zed (ZEC) passed the trade-tape test and joined mid-season ($0 of their own,
   # like Barnaby). Hyper Hank stays on Training: HYPE didn't pass (+0.4c per $1, second half down).
   maker_hype: {enabled: false}
-  weather_maker: {enabled: false}   # Training only (never on this book, so not a mid-season roster change)
+  # 11-03: 🐸 Weather Wendell joins mid-season with $0 of his own (owner's go): two years of trades +1.48c per $1
+  # (t 5.4, both years, every city), Training +2.7c on 63 bets, no maker fee on weather. Same rules as Training.
+  weather_maker: {min_price: 0.92, max_price: 0.995, end_hour: 6}
   sports_closer: {enabled: false}
   heavy_favorite: {enabled: false}
   runner_up_maker: {enabled: false}

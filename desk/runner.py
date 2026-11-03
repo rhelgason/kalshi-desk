@@ -823,25 +823,24 @@ class Desk:
                     self._bid_ended(o, "bid pulled: trading halted")
             self.journal.info["halted"] = self.guard.state.get("reason") or True
 
-    def recently_settled(self, minutes: float = 30) -> dict[str, tuple[float, float]]:
+    def recently_settled(self, minutes: float = 720) -> dict[str, tuple[float, float]]:
         """Markets the pool settled in the last `minutes`: ticker -> (net contracts held, YES minus NO, and what
-        they pay). Kalshi can take minutes to pay one out (desk/live/reconcile.py)."""
+        they pay). Kalshi can take minutes to pay a coin market out, and hours for a weather one once the weather
+        service reports (desk/live/reconcile.py only uses this while Kalshi still shows exactly that position)."""
         since = (_now() - timedelta(minutes=minutes)).isoformat()
         members = sorted(self.pool.members)
         if not members:
             return {}
         who = ",".join("?" * len(members))
-        settled = {(r["strategy"], r["ticker"]): float(r["yes_value"]) for r in self.ledger._rows(
-            f"SELECT strategy, ticker, yes_value FROM settlements WHERE season = ? AND ts >= ? AND strategy IN ({who})",
-            (self.season, since, *members))}
         out: dict[str, tuple[float, float]] = {}
-        for (k, t), yes_value in settled.items():
-            for f in self.ledger._rows("SELECT side, count FROM fills WHERE season = ? AND strategy = ? AND ticker = ?",
-                                       (self.season, k, t)):
-                n, side = float(f["count"]), f["side"]
-                net, pay = out.get(t, (0.0, 0.0))
-                won = yes_value if side == "yes" else 1 - yes_value
-                out[t] = (round(net + (n if side == "yes" else -n), 2), round(pay + n * won, 4))
+        for r in self.ledger._rows(
+                f"SELECT f.ticker, f.side, f.count, s.yes_value FROM settlements s JOIN fills f "
+                f"ON f.season = s.season AND f.strategy = s.strategy AND f.ticker = s.ticker "
+                f"WHERE s.season = ? AND s.ts >= ? AND s.strategy IN ({who})", (self.season, since, *members)):
+            t, n, side, yes_value = r["ticker"], float(r["count"]), r["side"], float(r["yes_value"])
+            net, pay = out.get(t, (0.0, 0.0))
+            won = yes_value if side == "yes" else 1 - yes_value
+            out[t] = (round(net + (n if side == "yes" else -n), 2), round(pay + n * won, 4))
         return out
 
     async def reconcile_live(self) -> None:

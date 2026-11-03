@@ -67,6 +67,8 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
   window cap 12% shared, max_orders_per_day 3200. Fast trial has a second, coin-checked pair (fast_check/twin_check). Wendy's two-year weather tape: research/other_markets/wx_history.py.
 - **11-02: Ziggy (`sports_closer`) by league** after a year of game-end trades (research/other_markets/README.md): NBA from 3 h
   before Kalshi's expected end, MLB and NHL from 1 h before (both lost money earlier), to 2 h after; football dropped.
+- **11-03: 🐸 Weather Wendell on real money** (owner's go; desk.real.yaml `other_series` = his six cities, mid-season hire
+  with $0, starts as Intern = half-size bets). The settling allowance in reconcile is now 12 h (weather pays out slowly).
 - **Fast Sadie trial** on the server (desk/fast.py, from 2026-10-26 07:12 UTC): always-on bid vs a 2-minute cron twin,
   pretend money from $87.63 each. `python -m desk fast-report`. So far it fills more, not better per $1.
 
