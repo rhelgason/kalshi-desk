@@ -17,8 +17,8 @@ def weather(yes_bid, yes_ask, series="KXHIGHNY", day="26OCT28", strike="B67.5"):
                        event=f"{series}-{day}", close_in=timedelta(hours=12))
 
 
-def game(yes_bid, yes_ask, ends_in, event="KXNFLGAME-26OCT28KCDET", team="KC"):
-    m = make_market(f"{event}-{team}", yes_bid=yes_bid, yes_ask=yes_ask, series="KXNFLGAME", event=event,
+def game(yes_bid, yes_ask, ends_in, event="KXNBAGAME-26OCT28LALDEN", team="LAL"):
+    m = make_market(f"{event}-{team}", yes_bid=yes_bid, yes_ask=yes_ask, series=event.split("-")[0], event=event,
                     close_in=timedelta(days=2))
     return replace(m, expected_expiration_time=MORNING + ends_in)
 
@@ -64,8 +64,16 @@ class TestFinalWhistleFiona:
         assert f.evaluate(snap(game(0.97, 0.99, timedelta(hours=4))), account) == []
         assert f.evaluate(snap(game(0.97, 0.99, -timedelta(hours=3))), account) == []
 
+    def test_baseball_and_hockey_only_in_the_last_hour_and_no_football(self, account):
+        f = FinalWhistleFiona()
+        for event in ("KXMLBGAME-26OCT28NYYLAD", "KXNHLGAME-26OCT28TORBOS"):
+            assert f.evaluate(snap(game(0.97, 0.99, timedelta(hours=2), event=event, team="X")), account) == []
+            assert len(f.evaluate(snap(game(0.97, 0.99, timedelta(minutes=40), event=event, team="X")), account)) == 1
+        assert f.evaluate(snap(game(0.97, 0.99, timedelta(minutes=40), event="KXNFLGAME-26OCT28KCDET", team="KC")),
+                          account) == []
+
     def test_one_bid_per_game(self, account):
-        both = snap(game(0.97, 0.99, timedelta(hours=1)), game(0.01, 0.03, timedelta(hours=1), team="DET"))
+        both = snap(game(0.97, 0.99, timedelta(hours=1)), game(0.01, 0.03, timedelta(hours=1), team="DEN"))
         assert len(FinalWhistleFiona().evaluate(both, account)) == 1
 
     def test_skips_a_game_still_in_doubt(self, account):

@@ -65,6 +65,8 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
 - **11-02: Nadia (NEAR), Belle (BNB) and Zoe (ZEC) on real money too** (owner's go) after passing the trade-tape test
   (+2.3c / +1.6c / +1.7c per $1, both halves); Hype Hannah stays Training-only. Real book: 8 coins, 3% bets,
   window cap 12% shared, max_orders_per_day 3200. Fast trial has a second, coin-checked pair (fast_check/twin_check). Wendy's two-year weather tape: research/other_markets/wx_history.py.
+- **11-02: Ziggy (`sports_closer`) by league** after a year of game-end trades (research/other_markets/README.md): NBA from 3 h
+  before Kalshi's expected end, MLB and NHL from 1 h before (both lost money earlier), to 2 h after; football dropped.
 - **Fast Sadie trial** on the server (desk/fast.py, from 2026-10-26 07:12 UTC): always-on bid vs a 2-minute cron twin,
   pretend money from $87.63 each. `python -m desk fast-report`. So far it fills more, not better per $1.
 

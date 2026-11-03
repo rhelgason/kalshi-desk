@@ -72,3 +72,23 @@ Same two-year replay (`wx_years.py`, START/END in city hours on the day; negativ
 
 Training's Wendy now stops at 6 am city time (desk.yaml `end_hour: 6`). Four windows were tried, so a little luck is
 in the winner, but t 5.4 with every city up in both years is far beyond what four tries would hand out by chance.
+
+## Fiona/Ziggy on a year of games (2026-11-02, `sports_history.py` -> `fiona_years.py`)
+
+Every game Kalshi listed Nov 2025 - Nov 2026 in NFL, college football, NBA, MLB and NHL, one winner market per game,
+every trade from 3.5 h before Kalshi's expected end to 2 h after (downloaded on the server). Her rules (97-99.5c,
+3 h before to 2 h after, 2-minute looks, harsh fills, $10 a game, after the sports fee): 6,587 bets, +0.74c per $1,
+t 6.4, both halves up. Split by league and by when the bet filled:
+
+| League | 3 h to 1 h before the end | last hour | after the end | whole league |
+|---|---|---|---|---|
+| NBA | +2.14c (467) | +1.00c (868) | +1.54c (18) | +1.40c |
+| MLB | -0.59c (579) | +1.48c (1,448, t 10) | +1.45c (335) | +0.96c |
+| NHL | -1.24c (244) | +0.72c (1,106) | +1.03c (62) | +0.40c |
+| NFL | +2.14c (69) | -0.66c (134) | +0.34c (98) | +0.30c |
+| college football | +0.42c (386) | -0.40c (335) | -0.11c (438) | -0.02c |
+
+Baseball and hockey lose money while the comeback is still possible and pay once the last hour starts; football
+never paid enough to matter. Training's Ziggy now bets NBA from 3 h before, MLB and NHL from 1 h before (to 2 h after
+for all), no football (`FinalWhistleFiona.HOURS_BEFORE`). That pick was made from this same year, so expect less than
+the table: roughly +1.2c per $1 on the leagues kept.

@@ -25,7 +25,7 @@ crypto_horizon_hours: 1
 # Non-coin markets for Wendell and Ziggy (2026-10-28, research/other_markets): six cities' daily highs and
 # football/baseball/basketball winners. The coin staff never see these, and these two never see the coins.
 other_series: [KXHIGHNY, KXHIGHLAX, KXHIGHCHI, KXHIGHMIA, KXHIGHAUS, KXHIGHDEN,
-               KXNFLGAME, KXNCAAFGAME, KXMLBGAME, KXNBAGAME]
+               KXNBAGAME, KXMLBGAME, KXNHLGAME]
 
 # The real-money book (its own roster and records) runs beside this one every hosted run
 real_book: desk.real.yaml
@@ -83,7 +83,8 @@ strategies:
     max_price: 0.995
     end_hour: 6           # 11-02: two years of trades (wx_years.py): 0-6 am +1.48c per $1 (t 5.4, both years, all 6
                           # cities up) vs 0-11 am +0.83c; 6-11 am adds +0.64c and the evening before +0.40c
-  sports_closer:          # 🦓 Ziggy the Zebra - 97-99.5c game winners in the last 3 h to 2 h after (+1.2-1.7c replayed)
+  sports_closer:          # 🦓 Ziggy the Zebra - 97-99.5c game winners: NBA from 3 h before the end, MLB/NHL from 1 h,
+                          # to 2 h after; no football (11-02 year replay, fiona_years.py)
     min_price: 0.97
     max_price: 0.995
   longshot_buy:           # 🐦 Lucky the Pigeon - control group: buys long shots

@@ -119,19 +119,21 @@ class FinalWhistleFiona(FavoriteBidder):
         "Born in stripes, so refereeing was the obvious career. Bets the winner once the game's decided and "
         "blows the whistle before any comeback can start.",
     )
-    series = ("KXNFLGAME", "KXNCAAFGAME", "KXMLBGAME", "KXNBAGAME")
+    # 11-02, a year of end-of-game trades (research/other_markets/fiona_years.py): basketball pays from 3 hours
+    # before Kalshi's expected end (+2.1c per $1 before the last hour, +1.0c in it); baseball and hockey lose money
+    # until the last hour (-0.6c / -1.2c) and pay from there (+1.5c / +0.7c). Football didn't pay: dropped.
+    HOURS_BEFORE = {"KXNBAGAME": 3, "KXMLBGAME": 1, "KXNHLGAME": 1}
+    series = tuple(HOURS_BEFORE)
     one_per_event = True
 
-    def __init__(self, min_price: float = 0.97, max_price: float = 0.995, hours_before: float = 3,
-                 hours_after: float = 2, **kw):
+    def __init__(self, min_price: float = 0.97, max_price: float = 0.995, hours_after: float = 2, **kw):
         super().__init__(min_price=min_price, max_price=max_price, **kw)
-        self.hours_before = hours_before
         self.hours_after = hours_after
 
     def in_hours(self, m: Market, now: datetime) -> bool:
-        """Late in the game: Kalshi's expected end is about 3 hours after the start."""
-        end = m.expected_expiration_time
-        return bool(end) and end - timedelta(hours=self.hours_before) <= now <= end + timedelta(hours=self.hours_after)
+        """Late in the game, by league: Kalshi's expected end is about 3 hours after the start."""
+        end, before = m.expected_expiration_time, self.HOURS_BEFORE.get(m.series_ticker)
+        return bool(end and before) and end - timedelta(hours=before) <= now <= end + timedelta(hours=self.hours_after)
 
     def describe(self, m, side, price):
         return f"game all but over: {side.value.upper()} @ {price:.2f} on '{m.title[:60]}'"
