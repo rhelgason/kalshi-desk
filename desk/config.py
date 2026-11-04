@@ -45,7 +45,9 @@ class DeskConfig:
     # Non-coin series fetched every run for the "other" employees (weather, sports): their markets about
     # to be decided, i.e. whose event date (or expected end) is within this many hours, or passed < 3 h ago
     other_series: list[str] = field(default_factory=list)
-    other_horizon_hours: float = 24.0
+    # 30, not 24 (11-04): Kalshi dates a day's weather market ~25 h after that city's midnight (1 am the next night),
+    # so at 24 Wendell couldn't see the day's markets for the first hour of his midnight-6 am window
+    other_horizon_hours: float = 30.0
 
     # Broad scan (for strategies that look beyond crypto)
     broad_scan: bool = True
