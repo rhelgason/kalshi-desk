@@ -309,6 +309,10 @@ class KalshiClient:
         data = await self.request("GET", "/portfolio/balance", auth=True)
         return {int(b["exchange_index"]): float(b["balance"]) for b in data.get("balance_breakdown") or []}
 
+    async def get_balance_breakdown(self) -> list[dict]:
+        """Kalshi's own per-shard balance rows, as sent."""
+        return (await self.request("GET", "/portfolio/balance", auth=True)).get("balance_breakdown") or []
+
     async def get_target_allocation(self) -> dict[int, int]:
         data = await self.request("GET", "/portfolio/target_balance_allocation", auth=True)
         return {int(a["exchange_index"]): int(a["percent"]) for a in data.get("allocations") or []}

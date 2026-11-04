@@ -855,7 +855,13 @@ class Desk:
         (it rebalances every ~10 s). Checked once per bot process. Without it, every weather bid was refused
         for "insufficient balance" (11-03: all the cash sat on the coins' shard)."""
         want = {int(k): int(v) for k, v in (self.config.shards or {}).items()}
-        if not want or getattr(self, "_cash_split", False):
+        if not want:
+            return
+        try:  # what Kalshi says sits on each shard, for the run log (11-04: weather refused again despite the split)
+            self.journal.info["shards"] = await self.client.get_balance_breakdown()
+        except KalshiAPIError as e:
+            logger.warning("Couldn't read the cash on each shard: %s", e)
+        if getattr(self, "_cash_split", False):
             return
         try:
             if await self.client.get_target_allocation() != want:

@@ -108,6 +108,9 @@ class FakeKalshi:
     async def get_account(self):
         return {"cash": self.cash, "positions": 0.0}
 
+    async def get_balance_breakdown(self):
+        return [{"exchange_index": 2, "balance": self.cash}]
+
 
 @pytest.fixture
 def live(monkeypatch):
