@@ -58,7 +58,7 @@ export default function RealMoney({ trading, killSwitch, admin }: {
             <dt>Hard limits</dt>
             <dd>
               {dollars(trading.limits.max_order_dollars)} per order · {trading.limits.max_orders_per_day} orders a day ·
-              stop after losing {dollars(trading.limits.max_daily_loss)} in a day
+              stop after losing {trading.limits.max_daily_loss_pct ? `${Math.round(trading.limits.max_daily_loss_pct * 100)}% of the pool` : dollars(trading.limits.max_daily_loss)} in a day
             </dd>
           </>
         )}

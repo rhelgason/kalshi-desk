@@ -162,7 +162,7 @@ export type TradingStatus = {
   reason?: string;
   by?: string;
   at?: string;
-  limits?: { max_order_dollars: number; max_orders_per_day: number; max_daily_loss: number; max_drift: number };
+  limits?: { max_order_dollars: number; max_orders_per_day: number; max_daily_loss: number; max_daily_loss_pct?: number | null; max_drift: number };
   books?: {
     at: string; ok: boolean;
     balance: number; // Kalshi's cash

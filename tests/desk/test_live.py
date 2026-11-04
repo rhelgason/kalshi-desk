@@ -282,6 +282,18 @@ async def test_a_big_loss_day_halts_until_resumed(live, monkeypatch):
     assert desk.guard.halted and "lost $160.00 today" in desk.guard.state["reason"]
 
 
+async def test_the_loss_limit_can_be_a_share_of_the_pool(live, monkeypatch):
+    desk = _desk(live, monkeypatch)
+    desk.guard.limits["max_daily_loss_pct"] = 0.20
+    desk.pool.update(300, NOW)
+    desk.pool.update(250, NOW + timedelta(hours=1))  # $50 down: past $40 but under 20% ($60)
+    await desk.reconcile_live()
+    assert not desk.guard.halted
+    desk.pool.update(235, NOW + timedelta(hours=2))  # $65 down
+    await desk.reconcile_live()
+    assert desk.guard.halted and "20% of the pool, $60.00" in desk.guard.state["reason"]
+
+
 def test_live_trading_needs_both_switches_and_a_key(monkeypatch, tmp_path):
     cfg = DeskConfig(trading="live")
     monkeypatch.delenv("KALSHI_LIVE_TRADING", raising=False)

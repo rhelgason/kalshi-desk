@@ -36,6 +36,8 @@ DEFAULT_LIMITS = {
     "max_order_dollars": 40.0,  # no single order above this, whatever the pool says
     "max_orders_per_day": 300,
     "max_daily_loss": 150.0,  # dollars down since midnight: halt until resumed
+    # ...or, when set, this share of the pool at midnight instead (11-04: a dollar limit goes stale as the pool grows)
+    "max_daily_loss_pct": None,
     "max_drift": 2.0,  # dollars the books may differ from Kalshi's balance
 }
 
@@ -114,5 +116,8 @@ class Guard:
     def check_loss(self, equity: float, day_open: float) -> None:
         """Halt if the pool has lost more than the hard daily limit."""
         lost = day_open - equity
-        if day_open > 0 and lost > float(self.limits["max_daily_loss"]):
-            self.halt(f"the pool lost ${lost:,.2f} today (limit ${float(self.limits['max_daily_loss']):,.0f})")
+        pct = self.limits.get("max_daily_loss_pct")
+        limit = day_open * float(pct) if pct else float(self.limits["max_daily_loss"])
+        if day_open > 0 and lost > limit:
+            share = f"{float(pct):.0%} of the pool, " if pct else ""
+            self.halt(f"the pool lost ${lost:,.2f} today (limit {share}${limit:,.2f})")
