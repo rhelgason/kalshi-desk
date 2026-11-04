@@ -69,6 +69,10 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
   before Kalshi's expected end, MLB and NHL from 1 h before (both lost money earlier), to 2 h after; football dropped.
 - **11-03: 🐸 Weather Wendell on real money** (owner's go; desk.real.yaml `other_series` = his six cities, mid-season hire
   with $0, starts as Intern = half-size bets). The settling allowance in reconcile is now 12 h (weather pays out slowly).
+- **11-04: Wendell's first real night.** Two fixes: other markets are looked for 30 h ahead (config other_horizon_hours;
+  a day's weather market is dated ~25 h after the city's midnight, so he missed the first hour), and Kalshi's target
+  allocation never moved cash to shard 0, so runner.split_cash now transfers it (status `_shard_move`, at most every
+  10 min; each run logs `shards` in real.runs). His first real bids went up 05:36 UTC.
 - **11-04: pauses, again.** The owner would rather trade through differences that fix themselves: the safety check now
   waits 15 checks (30 minutes, runner.MISMATCH_CHECKS) and turns trading back on by itself once the books agree (only
   its own pauses; the manager's and the $40 daily-loss stop stay). The site's "trading paused" under the balance was
