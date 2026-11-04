@@ -32,7 +32,8 @@ crypto_symbols: [BTC, ETH, SOL, XRP, DOGE, NEAR, BNB, ZEC]
 other_series: [KXHIGHNY, KXHIGHLAX, KXHIGHCHI, KXHIGHMIA, KXHIGHAUS, KXHIGHDEN]
 
 # Kalshi pays for an order from its market's shard only: the coins trade on shard 2, Wendell's weather on 0.
-# The bot has Kalshi keep the cash split like this (desk/runner.py split_cash). 11-03: Wendell's bids are ~$1.25
+# The bot keeps the cash split like this by moving it between shards itself (desk/runner.py split_cash; 11-04:
+# Kalshi's own "target allocation" never moved a cent). 11-03: Wendell's bids are ~$1.25
 # and a night's bets stay open until the next evening, so a fifth of the cash (~$17) covers him; the coins'
 # window cap is 12% of the pool.
 shards: {2: 80, 0: 20}

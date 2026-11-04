@@ -61,6 +61,7 @@ DAILY_HOUR = 21  # 9 PM  # smallest bet the pool places (Kalshi's own step is 0.
 # would rather keep trading through a difference that fixes itself; the $40 daily-loss stop still guards the money.
 MISMATCH_CHECKS = 15
 BOOKS_HALT = "our books don't match Kalshi"
+SHARD_MOVE = "_shard_move"  # status key: the last cash transfer between Kalshi shards
 
 class Desk:
     def __init__(
@@ -851,25 +852,42 @@ class Desk:
 
     async def split_cash(self) -> None:
         """Kalshi pays for an order from its market's exchange shard only: coins trade on shard 2, weather on 0.
-        desk.real.yaml `shards` says how to split the cash (percent per shard), and Kalshi keeps it that way
-        (it rebalances every ~10 s). Checked once per bot process. Without it, every weather bid was refused
-        for "insufficient balance" (11-03: all the cash sat on the coins' shard)."""
+        desk.real.yaml `shards` says how to split the cash (percent per shard). 11-03 we asked Kalshi to keep that
+        split itself (target allocation), but by 11-04 it had moved nothing: shard 0 still had $0 and Wendell's
+        bids were refused for "insufficient balance". So the bot moves the cash itself: a shard under half its
+        share is topped up to its share from the shard with the most to spare, at most once every 10 minutes
+        (a transfer takes Kalshi a moment, and the next run mustn't send it twice)."""
         want = {int(k): int(v) for k, v in (self.config.shards or {}).items()}
         if not want:
             return
-        try:  # what Kalshi says sits on each shard, for the run log (11-04: weather refused again despite the split)
-            self.journal.info["shards"] = await self.client.get_balance_breakdown()
+        try:
+            rows = await self.client.get_balance_breakdown()
         except KalshiAPIError as e:
             logger.warning("Couldn't read the cash on each shard: %s", e)
-        if getattr(self, "_cash_split", False):
             return
-        try:
-            if await self.client.get_target_allocation() != want:
-                await self.client.set_target_allocation(want)
-                logger.warning("Asked Kalshi to keep the cash split by shard: %s", want)
-            self._cash_split = True
-        except KalshiAPIError as e:
-            logger.warning("Couldn't check how Kalshi splits our cash between shards: %s", e)
+        have = {int(r["exchange_index"]): float(r["balance"]) for r in rows}
+        self.journal.info["shards"] = {k: round(v, 2) for k, v in have.items() if v or k in want}
+        total = sum(have.values())
+        moved = self.ledger.get_status(SHARD_MOVE) or {}
+        if total <= 0 or (moved.get("at") and _now() - datetime.fromisoformat(moved["at"]) < timedelta(minutes=10)):
+            return
+        for shard, pct in sorted(want.items()):
+            share = total * pct / 100
+            if have.get(shard, 0.0) >= share / 2:
+                continue
+            spare = {k: v - total * want.get(k, 0) / 100 for k, v in have.items() if k != shard}
+            source = max(spare, key=spare.get, default=None)
+            amount = round(min(share - have.get(shard, 0.0), spare.get(source, 0.0)), 2)
+            if source is None or amount < 1:
+                continue
+            try:
+                await self.client.transfer_between_shards(amount, source, shard)
+            except KalshiAPIError as e:
+                logger.warning("Couldn't move $%.2f to shard %d: %s", amount, shard, e)
+                return
+            logger.warning("Moved $%.2f of cash from shard %d to shard %d (split %s)", amount, source, shard, want)
+            self.ledger.set_status(SHARD_MOVE, {"at": _now().isoformat(), "from": source, "to": shard, "dollars": amount})
+            return
 
     async def reconcile_live(self) -> None:
         from desk.live.reconcile import reconcile

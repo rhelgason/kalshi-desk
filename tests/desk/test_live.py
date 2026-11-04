@@ -37,14 +37,12 @@ class FakeKalshi:
         self.cash = cash
         self.cancel_all_calls = 0
         self.sent: list[dict] = []
-        self.allocation: dict[int, int] = {}
-        self.allocation_sets = 0
+        self.weather_cash = 0.0  # on shard 0; the rest of `cash` is on the coins' shard 2
+        self.transfers: list[tuple[float, int, int]] = []
 
-    async def get_target_allocation(self):
-        return dict(self.allocation)
-
-    async def set_target_allocation(self, percents):
-        self.allocation = dict(percents); self.allocation_sets += 1
+    async def transfer_between_shards(self, dollars, source, destination):
+        self.transfers.append((dollars, source, destination))
+        self.weather_cash += dollars if destination == 0 else -dollars
 
     def _fill(self, oid, ticker, side, n, price, fee):
         self.fills.append({"fill_id": f"f{len(self.fills) + 1}", "order_id": oid, "ticker": ticker,
@@ -109,7 +107,8 @@ class FakeKalshi:
         return {"cash": self.cash, "positions": 0.0}
 
     async def get_balance_breakdown(self):
-        return [{"exchange_index": 2, "balance": self.cash}]
+        return [{"exchange_index": 0, "balance": f"{self.weather_cash:.4f}"},
+                {"exchange_index": 2, "balance": f"{self.cash - self.weather_cash:.4f}"}]
 
 
 @pytest.fixture
@@ -359,10 +358,18 @@ async def test_differences_that_fix_themselves_on_different_markets_dont_halt(li
 
 
 async def test_the_bot_keeps_cash_on_the_weather_shard_too(live, monkeypatch):
-    """2026-11-03: Kalshi refused every weather bid for "insufficient balance": all the cash was on the coins' shard."""
+    """2026-11-03: Kalshi refused every weather bid for "insufficient balance": all the cash was on the coins' shard,
+    and on 11-04 still was, though Kalshi had been asked to keep the split. The bot moves it itself, once."""
     broker, client, ledger, accounts = live
     desk = _desk(live, monkeypatch)
     desk.config.shards = {2: 80, 0: 20}
     desk.pool.update(1000, NOW)
     await desk.reconcile_live(); await desk.reconcile_live()
-    assert client.allocation == {2: 80, 0: 20} and client.allocation_sets == 1
+    assert client.transfers == [(200.0, 2, 0)] and desk.journal.info["shards"] == {0: 200.0, 2: 800.0}
+    # Weather spends most of its share: no new transfer within 10 minutes, then a top-up
+    client.weather_cash = 50.0
+    await desk.reconcile_live()
+    assert len(client.transfers) == 1
+    ledger.set_status("_shard_move", {"at": (datetime.now(timezone.utc) - timedelta(minutes=11)).isoformat()})
+    await desk.reconcile_live()
+    assert client.transfers[-1] == (150.0, 2, 0)
