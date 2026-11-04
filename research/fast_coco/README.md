@@ -120,3 +120,13 @@ weeks up). ZEC's first 3 weeks alone read +0.37c: a few hundred bets can't tell 
 ~-100c against ~+4c wins, so the error on 500 bets is about +-1c). HYPE fails on its own data (+0.36c +- 0.96c,
 second half down, loses 4.2% vs ~2.5% elsewhere), but that is still within luck of the others; it stays on Training.
 The coin check matters even more here (BNB +0.53c -> +1.56c, NEAR +0.97c -> +2.29c, ZEC +0.64c -> +1.67c).
+
+## Hourly bitcoin ladders (2026-11-03, `hourly_check.py`)
+
+Kalshi's hourly "bitcoin above $X at 3 pm" markets (KXBTCD, ~30 traded strikes an hour, no maker fee) on Sadie's
+rules, on the final 30 minutes of every strike within 1.2% of the coin (`tape.py` with NEAR=0.012), Oct 4 - Nov 3,
+harsh fills, $10 a market. Every strike: **+0.5 to +0.7c per $1** at every distance from the close (2-29 min), both
+halves up everywhere, t 2-3, 20-24 of 31 days up. The coin check doesn't help here (it does on the 15-minute coins).
+One bet an hour at 5-9 min with the check: +1.55c (t 3.9) on 695 bets, but its neighbours are +0.2 to +1.0c.
+Real but about half the 15-minute coins' edge: 🐿️ Hourly Hazel (`hourly_btc`) bets it on Training from 11-03,
+5-21 min left, 92-99.5c, every strike (the pool's window cap, per hour, limits how many).

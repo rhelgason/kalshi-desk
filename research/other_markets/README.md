@@ -92,3 +92,12 @@ Baseball and hockey lose money while the comeback is still possible and pay once
 never paid enough to matter. Training's Ziggy now bets NBA from 3 h before, MLB and NHL from 1 h before (to 2 h after
 for all), no football (`FinalWhistleFiona.HOURS_BEFORE`). That pick was made from this same year, so expect less than
 the table: roughly +1.2c per $1 on the leagues kept.
+
+## More weather cities (2026-11-03, `wx_history.py` / `wx_years.py` with `MORE`)
+
+The daily highs Kalshi added in 2026 (one year of trades each) on Wendell's rules (midnight-6 am, 92-99.5c, harsh
+fills, $10 a market). First nine cities together: 4,718 bets, **-0.16c per $1** (t -0.4), while Wendell's own six
+made +1.6c over the same year. Atlanta +0.9c, Houston +0.9c, Oklahoma City +1.2c (all t < 1), San Antonio 0,
+Philadelphia -0.3c, New Orleans -0.2c, Minneapolis -0.2c, Boston -1.0c, DC -2.2c. Picking the three that were up
+out of nine would be luck-fitting: no new cities. (Phoenix, Las Vegas, San Diego, Seattle, San Francisco and the
+daily lows in Wendell's cities still downloading.)
