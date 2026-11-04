@@ -99,5 +99,7 @@ The daily highs Kalshi added in 2026 (one year of trades each) on Wendell's rule
 fills, $10 a market). First nine cities together: 4,718 bets, **-0.16c per $1** (t -0.4), while Wendell's own six
 made +1.6c over the same year. Atlanta +0.9c, Houston +0.9c, Oklahoma City +1.2c (all t < 1), San Antonio 0,
 Philadelphia -0.3c, New Orleans -0.2c, Minneapolis -0.2c, Boston -1.0c, DC -2.2c. Picking the three that were up
-out of nine would be luck-fitting: no new cities. (Phoenix, Las Vegas, San Diego, Seattle, San Francisco and the
-daily lows in Wendell's cities still downloading.)
+out of nine would be luck-fitting: no new cities. The rest: Phoenix +1.2c (t 1.7), Las Vegas +1.1c (t 1.8),
+Dallas +0.9c, San Francisco +0.4c, Seattle +0.1c, San Diego too thin. Daily LOWS in Wendell's six cities (decided
+overnight, in his hours): NYC +0.3c, Denver +0.5c, LA +0.1c, Chicago -0.7c, Miami -1.7c, Austin -2.5c: no edge.
+Verdict over all 21: nothing worth adding; at most Phoenix/Las Vegas to re-check in a few months.
