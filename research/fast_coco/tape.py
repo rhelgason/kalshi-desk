@@ -1,5 +1,7 @@
 """Kalshi trade tape for the final WINDOW minutes of every settled market, streamed to disk (resumable).
-    python tape.py DAYS WINDOW_MIN OUTDIR SERIES...     env RATE (req/s, default 8), CONC (default 4)
+    python tape.py DAYS WINDOW_MIN OUTDIR SERIES...     env RATE (req/s, default 8), CONC (default 4),
+        NEAR (hourly ladders: skip strikes more than this fraction from the coin's Binance price WINDOW_MIN before
+        the close; they sit at 0c/100c the whole window and cost a request each)
 Writes OUTDIR/SERIES.jsonl.gz, one market per line:
     {"ticker", "close", "result", "strike", "t": [[unix_seconds_float, yes_price, count, taker_side], ...]}
 """
@@ -53,14 +55,17 @@ async def get(http, path, params):
 
 async def series(http, s):
     path = f"{OUT}/{s}.jsonl.gz"
-    done = set()
+    done, good, torn = set(), [], False
     if os.path.exists(path):
         try:
             with gzip.open(path, "rt") as fh:
                 for line in fh:
-                    done.add(json.loads(line)["ticker"])
+                    done.add(json.loads(line)["ticker"]); good.append(line)
         except (EOFError, OSError, json.JSONDecodeError):
-            pass  # a torn last line from a crash: the market is fetched again
+            torn = True  # a torn last line from a crash: the market is fetched again
+    if torn:  # rewrite cleanly, or everything appended after the tear can't be read back
+        with gzip.open(path, "wt") as fh:
+            fh.writelines(good)
     t0 = time.time(); since = int(time.time() - DAYS * 86400); ms, cur = [], None
     while True:
         d = await get(http, "/markets", {"series_ticker": s, "status": "settled", "min_close_ts": since, "limit": 1000,
@@ -69,6 +74,14 @@ async def series(http, s):
         if not cur or not d.get("markets"):
             break
     ms = [m for m in ms if m.get("result") in ("yes", "no") and float(m.get("volume_fp") or 0) > 0 and m["ticker"] not in done]
+    if os.environ.get("NEAR") and s.endswith("D"):
+        sys.path.insert(0, os.path.dirname(__file__))
+        from hourly_check import Binance
+        v, near = Binance(s[2:-1]), float(os.environ["NEAR"])
+        def close_to(m):
+            px, k = v.get(int(ts(m["close_time"])) - WIN * 60), m.get("floor_strike")
+            return px is None or not k or abs(k / px - 1) <= near
+        ms = [m for m in ms if close_to(m)]
     print(s, len(ms), "markets to fetch,", len(done), "already saved", flush=True)
     sem, n = asyncio.Semaphore(int(os.environ.get("CONC", "4"))), 0
     out = gzip.open(path, "at")

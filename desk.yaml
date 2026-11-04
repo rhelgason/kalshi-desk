@@ -25,7 +25,8 @@ crypto_horizon_hours: 1
 # Non-coin markets for Wendell and Ziggy (2026-10-28, research/other_markets): six cities' daily highs and
 # football/baseball/basketball winners. The coin staff never see these, and these two never see the coins.
 other_series: [KXHIGHNY, KXHIGHLAX, KXHIGHCHI, KXHIGHMIA, KXHIGHAUS, KXHIGHDEN,
-               KXNBAGAME, KXMLBGAME, KXNHLGAME]
+               KXNBAGAME, KXMLBGAME, KXNHLGAME,
+               KXBTCD]   # 11-03: Hourly Hazel's bitcoin hourly ladders
 
 # The real-money book (its own roster and records) runs beside this one every hosted run
 real_book: desk.real.yaml
@@ -86,6 +87,9 @@ strategies:
   sports_closer:          # 🦓 Ziggy the Zebra - 97-99.5c game winners: NBA from 3 h before the end, MLB/NHL from 1 h,
                           # to 2 h after; no football (11-02 year replay, fiona_years.py)
     min_price: 0.97
+    max_price: 0.995
+  hourly_btc:             # 🐿️ Hourly Hazel (squirrel) - 92-99.5c favorites on bitcoin's hourly ladders, 5-21 min left
+    min_price: 0.92       # 11-03: research/fast_coco/hourly_check.py, every price band and 5-29 minutes left up
     max_price: 0.995
   longshot_buy:           # 🐦 Lucky the Pigeon - control group: buys long shots
     max_days: 2

@@ -19,6 +19,14 @@ LO, HI = float(os.environ.get("LO", "0.92")), float(os.environ.get("HI", "0.995"
 START, END = float(os.environ.get("START", "0")), float(os.environ.get("END", "11"))
 TZ = {"KXHIGHNY": "America/New_York", "KXHIGHLAX": "America/Los_Angeles", "KXHIGHCHI": "America/Chicago",
       "KXHIGHMIA": "America/New_York", "KXHIGHAUS": "America/Chicago", "KXHIGHDEN": "America/Denver"}
+# More cities (2026-11-03): daily highs Kalshi added in 2026, and daily lows in Wendell's six cities
+MORE = {"KXHIGHPHIL": "America/New_York", "KXHIGHTATL": "America/New_York", "KXHIGHTBOS": "America/New_York",
+        "KXHIGHTDC": "America/New_York", "KXHIGHTNOLA": "America/Chicago", "KXHIGHTHOU": "America/Chicago",
+        "KXHIGHTMIN": "America/Chicago", "KXHIGHTOKC": "America/Chicago", "KXHIGHTSATX": "America/Chicago",
+        "KXHIGHTDAL": "America/Chicago", "KXHIGHTPHX": "America/Phoenix", "KXHIGHTLV": "America/Los_Angeles",
+        "KXHIGHTSAN": "America/Los_Angeles", "KXHIGHTSEA": "America/Los_Angeles", "KXHIGHTSFO": "America/Los_Angeles",
+        "KXLOWTNYC": "America/New_York", "KXLOWTLAX": "America/Los_Angeles", "KXLOWTCHI": "America/Chicago",
+        "KXLOWTMIA": "America/New_York", "KXLOWTAUS": "America/Chicago", "KXLOWTDEN": "America/Denver"}
 MON = {m: i for i, m in enumerate("JAN FEB MAR APR MAY JUN JUL AUG SEP OCT NOV DEC".split(), 1)}
 SEASON = {12: "winter", 1: "winter", 2: "winter", 3: "spring", 4: "spring", 5: "spring",
           6: "summer", 7: "summer", 8: "summer", 9: "fall", 10: "fall", 11: "fall"}
@@ -61,8 +69,10 @@ def replay(m, s):
     return None
 
 
+TZ |= MORE
+CITIES = [s for s in TZ if os.path.exists(os.path.join(D, f"{s}.jsonl.gz"))]  # whichever of them D holds
 rows = []
-for s in TZ:
+for s in CITIES:
     with gzip.open(os.path.join(D, f"{s}.jsonl.gz"), "rt") as fh:
         for line in fh:
             try:
@@ -100,8 +110,8 @@ print("by season:")
 for se in ("winter", "spring", "summer", "fall"):
     line(se, [r for r in rows if SEASON[r["day"][1]] == se])
 print("by city:")
-for s in TZ:
-    line(s[6:], [r for r in rows if r["s"] == s])
+for s in CITIES:
+    line(s[2:], [r for r in rows if r["s"] == s])
 print("by price:")
 for a, b in ((0.92, 0.95), (0.95, 0.97), (0.97, 0.99), (0.99, 0.995)):
     line(f"{a*100:.0f}-{b*100:.1f}c", [r for r in rows if a <= r["price"] < b])
@@ -110,6 +120,6 @@ months = sorted({r["day"][:2] for r in rows})
 for ym in months:
     line(f"{ym[0]}-{ym[1]:02d}", [r for r in rows if r["day"][:2] == ym], days=False)
 print("by city and year:")
-for s in TZ:
+for s in CITIES:
     for y in (2025, 2026):
-        line(f"{s[6:]} to Oct {y}", [r for r in rows if r["s"] == s and r["day"][0] + (r["day"][1] >= 11) == y])
+        line(f"{s[2:]} to Oct {y}", [r for r in rows if r["s"] == s and r["day"][0] + (r["day"][1] >= 11) == y])

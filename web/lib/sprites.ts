@@ -180,6 +180,7 @@ export const LOOKS: Record<string, Look | "monkey"> = {
   late_maker: { skin: SKIN.light, hair: "#3a3150", hairStyle: "short", eyes: "glasses", shirt: "#283a6b", tie: null, mouth: "smile" },
   runner_up_maker: { skin: SKIN.light, hair: "#7a5230", hairStyle: "bald", shirt: "#5c6670", tie: null, mouth: "flat" },
   weather_maker: { skin: SKIN.light, hair: "#a4482a", hairStyle: "cap", hat: "#f5c542", shirt: "#6fb3e0", tie: null, mouth: "smile" },
+  hourly_btc: { skin: SKIN.light, hair: "#c0602a", hairStyle: "long", shirt: "#e8b130", tie: null, mouth: "smile" },
   sports_closer: { skin: SKIN.tan, hair: "#1f1410", hairStyle: "ponytail", shirt: "#20242c", tie: null, mouth: "grin", pants: "#20242c" },
   favorite_sports: { skin: SKIN.brown, hair: "#f2d16b", hairStyle: "ponytail", shirt: "#c0392b", tie: null, mouth: "grin" },
   market_maker: { skin: SKIN.tan, hair: "#4a2c17", hairStyle: "short", headset: true, shirt: "#ecf0f1", tie: "#1f3a68" },

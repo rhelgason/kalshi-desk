@@ -137,3 +137,29 @@ class FinalWhistleFiona(FavoriteBidder):
 
     def describe(self, m, side, price):
         return f"game all but over: {side.value.upper()} @ {price:.2f} on '{m.title[:60]}'"
+
+
+class HourlyHazel(FavoriteBidder):
+    key = "hourly_btc"
+    persona = Persona(
+        "Hourly Hazel", "Clock Tower Keeper", "🐿️",
+        "A squirrel who lives in the clock tower and climbs down once an hour. Stashes whichever bitcoin acorn the "
+        "crowd is sure of, then scurries back up before the bell.",
+    )
+    # 11-03, Kalshi's hourly "bitcoin above $X at 3 pm" ladders on Sadie's rules (research/fast_coco/hourly_check.py,
+    # the final 30 minutes of every traded strike near the price, Oct 4 - Nov 3): +0.9 to +1.2c per $1 from 5 to 21
+    # minutes left, every price band up; the coin check didn't help here. Each hour is its own window for the cap.
+    series = ("KXBTCD",)
+
+    def __init__(self, min_price: float = 0.92, max_price: float = 0.995, min_seconds: float = 300,
+                 max_seconds: float = 1260, **kw):
+        super().__init__(min_price=min_price, max_price=max_price, **kw)
+        self.min_seconds = min_seconds
+        self.max_seconds = max_seconds
+
+    def in_hours(self, m: Market, now: datetime) -> bool:
+        secs = m.seconds_to_close(now)
+        return secs is not None and self.min_seconds < secs <= self.max_seconds
+
+    def describe(self, m, side, price):
+        return f"hourly favorite: {side.value.upper()} @ {price:.2f} on '{m.title[:40]} {m.yes_sub_title[:20]}'"

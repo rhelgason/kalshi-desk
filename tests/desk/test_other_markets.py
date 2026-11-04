@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from desk.config import DeskConfig
 from desk.kalshi.models import Side
 from desk.runner import Desk
-from desk.strategies import FinalWhistleFiona, SteadySadie, WeatherWendy
+from desk.strategies import FinalWhistleFiona, HourlyHazel, SteadySadie, WeatherWendy
 from desk.strategies.base import Snapshot
 from tests.desk.conftest import NOW, make_market
 
@@ -52,6 +52,29 @@ class TestWeatherWendy:
         m = weather(0.94, 0.97)
         [bid] = WeatherWendy().evaluate(snap(m), _empty())
         assert WeatherWendy().reprice(bid, m, replace(m, yes_bid=0.85, yes_ask=0.88)) is None
+
+
+def hourly(yes_bid, yes_ask, close_in, strike="T86999.99"):
+    return make_market(f"KXBTCD-26OCT2810-{strike}", yes_bid=yes_bid, yes_ask=yes_ask, series="KXBTCD",
+                       event="KXBTCD-26OCT2810", close_in=close_in)
+
+
+class TestHourlyHazel:
+    def test_bids_on_an_hourly_favorite_5_to_21_minutes_out(self, account):
+        h = HourlyHazel()
+        [bid] = h.evaluate(snap(hourly(0.95, 0.97, timedelta(minutes=12)), now=NOW), account)
+        assert bid.post_only and bid.legs[0].side is Side.YES and bid.legs[0].limit_price == 0.96
+        assert h.evaluate(snap(hourly(0.95, 0.97, timedelta(minutes=4)), now=NOW), account) == []
+        assert h.evaluate(snap(hourly(0.95, 0.97, timedelta(minutes=25)), now=NOW), account) == []
+
+    def test_several_strikes_in_one_hour_and_no_15_minute_coins(self, account):
+        h = HourlyHazel()
+        two = snap(hourly(0.95, 0.97, timedelta(minutes=12)), hourly(0.02, 0.04, timedelta(minutes=12), "T88999.99"),
+                   now=NOW)
+        assert len(h.evaluate(two, account)) == 2
+        coin = make_market("KXBTC15M-X", yes_bid=0.95, yes_ask=0.97, series="KXBTC15M", event="KXBTC15M-X",
+                           close_in=timedelta(minutes=8))
+        assert h.evaluate(snap(coin, now=NOW), account) == []
 
 
 class TestFinalWhistleFiona:

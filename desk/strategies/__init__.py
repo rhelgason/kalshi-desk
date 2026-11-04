@@ -5,7 +5,7 @@ from desk.strategies.bitcoin import (
     BinanceBelle, BitcoinBea, BreakoutBetty, BreakoutBonnie, ClosingTimeCoco, DogecoinDot, EarlyBirdEdie, EarlyBirdEllie, EtherEsther,
     HypeHannah, NearlyNadia, NickelNora, RippleRita, SilverMedalSid, SolarSally, SteadySadie, ZcashZoe,
 )
-from desk.strategies.other_markets import FinalWhistleFiona, WeatherWendy
+from desk.strategies.other_markets import FinalWhistleFiona, HourlyHazel, WeatherWendy
 from desk.strategies.behavioral import (
     DartMonkey, FrontRunnerFran, LongshotFade, LongshotLenny, NickelNick, SpreadSam, SteadyStella, WhaleWatcherWalt,
 )
@@ -20,6 +20,7 @@ STAFF: tuple[type[Strategy], ...] = (
     HypeHannah, BinanceBelle, NearlyNadia, ZcashZoe,  # and four thinner coins, Training only (2026-11-02)
     ClosingTimeCoco, SilverMedalSid,  # resting bids late in the window / on the next tier of favorites
     WeatherWendy, FinalWhistleFiona,  # Training only: weather mornings and finished games (research/other_markets)
+    HourlyHazel,  # Training only: bitcoin's hourly ladders on Sadie's rules (2026-11-03)
     LongshotLenny, DartMonkey,  # yardsticks: everyone should beat these
 )
 # Retired. Rick, Sue, Vinny, Fran, Sam, Walt need strike ladders, sports or the
@@ -83,5 +84,5 @@ __all__ = [
     "CoverArb", "PartitionArb", "CryptoFairValue", "VegaVinny", "Sniper", "MomentumMo", "RubberBandRandy",
     "LongshotFade", "LongshotLenny", "NickelNick", "FrontRunnerFran", "SpreadSam", "WhaleWatcherWalt",
     "DartMonkey", "SteadyStella", "BreakoutBetty", "EarlyBirdEdie", "NickelNora", "EarlyBirdEllie", "BreakoutBonnie",
-    "SteadySadie", "ClosingTimeCoco", "WeatherWendy", "FinalWhistleFiona", "SilverMedalSid", "STAFF", "ALUMNI", "REGISTRY", "EVERYONE", "build_strategies", "strategy_params",
+    "SteadySadie", "ClosingTimeCoco", "WeatherWendy", "FinalWhistleFiona", "HourlyHazel", "SilverMedalSid", "STAFF", "ALUMNI", "REGISTRY", "EVERYONE", "build_strategies", "strategy_params",
 ]

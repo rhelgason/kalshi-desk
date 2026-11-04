@@ -17,6 +17,15 @@ K = "https://api.elections.kalshi.com/trade-api/v2"
 DAYS, OUT = float(sys.argv[1]), sys.argv[2]
 TZ = {"KXHIGHNY": "America/New_York", "KXHIGHLAX": "America/Los_Angeles", "KXHIGHCHI": "America/Chicago",
       "KXHIGHMIA": "America/New_York", "KXHIGHAUS": "America/Chicago", "KXHIGHDEN": "America/Denver"}
+# More cities (2026-11-03): daily highs Kalshi added in 2026, and daily lows in Wendell's six cities
+MORE = {"KXHIGHPHIL": "America/New_York", "KXHIGHTATL": "America/New_York", "KXHIGHTBOS": "America/New_York",
+        "KXHIGHTDC": "America/New_York", "KXHIGHTNOLA": "America/Chicago", "KXHIGHTHOU": "America/Chicago",
+        "KXHIGHTMIN": "America/Chicago", "KXHIGHTOKC": "America/Chicago", "KXHIGHTSATX": "America/Chicago",
+        "KXHIGHTDAL": "America/Chicago", "KXHIGHTPHX": "America/Phoenix", "KXHIGHTLV": "America/Los_Angeles",
+        "KXHIGHTSAN": "America/Los_Angeles", "KXHIGHTSEA": "America/Los_Angeles", "KXHIGHTSFO": "America/Los_Angeles",
+        "KXLOWTNYC": "America/New_York", "KXLOWTLAX": "America/Los_Angeles", "KXLOWTCHI": "America/Chicago",
+        "KXLOWTMIA": "America/New_York", "KXLOWTAUS": "America/Chicago", "KXLOWTDEN": "America/Denver"}
+TZ |= MORE
 SERIES = sys.argv[3:] or list(TZ)
 MON = {m: i for i, m in enumerate("JAN FEB MAR APR MAY JUN JUL AUG SEP OCT NOV DEC".split(), 1)}
 ts = lambda s: datetime.fromisoformat(s.replace("Z", "+00:00")).timestamp()
