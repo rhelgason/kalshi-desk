@@ -282,6 +282,16 @@ async def test_a_big_loss_day_halts_until_resumed(live, monkeypatch):
     assert desk.guard.halted and "lost $160.00 today" in desk.guard.state["reason"]
 
 
+def test_the_order_limit_can_be_a_share_of_the_pool(live):
+    broker, client, ledger, accounts = live
+    g = broker.guard
+    g.limits["max_order_pct"] = 0.25
+    g.equity = 300.0
+    assert g.refuse(70.0) is None and "$75.00 limit" in g.refuse(80.0)
+    g.equity = 0.0  # pool not known yet: the dollar cap
+    assert "limit" in g.refuse(31.0)
+
+
 async def test_the_loss_limit_can_be_a_share_of_the_pool(live, monkeypatch):
     desk = _desk(live, monkeypatch)
     desk.guard.limits["max_daily_loss_pct"] = 0.20

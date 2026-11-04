@@ -39,7 +39,7 @@ other_series: [KXHIGHNY, KXHIGHLAX, KXHIGHCHI, KXHIGHMIA, KXHIGHAUS, KXHIGHDEN]
 shards: {2: 80, 0: 20}
 
 live:
-  max_order_dollars: 10   # no single order above this
+  max_order_pct: 0.25      # no single order above a quarter of the pool: a seatbelt only (bets are 3%, 6% at most)
   max_orders_per_day: 3200 # a bid each look until one fills: ~1-3 per market, ~770 markets a day on 8 coins
   max_daily_loss_pct: 0.20  # halt (until resumed) after losing 20% of the pool since midnight; the pool's own
                             # 15% daily stop pauses new bets until midnight first (11-04: was a flat $40)

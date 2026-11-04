@@ -820,6 +820,7 @@ class Desk:
     async def check_guard(self) -> None:
         """Re-read the kill switch; while it's on, nothing real stays on the book."""
         self.guard.refresh()
+        self.guard.equity = self.pool.equity  # for limits set as a share of the pool
         signer = getattr(self.client, "signer", None)
         if hasattr(signer, "fingerprint"):  # which key is in use, safe to show (see KalshiSigner.fingerprint)
             self.journal.info["key"] = signer.fingerprint()

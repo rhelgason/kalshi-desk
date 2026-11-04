@@ -34,6 +34,9 @@ ENV_SWITCH = "KALSHI_LIVE_TRADING"
 
 DEFAULT_LIMITS = {
     "max_order_dollars": 40.0,  # no single order above this, whatever the pool says
+    # ...or, when set, this share of the pool instead: only a seatbelt against a sizing bug, since levels cap a bet at
+    # 2x bet_pct (11-04, owner: a dollar cap would refuse a promoted employee's bets as the pool grows)
+    "max_order_pct": None,
     "max_orders_per_day": 300,
     "max_daily_loss": 150.0,  # dollars down since midnight: halt until resumed
     # ...or, when set, this share of the pool at midnight instead (11-04: a dollar limit goes stale as the pool grows)
@@ -103,12 +106,17 @@ class Guard:
         start = _now().replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
         return int(self.ledger._rows("SELECT count(*) AS n FROM orders WHERE ts >= ?", (start,))[0]["n"])
 
+    def max_order(self) -> float:
+        pct, equity = self.limits.get("max_order_pct"), getattr(self, "equity", 0.0)
+        return equity * float(pct) if pct and equity > 0 else float(self.limits["max_order_dollars"])
+
     def refuse(self, dollars: float) -> Optional[str]:
         """None if a real order of `dollars` may go out; otherwise why not."""
         if self.halted:
             return f"trading halted: {self.state.get('reason') or 'by the manager'}"
-        if dollars > float(self.limits["max_order_dollars"]) + 1e-9:
-            return f"order over the ${float(self.limits['max_order_dollars']):g} limit"
+        limit = self.max_order()
+        if dollars > limit + 1e-9:
+            return f"order over the ${limit:,.2f} limit"
         if self.orders_today() >= int(self.limits["max_orders_per_day"]):
             return f"{int(self.limits['max_orders_per_day'])} orders today: the daily limit"
         return None
