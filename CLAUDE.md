@@ -74,6 +74,10 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
   in a row had halted trading. Paused? The home page shows a banner with ▶️ Resume (manager login), phone-friendly.
   Kalshi pays for orders from the market's shard only (coins 2, weather 0): desk.real.yaml `shards` has the bot keep
   the cash split (before it, all 1,409 of Wendell's first bids were refused for "insufficient balance").
+- **11-03: edge hunt.** 🐿️ Hourly Hazel (`hourly_btc`, desk/strategies/other_markets.py) on Training: Sadie's bids on
+  bitcoin's hourly ladders (KXBTCD in desk.yaml `other_series`), 5-21 min left; a month of trades +0.6c per $1
+  (research/fast_coco/README.md). Real book `enabled: false`. More weather cities: no edge (research/other_markets/README.md);
+  Wendell keeps all six (every city up in both years at midnight-6 am).
 - **Fast Sadie trial** on the server (desk/fast.py, from 2026-10-26 07:12 UTC): always-on bid vs a 2-minute cron twin,
   pretend money from $87.63 each. `python -m desk fast-report`. So far it fills more, not better per $1.
 
