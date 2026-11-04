@@ -12,6 +12,7 @@ from desk.live.broker import client_order_id
 from desk.live.reconcile import our_books, reconcile
 from desk.paper.account import PaperAccount
 from desk.paper.ledger import Ledger
+from desk.runner import MISMATCH_CHECKS
 from desk.runner import Desk
 from desk.strategies import LongshotFade
 from desk.strategies.base import Leg, TradeIntent
@@ -207,14 +208,33 @@ async def test_a_lasting_mismatch_halts_trading_and_pulls_bids(live, monkeypatch
     assert not desk.guard.halted
     client.position[T] = 5.0  # Kalshi holds something our books don't know about
     await desk.broker.place(bet(price=0.40, post_only=True, ttl_seconds=600), NOW)
-    for _ in range(2):
+    for _ in range(MISMATCH_CHECKS - 1):
         await desk.reconcile_live()
-        assert not desk.guard.halted  # one or two odd readings can be a fill or a payout in flight
+        assert not desk.guard.halted  # odd readings for a while can be a fill or a payout in flight
     await desk.reconcile_live()
     assert desk.guard.halted and "positions differ" in desk.guard.state["reason"]
     assert client.cancel_all_calls == 1 and desk.broker.resting == []
     desk.guard.resume()
     assert not desk.guard.halted and desk.guard.books() == {}
+
+
+async def test_the_safety_check_resumes_on_its_own_once_the_books_agree(live, monkeypatch):
+    """11-04: the owner shouldn't have to press Resume for a difference that sorted itself out."""
+    broker, client, ledger, accounts = live
+    desk = _desk(live, monkeypatch)
+    desk.pool.update(1000, NOW)
+    await desk.reconcile_live()  # baseline
+    client.position[T] = 5.0
+    for _ in range(MISMATCH_CHECKS):
+        await desk.reconcile_live()
+    assert desk.guard.halted
+    del client.position[T]  # Kalshi and our books agree again
+    await desk.reconcile_live()
+    assert not desk.guard.halted and "safety check" in desk.guard.state["resumed_by"]
+    # A pause the manager (or the daily-loss stop) chose stays until the manager lifts it
+    desk.guard.halt("manager pressed stop", by="website")
+    await desk.reconcile_live()
+    assert desk.guard.halted
 
 
 async def test_a_bid_taken_the_second_it_went_up_is_booked_before_the_check(live, monkeypatch):
@@ -314,7 +334,7 @@ async def test_a_market_kalshi_hasnt_paid_out_yet_doesnt_halt_trading(live, monk
     # A settlement older than the allowance that Kalshi still holds is a real problem
     client.position[T] = -4.0
     monkeypatch.setattr(desk, "recently_settled", lambda minutes=720: {})
-    for _ in range(3):
+    for _ in range(MISMATCH_CHECKS):
         await desk.reconcile_live()
     assert desk.guard.halted
 

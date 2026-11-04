@@ -57,7 +57,10 @@ DAILY_HOUR = 21  # 9 PM  # smallest bet the pool places (Kalshi's own step is 0.
 
 
 # Checks in a row (2 minutes apart) a difference from Kalshi must last before real trading halts
-MISMATCH_CHECKS = 3
+# 11-04: 15 checks (30 minutes), was 3. Fills and payouts reach Kalshi and our books minutes apart, and the owner
+# would rather keep trading through a difference that fixes itself; the $40 daily-loss stop still guards the money.
+MISMATCH_CHECKS = 15
+BOOKS_HALT = "our books don't match Kalshi"
 
 class Desk:
     def __init__(
@@ -894,10 +897,15 @@ class Desk:
         if r.mismatches or drifting:
             logger.warning("Our books differ from Kalshi (check %d of %d): drift $%.2f, positions %s",
                            strikes, MISMATCH_CHECKS, r.drift, r.mismatches)
+        if self.guard.halted and strikes == 0 and abs(r.drift) <= float(self.guard.limits["max_drift"]) \
+                and str(self.guard.state.get("reason", "")).startswith(BOOKS_HALT):
+            # The safety check paused trading and the books agree again: carry on without waiting for the manager
+            self.guard.resume(by="the safety check (books match Kalshi again)")
+            return
         if strikes >= MISMATCH_CHECKS:
             what = (f"positions differ on {', '.join(sorted(r.mismatches))}" if r.mismatches
                     else f"cash is off by ${r.drift:+.2f}")
-            self.guard.halt(f"our books don't match Kalshi: {what}")
+            self.guard.halt(f"{BOOKS_HALT}: {what}")
             for o in await self.broker.cancel_everything():
                 self._bid_ended(o, "bid pulled: trading halted")
         else:

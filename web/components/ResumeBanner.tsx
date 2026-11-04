@@ -31,6 +31,9 @@ export default function ResumeBanner({ kill, admin }: { kill: KillSwitch; admin:
           {kill.reason || "Stopped by the manager"}
           {kill.at ? ` · ${ago(kill.at)}` : ""}{kill.by === "bot" ? " · by the safety check" : ""}
         </p>
+        {kill.reason?.startsWith("our books don't match Kalshi") && (
+          <p className="sub">It turns itself back on as soon as the books agree again.</p>
+        )}
         {msg && <p className="sub">{msg}</p>}
       </div>
       {msg?.startsWith("✓") ? null : admin ? (

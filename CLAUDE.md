@@ -69,6 +69,10 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
   before Kalshi's expected end, MLB and NHL from 1 h before (both lost money earlier), to 2 h after; football dropped.
 - **11-03: 🐸 Weather Wendell on real money** (owner's go; desk.real.yaml `other_series` = his six cities, mid-season hire
   with $0, starts as Intern = half-size bets). The settling allowance in reconcile is now 12 h (weather pays out slowly).
+- **11-04: pauses, again.** The owner would rather trade through differences that fix themselves: the safety check now
+  waits 15 checks (30 minutes, runner.MISMATCH_CHECKS) and turns trading back on by itself once the books agree (only
+  its own pauses; the manager's and the $40 daily-loss stop stay). The site's "trading paused" under the balance was
+  shown on any one-check difference while nothing was paused: now it says trading carries on.
 - **11-03: pauses.** The safety check now halts only when the SAME market differs from Kalshi on 3 checks in a row
   (runner.MISMATCH_CHECKS): fills and payouts reach Kalshi and us seconds apart, and three different one-check races
   in a row had halted trading. Paused? The home page shows a banner with ▶️ Resume (manager login), phone-friendly.

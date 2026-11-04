@@ -16,7 +16,7 @@ Each run compares two things for the office pool's members:
 
 Markets that settle or fill can differ for a run (Kalshi pays before our next check
 sees the result, or shows a fill seconds before our books book it), so the desk only
-halts when the same market differs on three checks in a row (runner.MISMATCH_CHECKS). The other
+halts when the same market differs for 30 minutes of checks in a row (runner.MISMATCH_CHECKS, 15), and resumes by itself once the books agree again. The other
 way round, Kalshi can take several minutes to pay a market we've already settled
 (2026-11-02: a ZEC win still held on Kalshi 6+ minutes after its result, which
 halted trading): a recently settled market that Kalshi still holds exactly as we
