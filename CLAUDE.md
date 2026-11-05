@@ -86,6 +86,9 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
   bitcoin's hourly ladders (KXBTCD in desk.yaml `other_series`), 5-21 min left; a month of trades +0.6c per $1
   (research/fast_coco/README.md). Real book `enabled: false`. More weather cities: no edge (research/other_markets/README.md);
   Wendell keeps all six (every city up in both years at midnight-6 am).
+- **11-05: season 8 on the real book at $300** (owner deposited $206.18 onto $93.82; season 7 ended +$19.36 from $74.44).
+  Same 9 employees, 3% bets ($9), window cap 12%, order cap 25% of the pool, daily-loss halt 20%. The chart starts at
+  $300; the old "keep season 7's chart" rule is over. Wendell's temporary `end_hour: 0` (no bets the night before) was removed.
 - **Fast Sadie trial** on the server (desk/fast.py, from 2026-10-26 07:12 UTC): always-on bid vs a 2-minute cron twin,
   pretend money from $87.63 each. `python -m desk fast-report`. So far it fills more, not better per $1.
 
