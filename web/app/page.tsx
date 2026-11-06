@@ -103,7 +103,9 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
   const working = rows.filter((r) => r.light.key !== "benched" && r.light.key !== "fired" && !r.e.control);
   const best = working[0];
   const worst = working[working.length - 1];
-  const award = news.find((n) => n.kind === "award") ?? null;
+  // This season's award only: news is newest first, so stop at the season's start
+  const seasonStarted = news.findIndex((n) => n.kind === "season");
+  const award = (seasonStarted < 0 ? news : news.slice(0, seasonStarted)).find((n) => n.kind === "award") ?? null;
   const since = new Date(seasonStart).toLocaleDateString("en-US", { month: "short", day: "numeric" });
   const end = points[points.length - 1].t;
   // The last 24 hours of the pool's finished bets, for the latest-bets heading

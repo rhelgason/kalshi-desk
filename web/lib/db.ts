@@ -237,13 +237,16 @@ async function getHistoryQuery(book: Book, season: number, range: RangeKey): Pro
 }
 
 async function getRecentFillsQuery(book: Book, season: number, limit = 30, strategy?: string): Promise<Fill[]> {
+  // One row per bet: Kalshi can fill one bid in pieces, and each piece would otherwise repeat the bet's whole result
   const rows = await db(book)`
-    SELECT f.id, f.ts, f.strategy, f.ticker, f.side, f.count, f.price, f.fee, f.model_prob, f.reason,
-           s.yes_value, s.pnl
+    SELECT max(f.id) AS id, max(f.ts) AS ts, f.strategy, f.ticker, f.side, sum(f.count) AS count,
+           sum(f.count * f.price) / nullif(sum(f.count), 0) AS price, sum(f.fee) AS fee, max(f.model_prob) AS model_prob,
+           max(f.reason) AS reason, s.yes_value, s.pnl
     FROM fills f
     LEFT JOIN settlements s ON s.strategy = f.strategy AND s.ticker = f.ticker AND s.season = f.season
     WHERE f.season = ${season} ${strategy ? db(book)`AND f.strategy = ${strategy}` : db(book)``}
-    ORDER BY f.id DESC LIMIT ${limit}`;
+    GROUP BY f.strategy, f.ticker, f.side, s.yes_value, s.pnl
+    ORDER BY max(f.id) DESC LIMIT ${limit}`;
   return rows.map((r) => ({ ...r, count: Number(r.count), price: Number(r.price), fee: Number(r.fee) })) as Fill[];
 }
 
