@@ -219,6 +219,20 @@ class LiveBroker(PaperBroker):
                 out.append(LegFill(o.ticker, o.side, n, price, fee, strategy=o.strategy))
         status = order.get("status") or "resting"
         fees = float(order.get("maker_fees_dollars") or 0) + float(order.get("taker_fees_dollars") or 0)
+        missing = round(filled - o.filled, 2)
+        if status != "resting" and missing >= 0.01:
+            # Kalshi says it filled but hasn't listed the fills yet, and a finished order isn't looked at again:
+            # book what the order reported at our price (2026-11-08: a DOGE fill never reached our books, $0.84 off)
+            logger.warning("Bid %s filled %g but only %g listed; booking the rest at the bid price",
+                           o.order_id, filled, o.filled)
+            fee = fees * missing / filled if filled else 0.0
+            self.accounts[o.strategy].apply_fill(o.ticker, side, missing, o.price, fee)
+            self.ledger.record_fill(o.strategy, o.ticker, side, missing, o.price, fee, intent_id=o.order_id,
+                                    reason=f"maker fill: {o.reason}", seen_price=o.price,
+                                    context={"order_id": o.order_id, "env": self.env, "unlisted": True})
+            o.fill_ids.append(f"order:{o.order_id}")
+            o.filled = round(o.filled + missing, 2)
+            out.append(LegFill(o.ticker, o.side, missing, o.price, fee, strategy=o.strategy))
         if status != "resting" or o.remaining < 0.01:
             self.ledger.update_order(o.order_id, o.filled, fees, status)
         return out, status

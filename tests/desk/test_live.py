@@ -179,6 +179,20 @@ async def test_a_real_bid_fills_once_and_is_cancelled_when_it_expires(live):
     assert (row["status"], row["filled"], row["kind"]) == ("canceled", 3, "maker")
 
 
+async def test_a_fill_kalshi_hasnt_listed_yet_is_still_booked(live):
+    """2026-11-08: the order said filled and finished, the fills list was still empty, and the bet never reached
+    our books (Kalshi paid it; the books were $0.84 off for days)."""
+    broker, client, ledger, accounts = live
+    [o] = await broker.place(bet(price=0.40, post_only=True, ttl_seconds=110), NOW)
+    client.trade_into(o.order_id, 5)
+    client.orders[o.order_id]["status"] = "executed"  # finished (the rest expired)
+    client.fills.clear()  # Kalshi's fills list lags behind the order
+    [f] = await broker.poll(NOW + timedelta(seconds=30))
+    assert (f.count, f.avg_price) == (5, 0.40) and accounts["e0"].position(T) == (5, 0)
+    assert broker.resting == [] and await broker.poll(NOW + timedelta(seconds=60)) == []
+    assert ledger._rows("SELECT filled FROM orders")[0]["filled"] == 5
+
+
 async def test_our_books_match_kalshi_after_real_bets(live):
     broker, client, ledger, accounts = live
     client.asks[(T, "yes")] = (0.48, 100)
