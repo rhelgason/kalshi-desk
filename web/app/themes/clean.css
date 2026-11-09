@@ -50,7 +50,7 @@ html[data-theme="clean"] {
   }
 }
 html[data-theme="clean"] body { background: var(--page); font-size: 15px; -webkit-font-smoothing: antialiased; }
-html[data-theme="clean"] .shell { max-width: 760px; }
+/* The same page width as the other themes (11-09: 760px looked thin on a laptop) */
 
 /* Header: plain wordmark, pill toggle */
 html[data-theme="clean"] .brand-name { font-family: var(--pixel); font-size: 19px; font-weight: 750; letter-spacing: -0.03em;
