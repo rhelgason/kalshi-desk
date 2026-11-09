@@ -85,6 +85,20 @@ def test_review_awards_promotes_demotes_and_suspends():
     assert hr.load_policy(led)["last_review"] == NOW.isoformat()
 
 
+def test_strikes_count_bad_reviews_in_a_row():
+    """2026-11-09: an Intern with a strike who has a decent week starts over, so only back-to-back bad weeks bench."""
+    led = Ledger(":memory:")
+    roster = hr.load_roster(led, ["intern"])
+    roster["intern"].level, roster["intern"].strikes = 0, 1
+    accounts = {"intern": PaperAccount("intern", 1000)}
+    policy = hr.load_policy(led)
+    policy["last_review"] = (NOW - timedelta(days=7)).isoformat()
+    _settle(led, "intern", 2, n=25, ts=(NOW - timedelta(days=1)).isoformat())  # +0.8c per $1: not bad
+    actions = hr.run_review(led, roster, accounts, policy, NOW)
+    assert roster["intern"].strikes == 0 and roster["intern"].status == "active"
+    assert ("intern", "strikes cleared") in {(a["strategy"], a.get("action")) for a in actions}
+
+
 def test_review_skips_employees_with_too_few_bets():
     led = Ledger(":memory:")
     roster = hr.load_roster(led, ["a"])

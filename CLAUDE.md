@@ -94,7 +94,12 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
   `hired` list, which beats the yaml's `enabled: false`; the runner adds their markets to the book's lists
   (runner._add_staff_markets) and they join with $0 as an Intern. A coin specialist also needs their coin in
   desk.real.yaml `crypto_symbols`. Firing still wins. 🐿️ Hourly Hazel was the first (11-09).
-- **The real book has no automatic reviews** (`auto_hr: false`): only the weekly award. Levels are the manager's call.
+- **11-09: the real book runs its own weekly reviews** (`auto_hr: true`; the owner wants an office that runs itself):
+  award, promotions, demotions, and for Interns strikes, where 2 bad reviews in a row bench them for a week (a week
+  that isn't bad wipes their strikes). Before this the real book only gave the award.
+- **11-09: the books repair themselves from Kalshi.** On any difference, LiveBroker.repair reads Kalshi's fills list
+  (every shard), books fills on our finished bids that we missed (matched by order id, so never twice), settles
+  them and looks again; only timing differences are left to wait out. Claude may also fix real-book records directly.
 - **Fast Sadie trial** on the server (desk/fast.py, from 2026-10-26 07:12 UTC): always-on bid vs a 2-minute cron twin,
   pretend money from $87.63 each. `python -m desk fast-report`. So far it fills more, not better per $1.
 

@@ -15,7 +15,7 @@ schema: real
 real_book: null
 env: prod                 # REAL MONEY since 2026-10-18 (was demo)
 trading: live
-auto_hr: false            # no automatic reviews or promotions with real money: the manager decides
+auto_hr: true             # 11-09: the weekly review runs itself here too (award, levels, strikes, benching): the owner wants an office that runs itself
 # Season 7 (2026-10-26): Steady Sadie alone on the same four coins, 1% of the pool a bet to start: resting
 # bids on 92-99c favorites with 5-9 minutes left (research/fast_coco/README.md, +1.2c per $1 on the trade tape).
 # Season 6 (2026-10-25): Closing Time Coco alone on ether, solana, XRP and DOGE, 3% of the pool a bet

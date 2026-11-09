@@ -793,7 +793,7 @@ class Desk:
         if self.guard:
             with j.phase("reconcile"):
                 await self.reconcile_live()
-        # The real-money book has no automatic reviews: the manager hires, fires and levels by hand
+        # Books with auto_hr off (none since 11-09) get the weekly award only; the manager levels by hand
         review = hr.review_due(self.policy, now)
         week = self.office_pnl_since_review() if review else 0.0
         winner: Optional[str] = None  # this week's Employee of the Week, if a review runs
@@ -927,6 +927,21 @@ class Desk:
         except KalshiAPIError as e:
             logger.warning("Couldn't check our books against Kalshi: %s", e)
             return
+        if r.mismatches or abs(r.drift) >= 0.01:
+            # Any difference: first book whatever Kalshi's own fills list says we missed (2026-11-09: a DOGE
+            # fill never reached our books and they were $0.84 off for two days), settle it if its market is
+            # over, and look again. What's left is timing (a fill or payout seconds apart) and waits as below.
+            fixed = await self.broker.repair()
+            if fixed:
+                for f in fixed:
+                    self.journal.count(f.strategy, "fills repaired from Kalshi")
+                await self.settle_check()
+                try:
+                    r = await reconcile(self.client, self.accounts, self.pool.members, self.broker.resting,
+                                        baseline=books.get("baseline"), settling=self.recently_settled())
+                except KalshiAPIError as e:
+                    logger.warning("Couldn't check our books against Kalshi: %s", e)
+                    return
         # A difference only counts while it lasts. Fills, payouts and results reach Kalshi and our books seconds
         # apart, so one market can differ for one check and be gone by the next (11-03: BNB, then BNB again, then
         # SOL, on three checks in a row, halted trading though each fixed itself). A market has to differ on

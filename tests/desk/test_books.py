@@ -41,7 +41,7 @@ def test_real_book_config_inherits_and_overrides():
     real = DeskConfig.load(ROOT / "desk.real.yaml")
     assert pretend.book == "pretend" and pretend.schema == "public" and pretend.real_book == "desk.real.yaml"
     assert real.book == "real" and real.schema == "real" and real.real_book is None
-    assert real.trading == "live" and not real.auto_hr and pretend.trading == "paper" and pretend.auto_hr
+    assert real.trading == "live" and real.auto_hr and pretend.trading == "paper" and pretend.auto_hr  # 11-09: both run themselves
     assert real.crypto_series == ["KXBTC15M", "KXETH15M", "KXSOL15M", "KXXRP15M", "KXDOGE15M",
                                   "KXNEAR15M", "KXBNB15M", "KXZEC15M"]  # bitcoin back 11-01; three thinner coins 11-02
     # One employee switched off without dropping their settings or anyone else's

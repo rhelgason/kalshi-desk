@@ -82,7 +82,7 @@ class FakeKalshi:
         return dict(self.orders[oid])
 
     async def get_fills(self, order_id=None, **kw):
-        return [f for f in self.fills if f["order_id"] == order_id]
+        return [f for f in self.fills if order_id is None or f["order_id"] == order_id]
 
     async def cancel_order(self, oid, ticker):
         if oid not in self.orders or self.orders[oid]["status"] != "resting":
@@ -191,6 +191,22 @@ async def test_a_fill_kalshi_hasnt_listed_yet_is_still_booked(live):
     assert (f.count, f.avg_price) == (5, 0.40) and accounts["e0"].position(T) == (5, 0)
     assert broker.resting == [] and await broker.poll(NOW + timedelta(seconds=60)) == []
     assert ledger._rows("SELECT filled FROM orders")[0]["filled"] == 5
+
+
+async def test_fills_our_books_missed_are_repaired_from_kalshis_list(live):
+    """2026-11-09: whatever the cause, a fill Kalshi lists for one of our finished bids gets booked, once."""
+    broker, client, ledger, accounts = live
+    [o] = await broker.place(bet(price=0.40, post_only=True, ttl_seconds=110), NOW)
+    client.trade_into(o.order_id, 4)
+    client.orders[o.order_id]["status"] = "executed"
+    broker.resting = []  # the bot lost track of it (the 11-08 DOGE bid)
+    assert accounts["e0"].position(T) == (0, 0)
+    [f] = await broker.repair()
+    assert (f.strategy, f.count, f.avg_price) == ("e0", 4, 0.40) and accounts["e0"].position(T) == (4, 0)
+    assert await broker.repair() == []  # booked once, however often it runs
+    assert dict(ledger._rows("SELECT filled, status FROM orders")[0]) == {"filled": 4, "status": "executed"}
+    client.fills.append({**client.fills[0], "order_id": "someone-elses"})
+    assert await broker.repair() == []  # not ours: left alone
 
 
 async def test_our_books_match_kalshi_after_real_bets(live):

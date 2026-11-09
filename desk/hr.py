@@ -424,6 +424,10 @@ def run_review(ledger: Ledger, roster: dict[str, EmployeeRecord], accounts: dict
                         until=rec.suspended_until)
                 else:
                     act(k, "hr", action="strike", strikes=rec.strikes, roi=round(st.roi, 4))
+        if st.roi > float(policy["demote_roi"]) and rec.strikes and rec.status == "active":
+            # Strikes count bad reviews in a row (2026-11-09): a week that isn't bad wipes the slate
+            rec.strikes = 0
+            act(k, "hr", action="strikes cleared", roi=round(st.roi, 4))
 
     act(None, "review", standings=[
         {"key": k, "pnl": round(stats[k].pnl, 2), "roi": round(stats[k].roi, 4), "settled": stats[k].settled}

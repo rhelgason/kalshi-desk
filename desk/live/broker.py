@@ -20,7 +20,9 @@ from __future__ import annotations
 
 import logging
 import math
+import time
 import uuid
+from collections import defaultdict
 from datetime import datetime
 from typing import Optional
 
@@ -236,6 +238,56 @@ class LiveBroker(PaperBroker):
         if status != "resting" or o.remaining < 0.01:
             self.ledger.update_order(o.order_id, o.filled, fees, status)
         return out, status
+
+    async def repair(self, hours: float = 12.0) -> list[LegFill]:
+        """
+        Book the fills Kalshi lists for our bids that our books are missing (2026-11-09). Kalshi's fills list is
+        the truth; every bid we place is in the orders table with its employee, and our fills carry its order id,
+        so this matches order by order and never books one twice. Bids still waiting are poll()'s job.
+        """
+        try:
+            fills = await self.client.get_fills(min_ts=int(time.time() - hours * 3600))  # every shard
+        except KalshiAPIError as e:
+            logger.warning("Couldn't read Kalshi's fills to repair our books: %s", e)
+            return []
+        waiting = {o.order_id for o in self.resting}
+        by: dict[str, list[dict]] = defaultdict(list)
+        for f in fills:
+            if f.get("order_id") and f["order_id"] not in waiting:
+                by[f["order_id"]].append(f)
+        if not by:
+            return []
+        marks = ",".join("?" * len(by))
+        ids = tuple(by)
+        orders = {r["order_id"]: r for r in self.ledger._rows(
+            f"SELECT order_id, strategy, ticker, side, kind, fees FROM orders WHERE order_id IN ({marks})", ids)}
+        booked = {r["intent_id"]: float(r["n"]) for r in self.ledger._rows(
+            f"SELECT intent_id, sum(count) AS n FROM fills WHERE intent_id IN ({marks}) GROUP BY intent_id", ids)}
+        out = []
+        for oid, fs in by.items():
+            o = orders.get(oid)
+            if o is None or o["kind"] != "maker" or o["strategy"] not in self.accounts:
+                if o is None:
+                    logger.warning("Kalshi lists a fill on %s for order %s, which isn't ours", fs[0].get("ticker"), oid)
+                continue  # a taker's fills are booked when it's placed, from this same list
+            side = Side(o["side"])
+            got = [parse_fill(f, side) for f in fs]
+            theirs = sum(n for _, n, _, _ in got)
+            missing = round(theirs - booked.get(oid, 0.0), 2)
+            if missing < 0.01:
+                continue
+            price = sum(n * p for _, n, p, _ in got) / theirs
+            fee = sum(fe for *_, fe in got) * missing / theirs
+            logger.warning("Kalshi filled %g of %s's bid on %s that our books missed: booking it", missing,
+                           o["strategy"], o["ticker"])
+            self.accounts[o["strategy"]].apply_fill(o["ticker"], side, missing, price, fee)
+            self.ledger.record_fill(o["strategy"], o["ticker"], side, missing, price, fee, intent_id=oid,
+                                    reason="maker fill (found in Kalshi's fills list later)", seen_price=price,
+                                    context={"order_id": oid, "env": self.env, "repaired": True})
+            self.ledger.update_order(oid, round(booked.get(oid, 0.0) + missing, 2), float(o["fees"] or 0) + fee,
+                                     "executed")
+            out.append(LegFill(o["ticker"], side.value, missing, price, fee, strategy=o["strategy"]))
+        return out
 
     async def _cancel_real(self, o: RestingOrder) -> None:
         try:
