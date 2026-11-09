@@ -180,6 +180,22 @@ class Desk:
             # A pool member re-added with $0 left their share out of the books (2026-10-20 real-book halt)
             self.accounts.update(self.ledger.load_accounts(self.config.starting_cash, missing))
 
+    def _add_staff_markets(self) -> None:
+        """
+        A hire's markets join this book's lists (a coin specialist's 15-minute series, an "other" employee's
+        series), so hiring onto the real book needs no yaml change. The yaml's own lists are never shrunk.
+        """
+        if not hasattr(self, "_yaml_series"):
+            self._yaml_series = (list(self.config.crypto_series), list(self.config.other_series))
+        crypto, other = (list(x) for x in self._yaml_series)
+        for s in self.strategies:
+            coin = getattr(s, "coin", "")
+            if coin and f"KX{coin}15M" not in crypto:
+                crypto.append(f"KX{coin}15M")
+            if s.scope == "other":
+                other += [x for x in getattr(s, "series", ()) if x not in other]
+        self.config.crypto_series, self.config.other_series = crypto, other
+
     def sync_hr(self) -> None:
         """Apply the latest roster and settings from the database (run before each tick)."""
         season = self.ledger.refresh_season()
@@ -200,13 +216,15 @@ class Desk:
 
         # `enabled: false` in this book's config means not on this book at all (e.g. the
         # yardsticks on real money): no roster row, no pool share, nothing on its dashboard
-        keys = ([k for k in REGISTRY if (self.config.strategies.get(k) or {}).get("enabled", True)]
+        # ...unless hired onto it since (hr.hire, the policy's `hired` list): no new season needed
+        hired = [k for k in self.policy.get("hired") or [] if k in REGISTRY]
+        keys = ([k for k in REGISTRY if (self.config.strategies.get(k) or {}).get("enabled", True) or k in hired]
                 if self.manage_roster else [s.key for s in self.strategies])
         self.roster = hr.load_roster(self.ledger, keys)
         hr.reinstate_expired(self.ledger, self.roster)
 
         if self.manage_roster:
-            wanted = hr.effective_strategy_config(self.config.strategies, self.roster)
+            wanted = hr.effective_strategy_config(self.config.strategies, self.roster, hired)
             current = {s.key: s for s in self.strategies}
             staff = []
             for key, cls in REGISTRY.items():
@@ -231,6 +249,7 @@ class Desk:
                     self._strategy_params[key] = params
                 staff.append(strat)
             self.strategies = staff
+            self._add_staff_markets()
 
         self.inactive = {k for k, r in self.roster.items() if not r.is_working()}
         self.multipliers = {k: r.multiplier for k, r in self.roster.items()}

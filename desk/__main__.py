@@ -325,7 +325,7 @@ def cmd_new_season(cfg: DeskConfig, pool: float | None, levels: list[str], why: 
             raise SystemExit(f"Can't read --level {item!r}: use employee_key=Intern|Associate|Senior|VP|Partner")
         wanted[key] = titles[title.lower()]
     roster = hr.load_roster(ledger, list(REGISTRY))
-    config = hr.effective_strategy_config(cfg.strategies, roster)
+    config = hr.effective_strategy_config(cfg.strategies, roster, hr.load_policy(ledger).get("hired") or ())
     staff = [k for k in REGISTRY if (config.get(k) or {}).get("enabled", True) and roster[k].status != "fired"]
     if cfg.trading == "live":
         # Real-money book: the pool IS the Kalshi account, so its numbers are Kalshi's from the start
@@ -568,6 +568,27 @@ def cmd_halt(cfg: DeskConfig, reason: str, resume: bool, long: bool = False) -> 
             print("Long pause: the phone widget and the dashboard show Training until you resume.")
 
 
+def cmd_hire(cfg: DeskConfig, key: str, level: int, why: str) -> int:
+    """Put a Training employee on this book mid-season (hr.hire): no new season, no yaml change."""
+    from desk import hr
+
+    cls = REGISTRY.get(key)
+    if cls is None:
+        print(f"No employee {key!r}: see `python -m desk employees`.")
+        return 1
+    coin = getattr(cls, "coin", "")
+    if coin and coin not in cfg.crypto_symbols:
+        print(f"{cls.persona.name} needs {coin} prices, which this book's feed doesn't fetch: add {coin} to "
+              f"this book's crypto_symbols first.")
+        return 1
+    if hr.hire(Ledger(cfg.db_path, cfg.schema), key, level, why):
+        print(f"{cls.persona.emoji} {cls.persona.name} hired as {hr.level_title(level)}: starts on the bot's next run "
+              f"(~2 minutes) with $0 of the pool, betting from the shared pool like everyone else.")
+    else:
+        print(f"{cls.persona.name} is already hired on this book.")
+    return 0
+
+
 def cmd_employees() -> None:
     for key, cls in REGISTRY.items():
         p = cls.persona
@@ -656,6 +677,10 @@ def main(argv: list[str] | None = None) -> int:
     ht.add_argument("--long", action="store_true", help="a long pause: the widget and dashboard show Training")
     sub.add_parser("resume", help="allow real trading again after a halt")
     sub.add_parser("employees")
+    hi = sub.add_parser("hire", help="put an employee on this book mid-season (e.g. Training -> real money)")
+    hi.add_argument("key")
+    hi.add_argument("--level", type=int, default=0, help="0 Intern (half-size bets, the default), 1 Associate...")
+    hi.add_argument("--why", default="")
     sub.add_parser("whoami")
     reset = sub.add_parser("pool-reset", help="restart the pool's day and high-water mark at its current value")
     reset.add_argument("equity", type=float, help="the pool's true value now, in dollars")
@@ -703,6 +728,8 @@ def main(argv: list[str] | None = None) -> int:
             cmd_halt(cfg, getattr(args, "reason", ""), args.cmd == "resume", getattr(args, "long", False))
         elif args.cmd == "employees":
             cmd_employees()
+        elif args.cmd == "hire":
+            return cmd_hire(cfg, args.key, args.level, args.why)
         elif args.cmd == "pool-reset":
             from desk.cloud import reset_pool_day
 

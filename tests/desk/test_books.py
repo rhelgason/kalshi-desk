@@ -144,3 +144,30 @@ def hr_config(cfg):
     from desk import hr
 
     return hr.effective_strategy_config(cfg.strategies, {})
+
+
+def test_hiring_onto_the_real_book_needs_no_new_season(tmp_path):
+    """2026-11-09: `python -m desk hire` puts a Training employee on real money mid-season, markets and all."""
+    from dataclasses import replace
+
+    from desk import hr
+    from desk.paper.ledger import Ledger
+    from desk.runner import Desk
+
+    real = replace(DeskConfig.load(ROOT / "desk.real.yaml"), db_path=str(tmp_path / "d.db"), use_database_url=False,
+                   trading="paper")  # the real roster and lists, paper orders
+    led = Ledger(real.db_path)
+    desk = Desk(real, client=None, strategies=None, ledger=led)
+    desk.sync_hr()
+    assert "hourly_btc" not in {s.key for s in desk.strategies} and "KXBTCD" not in real.other_series
+
+    assert hr.hire(led, "hourly_btc", why="test") and not hr.hire(led, "hourly_btc")
+    desk.sync_hr()
+    assert "hourly_btc" in {s.key for s in desk.strategies} and "hourly_btc" in desk.pool.members
+    assert desk.roster["hourly_btc"].level == 0  # starts as an Intern
+    assert "KXBTCD" in real.other_series and "KXHIGHNY" in real.other_series  # the yaml's list is kept
+    assert "KXBTC15M" in real.crypto_series
+
+    led.upsert_employee(replace(desk.roster["hourly_btc"], status="fired").to_row())
+    desk.sync_hr()
+    assert "hourly_btc" not in {s.key for s in desk.strategies}  # firing still wins over the hired list

@@ -89,6 +89,12 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
 - **11-05: season 8 on the real book at $300** (owner deposited $206.18 onto $93.82; season 7 ended +$19.36 from $74.44).
   Same 9 employees, 3% bets ($9), window cap 12%, order cap 25% of the pool, daily-loss halt 20%. The chart starts at
   $300; the old "keep season 7's chart" rule is over. Wendell's temporary `end_hour: 0` (no bets the night before) was removed.
+- **11-09: moving an employee to real money needs no new season** (`python -m desk hire KEY --config desk.real.yaml`,
+  or 💵 Move to real money on a Training employee page, manager login). hr.hire adds them to the real policy's
+  `hired` list, which beats the yaml's `enabled: false`; the runner adds their markets to the book's lists
+  (runner._add_staff_markets) and they join with $0 as an Intern. A coin specialist also needs their coin in
+  desk.real.yaml `crypto_symbols`. Firing still wins. 🐿️ Hourly Hazel was the first (11-09).
+- **The real book has no automatic reviews** (`auto_hr: false`): only the weekly award. Levels are the manager's call.
 - **Fast Sadie trial** on the server (desk/fast.py, from 2026-10-26 07:12 UTC): always-on bid vs a 2-minute cron twin,
   pretend money from $87.63 each. `python -m desk fast-report`. So far it fills more, not better per $1.
 

@@ -40,7 +40,7 @@ import json
 import logging
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import Any, Optional
+from typing import Any, Iterable, Optional
 
 from desk.paper.account import PaperAccount
 from desk.paper.evidence import MIN_BETS
@@ -143,6 +143,27 @@ def save_policy(ledger: Ledger, policy: dict) -> None:
     ledger.set_setting("desk", policy)
 
 
+def hire(ledger: Ledger, key: str, level: int = 0, why: str = "") -> bool:
+    """
+    Put an employee on this book mid-season, no new season needed (2026-11-09): the policy's `hired` list wins
+    over the yaml's `enabled: false`, the runner adds their markets to the book's lists, and they join the pool
+    with $0 like any mid-season hire. They start at `level` (Intern by default). False if already hired.
+    """
+    policy = load_policy(ledger)
+    hired = list(policy.get("hired") or [])
+    if key in hired:
+        return False
+    policy["hired"] = hired + [key]
+    save_policy(ledger, policy)
+    rows = {r["key"]: EmployeeRecord.from_row(r) for r in ledger.employee_rows()}
+    rec = rows.get(key) or EmployeeRecord.new(key)
+    rec.level, rec.status, rec.suspended_until, rec.strikes = level, "active", None, 0
+    ledger.upsert_employee(rec.to_row())
+    ledger.record_event("hr", {"action": "hired", "level": level_title(level), **({"why": why} if why else {})},
+                        strategy=key)
+    return True
+
+
 @dataclass
 class EmployeeRecord:
     key: str
@@ -215,13 +236,16 @@ def reinstate_expired(ledger: Ledger, roster: dict[str, EmployeeRecord], now: Op
     return back
 
 
-def effective_strategy_config(base: dict[str, dict], roster: dict[str, EmployeeRecord]) -> dict[str, dict]:
+def effective_strategy_config(base: dict[str, dict], roster: dict[str, EmployeeRecord],
+                              hired: Iterable[str] = ()) -> dict[str, dict]:
     """
     desk.yaml settings with the website's overrides on top. Fired employees are
     left out. A twin starts from its sibling's settings (desk.yaml plus the
     sibling's overrides, e.g. from autotune), then its own on top. Twins can chain
     (a coin specialist -> Sadie -> Stella); the oldest sibling's settings go first.
+    `hired` (the book's policy, see hire()) works even where the yaml says `enabled: false`.
     """
+    hired = set(hired)
     out = {}
     keys = set(base) | set(roster)
     for k in keys:
@@ -233,6 +257,8 @@ def effective_strategy_config(base: dict[str, dict], roster: dict[str, EmployeeR
         for sibling in chain:
             cfg.update({p: v for p, v in (base.get(sibling) or {}).items() if p not in ("enabled", "coins")})
         cfg.update(base.get(k) or {})
+        if k in hired:
+            cfg["enabled"] = True
         for sibling in chain:
             if roster.get(sibling):
                 cfg.update({p: v for p, v in (roster[sibling].params or {}).items() if p != "coins"})

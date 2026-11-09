@@ -43,8 +43,14 @@ export default async function EmployeePage({ params, searchParams }: {
       getTuningRuns(key), isAdmin(), getSettlementStats(book, policy.season, key), getCoinStats(book, policy.season),
       getBets(book, policy.season),
     ]);
+    // On Training, can the manager move this employee to real money? (not when they're already there)
+    let movable = false;
+    if (admin && book === "pretend") {
+      const [real, realPolicy] = await Promise.all([getLive("real"), getPolicy("real")]);
+      movable = !!real && !real.employees.some((x) => x.key === key) && !realPolicy.hired?.includes(key);
+    }
     data = { live, history, seasonStart, fills, accuracy: analysis.accuracy, evidence: analysis.evidence, realism: analysis.realism,
-             roster, news, tuning, policy, admin, stats, coins: coins.filter((r) => r.strategy === key), bets };
+             roster, news, tuning, policy, admin, stats, coins: coins.filter((r) => r.strategy === key), bets, movable };
   } catch (e) {
     return <Setup error={String(e)} />;
   }
@@ -104,7 +110,7 @@ export default async function EmployeePage({ params, searchParams }: {
       </div>
 
       <AdviceCard k={key} name={e.name} advice={advice} admin={data.admin} />
-      {data.admin && <ManagerBar e={e} />}
+      {data.admin && <ManagerBar e={e} movable={data.movable} />}
 
       <section className="card">
         <h2>Profit over time</h2>

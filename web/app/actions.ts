@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { login, logout, requireAdmin } from "@/lib/admin";
 import { cookies } from "next/headers";
 import { BOOK_COOKIE, viewedBook, type Book } from "@/lib/book";
-import { bookTag, db, getPolicy } from "@/lib/db";
+import { bookTag, db, getLive, getPolicy } from "@/lib/db";
 import { LEVELS, levelTitle } from "@/lib/hr";
 import type { Policy } from "@/lib/types";
 
@@ -125,6 +125,28 @@ export async function grantBonus(key: string, amount: number, reason: string) {
   await writePolicy(book, policy);
   await event(book, "hr", key, { action: amount > 0 ? "bonus" : "budget cut", amount, why: reason });
   done(["/", `/employee/${key}`, "/settings"]);
+}
+
+/**
+ * Put a Training employee on real money mid-season, no new season (desk/hr.py hire): the bot adds them and
+ * their markets on its next run, as an Intern with $0 of the pool, betting from the shared pool.
+ */
+export async function hireOnReal(key: string) {
+  await requireAdmin();
+  const [policy, live] = await Promise.all([getPolicy("real"), getLive("real")]);
+  if (!live) return { error: "No real book" };
+  if (live.employees.some((x) => x.key === key) || policy.hired?.includes(key)) return { error: "Already on real money" };
+  // A coin specialist needs the real book's price feed to fetch their coin (desk.real.yaml crypto_symbols)
+  const coin = key.startsWith("maker_") ? key.slice(6) : null;
+  if (coin && !live.employees.some((x) => x.key === `maker_${coin}`))
+    return { error: `The real book doesn't fetch ${coin.toUpperCase()} prices yet: ask Claude to add it first` };
+  policy.hired = [...(policy.hired ?? []), key];
+  await writePolicy("real", policy);
+  await db("real")`INSERT INTO employees (key, level, status, updated_at) VALUES (${key}, 0, 'active', ${now()})
+    ON CONFLICT (key) DO UPDATE SET level = 0, status = 'active', suspended_until = NULL, strikes = 0,
+      updated_at = excluded.updated_at`;
+  await event("real", "hr", key, { action: "hired", level: "Intern", why: "moved from Training" });
+  done(["/", `/employee/${key}`]);
 }
 
 async function writePolicy(book: Book, policy: Policy) {

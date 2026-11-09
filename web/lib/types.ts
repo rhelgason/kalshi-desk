@@ -107,6 +107,7 @@ export type RosterRow = {
 
 export type Policy = {
   season: number;
+  hired?: string[]; // put on this book mid-season (desk/hr.py hire), over the yaml's `enabled: false`
   review_days: number;
   min_settled: number;
   promote_roi: number;

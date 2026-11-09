@@ -1,12 +1,15 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { fireEmployee, rehireEmployee, reinstateEmployee, setLevel, suspendEmployee } from "@/app/actions";
+import { fireEmployee, hireOnReal, rehireEmployee, reinstateEmployee, setLevel, suspendEmployee } from "@/app/actions";
 import { LEVELS, poolShare } from "@/lib/hr";
 import type { Employee } from "@/lib/types";
 
-/** The everyday manager controls in one slim row: bet size, bench, fire. Everything else lives further down. */
-export default function ManagerBar({ e }: { e: Employee }) {
+/**
+ * The everyday manager controls in one slim row: bet size, bench, fire, and (on Training) moving them to real
+ * money mid-season. Everything else lives further down.
+ */
+export default function ManagerBar({ e, movable = false }: { e: Employee; movable?: boolean }) {
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
   const status = e.status ?? "active";
@@ -54,6 +57,13 @@ export default function ManagerBar({ e }: { e: Employee }) {
             const why = prompt(`Fire ${e.name}? They stop trading for good (you can rehire later). Reason:`);
             if (why !== null) run(() => fireEmployee(e.key, why), "Fired");
           }}>Fire</button>
+      )}
+      {movable && (
+        <button className="btn small" disabled={pending}
+          onClick={() => {
+            if (confirm(`Move ${e.name} to real money? They join this season as an Intern (half-size bets) from the shared pool. No new season needed.`))
+              run(() => hireOnReal(e.key), "On real money as an Intern");
+          }}>💵 Move to real money</button>
       )}
       <a href="#manager" className="small muted">More controls ↓</a>
       {msg && <span className="small muted manager-msg">{msg}. Takes effect within ~2 min.</span>}
