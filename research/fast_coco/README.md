@@ -130,3 +130,21 @@ halves up everywhere, t 2-3, 20-24 of 31 days up. The coin check doesn't help he
 One bet an hour at 5-9 min with the check: +1.55c (t 3.9) on 695 bets, but its neighbours are +0.2 to +1.0c.
 Real but about half the 15-minute coins' edge: 🐿️ Hourly Hazel (`hourly_btc`) bets it on Training from 11-03,
 5-21 min left, 92-99.5c, every strike (the pool's window cap, per hour, limits how many).
+
+## Commodities: gold, oil, silver (2026-11-09)
+
+Kalshi's 15-minute commodity markets on Sadie's rules, two months of their trades (Sep 10 - Nov 9; `tape.py 60 15
+data/tape_cmdty KXGOLD15M KXWTI15M KXSILVER15M`, then `cmdty_check.py`). 5-9 minutes left, no price check:
+
+| Market | Bets | c per $1 | halves | t | 97c+ favorites |
+|---|---|---|---|---|---|
+| Gold | 860 | +1.05 | +1.82 / +0.27 | 1.1 | +0.90 (-0.38 / +2.17) |
+| Oil (WTI) | 891 | +0.89 | +1.96 / -0.18 | 2.9 | +1.73 (+1.15 / +2.31) |
+| Silver | 834 | +0.68 | -0.29 / +1.64 | 1.4 | +1.02 (+0.92 / +1.12) |
+
+All positive, none as steady as the coins were before their coin check (+1.23c, t 3.8, both halves). The 97c+ band is
+the steadiest, so Goldie, Clyde and Sterling went on Training with `min_price: 0.97`.
+
+**A gold check with PAXG (gold_check.py) made it worse:** the bids it kept made +0.19c per $1, the ones it skipped
++1.99c. Binance's gold token is probably too far behind Kalshi's gold reference to say anything. No check for gold;
+oil and silver have no free second-by-second price at all.
