@@ -171,3 +171,14 @@ def test_hiring_onto_the_real_book_needs_no_new_season(tmp_path):
     led.upsert_employee(replace(desk.roster["hourly_btc"], status="fired").to_row())
     desk.sync_hr()
     assert "hourly_btc" not in {s.key for s in desk.strategies}  # firing still wins over the hired list
+
+
+def test_commodity_specialists_are_training_only():
+    """2026-11-09: gold, oil and silver on Sadie's rules, 97c+ only; the real book must leave them out."""
+    from desk.strategies import build_strategies
+
+    pretend = {s.key: s for s in build_strategies(hr_config(DeskConfig.load(ROOT / "desk.yaml")))}
+    for k, coin in (("maker_gold", "GOLD"), ("maker_wti", "WTI"), ("maker_silver", "SILVER")):
+        assert pretend[k].coins == [coin] and pretend[k].min_price == 0.97 and pretend[k].max_seconds == 540
+    real = {s.key for s in build_strategies(hr_config(DeskConfig.load(ROOT / "desk.real.yaml")))}
+    assert not real & {"maker_gold", "maker_wti", "maker_silver"}

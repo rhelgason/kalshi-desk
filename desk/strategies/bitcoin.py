@@ -356,6 +356,36 @@ class ZcashZoe(CoinSpecialist):
     )
 
 
+# 2026-11-09: Kalshi's 15-minute commodity markets on Sadie's rules (Training only). Two months of their trades
+# (research/fast_coco/cmdty_check.py): +0.7 to +1.1c per $1 at 5-9 minutes left, steadiest on 97c+ favorites. No free
+# second-by-second price feeds them, so the coin check never skips a bid (side_odds finds no spot and says nothing).
+class GoldieMagpie(CoinSpecialist):
+    key = "maker_gold"
+    coin = "GOLD"
+    persona = Persona(
+        "Goldie the Magpie", "Shiny Things Dept.", "🐦",
+        "A magpie who can't resist anything that glitters, so she only bids when gold is all but certain. Lines her nest with winning tickets.",
+    )
+
+
+class CrudeClyde(CoinSpecialist):
+    key = "maker_wti"
+    coin = "WTI"
+    persona = Persona(
+        "Crude Clyde", "Roughneck", "🦭",
+        "A walrus in an oil-stained hard hat who has worked every rig from Texas to the North Sea. Waits for the gusher, never drills dry.",
+    )
+
+
+class SterlingFox(CoinSpecialist):
+    key = "maker_silver"
+    coin = "SILVER"
+    persona = Persona(
+        "Sterling the Fox", "Silver Fox", "🦊",
+        "A distinguished silver fox in a tweed waistcoat who polishes the office cutlery while he waits for a sure thing.",
+    )
+
+
 def side_odds(snap: Snapshot, m: Optional[Market], side: Side) -> Optional[float]:
     """
     The chance `side` wins a 15-minute up/down market, from the coin's spot vs. the strike and its realized

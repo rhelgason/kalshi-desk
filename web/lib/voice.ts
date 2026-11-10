@@ -129,6 +129,21 @@ const LINES: Record<string, Lines> = {
     down: ["The bell rang the wrong way.", "Dropped that acorn.", "Bitcoin climbed faster than I did."],
     idle: ["Waiting for the minute hand.", "Nothing sure enough this hour.", "Winding the watch."],
   },
+  maker_gold: {
+    up: ["Shiny! Into the nest.", "Gold at 97 cents? Mine.", "Another glittery one for the collection."],
+    down: ["Fool's gold. Squawk.", "That one tarnished.", "Dropped it on the way home."],
+    idle: ["Nothing shiny enough yet.", "Watching for a glint.", "Polishing the nest."],
+  },
+  maker_wti: {
+    up: ["Struck oil. Modestly.", "Barrel in, barrel out, penny pocketed.", "Steady pressure. Good well."],
+    down: ["Dry hole.", "Spilled that one. Mopping up.", "Crude awakening."],
+    idle: ["Rig's quiet.", "No gusher yet. Sipping coffee on the platform.", "Checking the gauges."],
+  },
+  maker_silver: {
+    up: ["Splendid. Sterling, even.", "A polished little win.", "Silver lining, as promised."],
+    down: ["Tarnished. How vulgar.", "I shall polish my pride.", "A rare misstep for a fox."],
+    idle: ["Polishing the spoons.", "Nothing worth a silver fox's attention.", "Adjusting the waistcoat."],
+  },
   dart_monkey: { up: ["Ook! 🍌"], down: ["Ook…"], idle: ["Ook?"] },
 };
 const DEFAULT: Lines = { up: ["Up and to the right."], down: ["Rough patch."], idle: ["Waiting."] };
@@ -170,6 +185,9 @@ export const HOW_THEY_BET: Record<string, string> = {
   weather_maker: "Wendell works Kalshi's daily high-temperature markets in six cities (New York, Los Angeles, Chicago, Miami, Austin, Denver). From midnight to 6 am city time on the day itself, he bids a cent over the best bid on whichever side of a temperature bracket is a 92–99.5¢ favorite, and waits for someone to sell. Weather charges no fee on a waiting bid. He never tries to forecast: free forecasts lost badly against Kalshi's prices. On two years of Kalshi's real trades, bids like his from midnight to 6 am made about 1.5¢ per $1, up in both years and all six cities, but there are only a few a day. On real money since Nov 3.",
   sports_closer: "Ziggy bets basketball, baseball and hockey games once they're all but decided: a side priced 97–99.5¢ gets a bid a cent over the best bid, one per game, until 2 hours after Kalshi expects the game to end. Basketball from 3 hours before that; baseball and hockey only from the last hour, because a year of Kalshi's real trades showed those two lose money earlier (late comebacks) and earn about +1.5¢ / +0.7¢ per $1 after. Football didn't pay, so he dropped it. Training only.",
   hourly_btc: "Hazel works Kalshi's hourly bitcoin markets (\"will bitcoin be above $87,000 at 3 pm?\"), a ladder of prices that each close on the hour. From 21 minutes to 5 minutes before the bell, she bids a tenth of a cent over the best bid on whichever side of a rung is a 92–99.5¢ favorite and waits for someone to sell, the same idea as the coin team's 15-minute bets. Makers pay no fee there. On a month of Kalshi's real trades, bids like hers made about 0.6¢ per $1, up in both halves of the month at every distance from the bell: about half what the coin team makes, so she's on trial. Each hour gets its own share of the pool's window cap, so she never crowds the coin team. Training only for now.",
+  maker_gold: "Goldie works Kalshi's 15-minute gold markets on Sadie's rules: with 5 to 9 minutes left, a bid a tenth of a cent over the best bid on a 97¢+ favorite, waiting for someone to sell. On two months of Kalshi's real trades, bids like hers made about 1¢ per $1, steadiest on the surest favorites, but less reliably than the coins (one half of the period barely broke even). There's no free second-by-second gold price to double-check against, though a gold-backed token is being tested for one. Training only.",
+  maker_wti: "Clyde works Kalshi's 15-minute oil (WTI) markets on Sadie's rules: with 5 to 9 minutes left, a bid a tenth of a cent over the best bid on a 97¢+ favorite. On two months of Kalshi's real trades, oil's surest favorites made about 1.7¢ per $1, up in both halves; all of oil's favorites together made about 0.9¢. No free second-by-second oil price exists to double-check his bets, so he bids on the market's word alone. Training only.",
+  maker_silver: "Sterling works Kalshi's 15-minute silver markets on Sadie's rules: with 5 to 9 minutes left, a bid a tenth of a cent over the best bid on a 97¢+ favorite. On two months of Kalshi's real trades, silver's surest favorites made about 1¢ per $1, up in both halves; all of silver's favorites together made about 0.7¢. Like Clyde, he has no live price to double-check with. Training only.",
   longshot_buy: "Pecks at the cheap long shots the Wet Blanket bets against. He's a yardstick on pretend money only: if the Wet Blanket can't beat a pigeon, the idea doesn't work.",
   dart_monkey: "Bets at random. He's the yardstick everyone has to beat, on pretend money only: if a strategy can't do better than a monkey with darts, it isn't really a strategy.",
 };

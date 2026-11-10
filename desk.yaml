@@ -18,7 +18,8 @@ tick_seconds: 15          # how often everyone looks at the market
 # BNB and HYPE are left out: too thin for $10 bets, and they lost in both periods.
 # The real book (desk.real.yaml) stays on bitcoin only.
 crypto_series: [KXBTC15M, KXETH15M, KXSOL15M, KXXRP15M, KXDOGE15M,
-                KXHYPE15M, KXBNB15M, KXNEAR15M, KXZEC15M]   # the last four: 11-02 experiment
+                KXHYPE15M, KXBNB15M, KXNEAR15M, KXZEC15M,   # these four: 11-02 experiment
+                KXGOLD15M, KXWTI15M, KXSILVER15M]           # 11-09: commodities (no price feed for them)
 slow_series: []
 crypto_symbols: [BTC, ETH, SOL, XRP, DOGE, HYPE, BNB, NEAR, ZEC]
 crypto_horizon_hours: 1
@@ -76,6 +77,10 @@ strategies:
   maker_bnb: {}           # 🐝 Bumble Belle (bee)
   maker_near: {}          # 👓 Nearsighted Ned (mole)
   maker_zec: {}           # 🦝 Zed the Raccoon
+  # 11-09: 15-minute commodities on Sadie's rules, 97c+ favorites only (their steadiest band on two months of trades)
+  maker_gold: {min_price: 0.97}    # 🐦 Goldie the Magpie
+  maker_wti: {min_price: 0.97}     # 🦭 Crude Clyde (oil)
+  maker_silver: {min_price: 0.97}  # 🦊 Sterling the Fox
   late_maker: {enabled: false}       # 🦉 Closing Time Coco - 94-99c, 2-5 minutes left (benched)
   runner_up_maker: {enabled: false}  # 🥈 Silver Medal Sid - 85-92c, 5-13 minutes left (benched)
   # 2026-10-28: Sadie's idea outside the coins, on Training only (research/other_markets/README.md)

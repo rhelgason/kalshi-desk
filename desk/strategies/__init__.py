@@ -4,6 +4,7 @@ from desk.strategies.fair_value import CryptoFairValue, MomentumMo, RubberBandRa
 from desk.strategies.bitcoin import (
     BinanceBelle, BitcoinBea, BreakoutBetty, BreakoutBonnie, ClosingTimeCoco, DogecoinDot, EarlyBirdEdie, EarlyBirdEllie, EtherEsther,
     HypeHannah, NearlyNadia, NickelNora, RippleRita, SilverMedalSid, SolarSally, SteadySadie, ZcashZoe,
+    CrudeClyde, GoldieMagpie, SterlingFox,
 )
 from desk.strategies.other_markets import FinalWhistleFiona, HourlyHazel, WeatherWendy
 from desk.strategies.behavioral import (
@@ -18,6 +19,7 @@ STAFF: tuple[type[Strategy], ...] = (
     SteadySadie,  # Stella's patient twin: the real book's only employee 2026-10-24 to 10-31; now keeps the pool's money
     BitcoinBea, EtherEsther, SolarSally, RippleRita, DogecoinDot,  # Sadie's rules, one coin each (2026-10-31)
     HypeHannah, BinanceBelle, NearlyNadia, ZcashZoe,  # and four thinner coins, Training only (2026-11-02)
+    GoldieMagpie, CrudeClyde, SterlingFox,  # gold, oil and silver's 15-minute markets, Training only (2026-11-09)
     ClosingTimeCoco, SilverMedalSid,  # resting bids late in the window / on the next tier of favorites
     WeatherWendy, FinalWhistleFiona,  # Training only: weather mornings and finished games (research/other_markets)
     HourlyHazel,  # Training only: bitcoin's hourly ladders on Sadie's rules (2026-11-03)
@@ -80,7 +82,7 @@ def build_strategies(config: dict[str, dict], registry: dict[str, type[Strategy]
 __all__ = [
     "AccountView", "Leg", "Persona", "Snapshot", "Strategy", "TradeIntent",
     "BitcoinBea", "EtherEsther", "SolarSally", "RippleRita", "DogecoinDot", "HypeHannah", "BinanceBelle", "NearlyNadia",
-    "ZcashZoe",
+    "ZcashZoe", "GoldieMagpie", "CrudeClyde", "SterlingFox",
     "CoverArb", "PartitionArb", "CryptoFairValue", "VegaVinny", "Sniper", "MomentumMo", "RubberBandRandy",
     "LongshotFade", "LongshotLenny", "NickelNick", "FrontRunnerFran", "SpreadSam", "WhaleWatcherWalt",
     "DartMonkey", "SteadyStella", "BreakoutBetty", "EarlyBirdEdie", "NickelNora", "EarlyBirdEllie", "BreakoutBonnie",

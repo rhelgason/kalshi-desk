@@ -58,7 +58,8 @@ TWINS = {"nickel_maker": "nickel_picker", "early_maker": "early_favorite", "brea
          # The coin specialists (2026-10-31) take Sadie's settings, which take Stella's
          "maker_btc": "heavy_maker", "maker_eth": "heavy_maker", "maker_sol": "heavy_maker",
          "maker_xrp": "heavy_maker", "maker_doge": "heavy_maker",
-         "maker_hype": "heavy_maker", "maker_bnb": "heavy_maker", "maker_near": "heavy_maker", "maker_zec": "heavy_maker"}
+         "maker_hype": "heavy_maker", "maker_bnb": "heavy_maker", "maker_near": "heavy_maker", "maker_zec": "heavy_maker",
+         "maker_gold": "heavy_maker", "maker_wti": "heavy_maker", "maker_silver": "heavy_maker"}
 # Employees that start at the bottom when first hired (unproven strategies)
 START_AS_INTERN = {"breakout", "early_favorite", "nickel_maker", "early_maker", "breakout_maker", "favorite_sports", "market_maker",
                    "runner_up_maker", "weather_maker", "sports_closer"}
