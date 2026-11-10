@@ -294,6 +294,8 @@ class _Postgres:
         sql = self.translate(qualify(sql, self.schema))
         if self.shared:  # another office may have reconnected it
             self.conn = self._shared.get(self._url, self.conn)
+        if self.conn.closed:  # given back on purpose between rounds (desk/offices.py): reopen without a warning
+            self._connect()
         for attempt in range(2):
             try:
                 return self.conn.execute(sql, params)
