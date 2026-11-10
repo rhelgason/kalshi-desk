@@ -301,6 +301,10 @@ async def run_offices(once: bool = False) -> None:
                 await offices.round()
             except Exception:
                 logger.exception("Offices round failed")
+            if not offices.offices:
+                # Nobody to run: give the connection back (the pooler takes 15 clients in all); the next round's
+                # first query reconnects (_Postgres.execute)
+                offices.home.db.conn.close()
             if once:
                 return
     finally:
