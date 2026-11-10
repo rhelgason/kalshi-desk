@@ -35,18 +35,29 @@ const BOOK_TABLES = ["accounts", "fills", "settlements", "equity", "events", "st
   "settings", "decisions", "market_tape", "runs", "orders"];
 const BOOK_TABLE_RE = new RegExp(`\\b(FROM|INTO|UPDATE|JOIN|TABLE|EXISTS|ON)(\\s+)(${BOOK_TABLES.join("|")})\\b(?!\\.)`, "gi");
 
-export type Book = "real" | "pretend";
+/** The owner's two books, or a friend's office (desk/offices.py: real money in the friend's own Kalshi account). */
+export type Book = "real" | "pretend" | `office_${string}`;
 type Tag = (strings: TemplateStringsArray, ...values: any[]) => postgres.PendingQuery<postgres.Row[]>;
 
+const OFFICE_RE = /^office_[a-z][a-z0-9]{1,23}$/;
+export const isOffice = (b: unknown): b is `office_${string}` => typeof b === "string" && OFFICE_RE.test(b);
+export const isBook = (b: unknown): b is Book => b === "real" || b === "pretend" || isOffice(b);
+/** Real money: the owner's real book or a friend's office (numbers from a Kalshi account). */
+export const isLive = (b: Book) => b !== "pretend";
+
+/** The shared tables in public (users, sessions, offices...), outside any book. */
+export const home = () => connection();
+
 /**
- * Queries against one book. The real-money book's tables live in the "real" schema,
- * so its queries name it: "FROM fills" becomes "FROM real.fills".
+ * Queries against one book. The real-money book's tables live in the "real" schema, and an office's in its own,
+ * so their queries name it: "FROM fills" becomes "FROM real.fills".
  */
 export function db(book: Book = "pretend"): Tag {
   const sql = connection();
   if (book === "pretend") return sql as unknown as Tag;
+  if (!isBook(book)) throw new Error(`no such book: ${book}`);
   return (strings, ...values) => {
-    const named = strings.map((s) => s.replace(BOOK_TABLE_RE, "$1$2real.$3"));
+    const named = strings.map((s) => s.replace(BOOK_TABLE_RE, `$1$2${book}.$3`));
     return sql(Object.assign(named, { raw: named }) as unknown as TemplateStringsArray, ...values);
   };
 }
@@ -68,7 +79,7 @@ export const bookTag = (book: Book | "shared") => `db:${book}`;
 
 function sturdy<A extends unknown[], R>(name: string, query: (...a: A) => Promise<R>): (...a: A) => Promise<R> {
   return async (...a: A) => {
-    const book = a[0] === "real" || a[0] === "pretend" ? a[0] : "shared";
+    const book = isBook(a[0]) ? a[0] : "shared";
     const kept = unstable_cache(async () => ({ at: Date.now(), v: await query(...a) }), [name, JSON.stringify(a)],
       { revalidate: 30, tags: [bookTag(book)] });
     const copy = await kept();

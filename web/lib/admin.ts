@@ -1,9 +1,10 @@
 import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
+import { currentUser } from "./session";
 
-// The dashboard is public; changing anything requires the admin password
-// (ADMIN_PASSWORD in Vercel). A signed cookie remembers you for 30 days.
+// The dashboard is public; changing anything requires the manager: the admin password (ADMIN_PASSWORD in
+// Vercel, a signed cookie remembers it for 30 days) or the owner's passkey login (lib/session.ts, 400 days).
 const COOKIE = "desk_admin";
 
 function token(): string | null {
@@ -12,12 +13,16 @@ function token(): string | null {
   return createHmac("sha256", pw).update("kalshi-desk-admin-v1").digest("hex");
 }
 
-export async function isAdmin(): Promise<boolean> {
+async function passwordCookie(): Promise<boolean> {
   const expected = token();
   if (!expected) return false;
   const got = (await cookies()).get(COOKIE)?.value ?? "";
   if (got.length !== expected.length) return false;
   return timingSafeEqual(Buffer.from(got), Buffer.from(expected));
+}
+
+export async function isAdmin(): Promise<boolean> {
+  return (await passwordCookie()) || (await currentUser())?.role === "owner";
 }
 
 export async function requireAdmin(): Promise<void> {

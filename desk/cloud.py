@@ -148,6 +148,77 @@ def _budget_check(state: dict, now: datetime) -> tuple[bool, dict]:
     return projected <= MONTHLY_CPU_BUDGET, budget
 
 
+def restore_desk(cfg: DeskConfig, ledger: Ledger, client: KalshiClient, feed: CryptoFeed, state: dict) -> Desk:
+    """A Desk picked up where the saved state left off (paper accounts, resting bids, timers, pool)."""
+    from desk.paper.broker import RestingOrder
+    from desk.paper.pool import PoolState
+
+    accounts = load_accounts(state["accounts"]) if state.get("accounts") else None
+    load_feed(feed, state.get("feed") or {})
+    # strategies=None: staff the desk from the HR roster (desk.yaml + website overrides)
+    desk = Desk(cfg, client, None, ledger, feed=feed, accounts=accounts)
+    desk.broker.resting = [RestingOrder(**o) for o in state.get("resting") or []]
+    desk.broker.sync_resting_views()
+    for s in desk.strategies:
+        if s.key in (state.get("strategies") or {}):
+            s.set_state(state["strategies"][s.key])
+
+    t = state.get("timers") or {}
+    desk._last_universe = _dt(t.get("universe"))
+    desk._last_slow = _dt(t.get("slow"))
+    desk._last_equity = _dt(t.get("equity"))
+    desk._last_accuracy = _dt(t.get("accuracy"))
+    desk._last_prune = _dt(t.get("prune"))
+    # Known windows, so "Crypto events: ..." is only logged when they change
+    desk.crypto_event_tickers = list(state.get("crypto_events") or [])
+    desk.started_at = _dt(state.get("started_at")) or desk.started_at
+    desk.tick_count = state.get("tick_count", 0)
+    desk.marks = state.get("marks") or {}
+    desk.fees = {k: FeeSchedule(*v) for k, v in (state.get("fees") or {}).items()}
+    desk.peaks = state.get("peaks") or {}
+    desk.drawdowns = {k: v[1] for k, v in desk.peaks.items()}
+    desk.briers = state.get("briers") or {}
+    desk.pool.state = PoolState.from_dict(state.get("pool"))
+    return desk
+
+
+def saved_state(desk: Desk, feed: CryptoFeed, old: dict) -> dict:
+    """The state to save after a run (restore_desk reads it back); the budget and last run carry over from `old`."""
+    cfg = desk.config
+    # Track each employee's peak equity and worst drop from it
+    peaks = getattr(desk, "peaks", None) or {}
+    for k, acct in desk.accounts.items():
+        eq = acct.equity(desk.marks)
+        peak, worst = peaks.get(k, [eq, 0.0])
+        peak = max(peak, eq)
+        worst = max(worst, (peak - eq) / peak if peak > 0 else 0.0)
+        peaks[k] = [peak, worst]
+    desk.peaks = peaks
+    held = {t for a in desk.accounts.values() for t in a.open_tickers}
+    return {
+        "season": desk.ledger.season,
+        "accounts": dump_accounts(desk.accounts),
+        "resting": [asdict(o) for o in desk.broker.resting],
+        "feed": dump_feed(feed),
+        "strategies": {s.key: st for s in desk.strategies if (st := s.get_state()) is not None},
+        "timers": {"universe": _iso(desk._last_universe), "slow": _iso(desk._last_slow),
+                   "equity": _iso(desk._last_equity), "accuracy": _iso(desk._last_accuracy),
+                   "prune": _iso(desk._last_prune)},
+        "crypto_events": desk.crypto_event_tickers,
+        "started_at": _iso(desk.started_at),
+        "tick_count": desk.tick_count,
+        "marks": {t: m for t, m in desk.marks.items() if t in held},
+        # Only series the desk trades or still holds (old seasons' sports fees pile up otherwise)
+        "fees": {k: [f.fee_type, f.multiplier] for k, f in desk.fees.items()
+                 if k in cfg.crypto_series or k in {t.split("-", 1)[0] for t in held}},
+        "peaks": peaks,
+        "pool": desk.pool.state.to_dict(),
+        "briers": desk.briers,
+        "budget": old.get("budget"),
+        "last_run": old.get("last_run"),
+    }
+
+
 async def run_cloud_tick(ledger: Optional[Ledger] = None, config_path: Optional[str] = None,
                          client: Optional[KalshiClient] = None, feed: Optional[CryptoFeed] = None) -> dict:
     global _last_cpu_reading
@@ -173,10 +244,7 @@ async def run_cloud_tick(ledger: Optional[Ledger] = None, config_path: Optional[
         if state.get("season", 1) != ledger.season:
             # The website started a new season: everyone begins fresh
             state = {"budget": state.get("budget"), "feed": state.get("feed"), "fees": state.get("fees")}
-        accounts = load_accounts(state["accounts"]) if state.get("accounts") else None
-
         feed = feed or CryptoFeed(tuple(cfg.crypto_symbols))
-        load_feed(feed, state.get("feed") or {})
         if client is None:
             if cfg.trading == "live":
                 from desk.live import live_client
@@ -184,35 +252,7 @@ async def run_cloud_tick(ledger: Optional[Ledger] = None, config_path: Optional[
                 client = live_client(cfg)  # refuses (and the run fails loudly) unless safely set up
             else:
                 client = KalshiClient(env=cfg.env, requests_per_second=cfg.requests_per_second)
-        # strategies=None: staff the desk from the HR roster (desk.yaml + website overrides)
-        desk = Desk(cfg, client, None, ledger, feed=feed, accounts=accounts)
-        from desk.paper.broker import RestingOrder
-
-        desk.broker.resting = [RestingOrder(**o) for o in state.get("resting") or []]
-        desk.broker.sync_resting_views()
-        strategies = desk.strategies
-        for s in strategies:
-            if s.key in (state.get("strategies") or {}):
-                s.set_state(state["strategies"][s.key])
-
-        t = state.get("timers") or {}
-        desk._last_universe = _dt(t.get("universe"))
-        desk._last_slow = _dt(t.get("slow"))
-        desk._last_equity = _dt(t.get("equity"))
-        desk._last_accuracy = _dt(t.get("accuracy"))
-        desk._last_prune = _dt(t.get("prune"))
-        # Known windows, so "Crypto events: ..." is only logged when they change
-        desk.crypto_event_tickers = list(state.get("crypto_events") or [])
-        desk.started_at = _dt(state.get("started_at")) or desk.started_at
-        desk.tick_count = state.get("tick_count", 0)
-        desk.marks = state.get("marks") or {}
-        desk.fees = {k: FeeSchedule(*v) for k, v in (state.get("fees") or {}).items()}
-        peaks = state.get("peaks") or {}
-        desk.drawdowns = {k: v[1] for k, v in peaks.items()}
-        desk.briers = state.get("briers") or {}
-        from desk.paper.pool import PoolState
-
-        desk.pool.state = PoolState.from_dict(state.get("pool"))
+        desk = restore_desk(cfg, ledger, client, feed, state)
 
         try:
             results = await desk.tick()
@@ -220,44 +260,15 @@ async def run_cloud_tick(ledger: Optional[Ledger] = None, config_path: Optional[
             await client.close()
             await feed.close()
 
-        # Track each employee's peak equity and worst drop from it
-        for k, acct in desk.accounts.items():
-            eq = acct.equity(desk.marks)
-            peak, worst = peaks.get(k, [eq, 0.0])
-            peak = max(peak, eq)
-            worst = max(worst, (peak - eq) / peak if peak > 0 else 0.0)
-            peaks[k] = [peak, worst]
-
-        held = {t for a in desk.accounts.values() for t in a.open_tickers}
         cpu_now = _cpu_seconds()
         used = cpu_now - _last_cpu_reading
         _last_cpu_reading = cpu_now
         budget["cpu_seconds"] = budget["cpu_seconds"] + used
         budget["runs"] = budget.get("runs", 0) + 1
-
-        state = {
-            "season": ledger.season,
-            "accounts": dump_accounts(desk.accounts),
-            "resting": [asdict(o) for o in desk.broker.resting],
-            "feed": dump_feed(feed),
-            "strategies": {s.key: st for s in desk.strategies if (st := s.get_state()) is not None},
-            "timers": {"universe": _iso(desk._last_universe), "slow": _iso(desk._last_slow),
-                       "equity": _iso(desk._last_equity), "accuracy": _iso(desk._last_accuracy),
-                       "prune": _iso(desk._last_prune)},
-            "crypto_events": desk.crypto_event_tickers,
-            "started_at": _iso(desk.started_at),
-            "tick_count": desk.tick_count,
-            "marks": {t: m for t, m in desk.marks.items() if t in held},
-            # Only series the desk trades or still holds (old seasons' sports fees pile up otherwise)
-            "fees": {k: [f.fee_type, f.multiplier] for k, f in desk.fees.items()
-                     if k in cfg.crypto_series or k in {t.split("-", 1)[0] for t in held}},
-            "peaks": peaks,
-            "pool": desk.pool.state.to_dict(),
-            "briers": desk.briers,
-            "budget": budget,
-            "last_run": {"at": now.isoformat(), "seconds": round(time.time() - started, 1),
-                         "cpu_seconds": round(used, 3)},
-        }
+        state = saved_state(desk, feed, state)
+        state["budget"] = budget
+        state["last_run"] = {"at": now.isoformat(), "seconds": round(time.time() - started, 1),
+                             "cpu_seconds": round(used, 3)}
         ledger.set_status(STATE_KEY, state)
         journal = desk.journal.summary()
         return {

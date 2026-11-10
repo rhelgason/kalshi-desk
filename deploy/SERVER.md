@@ -28,3 +28,19 @@ Health is in the `fast` schema's `status` row `fast:health` (updated every 30 se
 must never trade one account), and the twin keeps running as the "without the server" comparison. Fast Sadie then
 needs real orders and cancels: a pull is only worth anything if
 the cancel reaches Kalshi within a second. research/fast_coco/README.md has the backtest behind her design.
+
+## Friends' offices (2026-11-09)
+
+`python -m desk offices` (desk/offices.py, `deploy/offices.service` -> `/etc/systemd/system/kalshi-offices.service`) runs
+each friend's office every 2 minutes, 30 seconds after the owner's run, all in one process with each office kept in
+memory (the database is only written to). A friend joins from an invite link made on the website's /offices page;
+their Kalshi key arrives locked to `/etc/kalshi-desk-offices.pem` (made on this server 2026-11-10, root:desk 640;
+its public half is in web/lib/vault.ts). Never copy that file off the server; if it's lost, friends reconnect Kalshi.
+
+```bash
+ssh root@104.131.18.118 'systemctl status kalshi-offices --no-pager; journalctl -u kalshi-offices -n 50 --no-pager'
+ssh root@104.131.18.118 'sudo -u desk git -C /home/desk/kalshi-desk pull -q && systemctl restart kalshi-offices fast-coco'   # deploy
+```
+
+The office loop never touches the owner's books: it reads the real book's playbook and resting bids, and writes only
+office_<name> schemas and public.offices. Stopping the service stops every office (bets already on settle on Kalshi).

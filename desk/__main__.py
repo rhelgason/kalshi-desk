@@ -687,6 +687,8 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("notify-test", help="send a test phone notification (needs PUSHOVER_TOKEN and PUSHOVER_USER)")
     sub.add_parser("fast", help="run the always-on Fast Sadie and her 2-minute twin (the server's job)")
     sub.add_parser("fast-report", help="Fast Sadie vs her twin by month: is the server worth it?")
+    p_off = sub.add_parser("offices", help="run the friends' offices every 2 minutes (the server's job, desk/offices.py)")
+    p_off.add_argument("--once", action="store_true", help="one round now, then stop")
     args = parser.parse_args(argv)
 
     _setup_logging(args.verbose)
@@ -749,6 +751,10 @@ def main(argv: list[str] | None = None) -> int:
             from desk.fast import run_fast
 
             asyncio.run(run_fast(cfg.db_path))
+        elif args.cmd == "offices":
+            from desk.offices import run_offices
+
+            asyncio.run(run_offices(once=args.once))
         elif args.cmd == "fast-report":
             from desk.fast import SCHEMA, fast_report
 

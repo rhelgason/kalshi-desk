@@ -1,0 +1,19 @@
+[Unit]
+Description=Kalshi Desk: friends' offices, every 2 minutes (desk/offices.py, deploy/SERVER.md)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=desk
+WorkingDirectory=/home/desk/kalshi-desk
+EnvironmentFile=/etc/kalshi-desk.env
+# Each office trades its friend's own account with its friend's own key (the server's own key is dropped at start)
+Environment=KALSHI_LIVE_TRADING=yes
+Environment=OFFICE_KEY_PATH=/etc/kalshi-desk-offices.pem
+ExecStart=/home/desk/kalshi-desk/.venv/bin/python -u -m desk offices
+Restart=always
+RestartSec=10
+MemoryMax=350M
+
+[Install]
+WantedBy=multi-user.target

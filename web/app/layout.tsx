@@ -11,7 +11,9 @@ import Taskbar from "@/components/Taskbar";
 import { THEMES, THEME_COOKIE, parseTheme } from "@/lib/theme";
 import { getRealBook, viewedBook } from "@/lib/book";
 import { isAdmin } from "@/lib/admin";
+import { currentUser } from "@/lib/session";
 import { logoutAction } from "./actions";
+import { signOut } from "./account";
 import "./globals.css";
 import "./themes/clean.css";
 import "./themes/broadcast.css";
@@ -22,7 +24,8 @@ const pixel = Press_Start_2P({ weight: "400", subsets: ["latin"], variable: "--f
 const sans = Inter({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
 const condensed = Oswald({ subsets: ["latin"], variable: "--font-condensed", display: "swap" });
 
-const theme = async () => parseTheme((await cookies()).get(THEME_COOKIE)?.value);
+// This device's pick, else the one saved with their login (app/account.ts savePrefs)
+const theme = async () => parseTheme((await cookies()).get(THEME_COOKIE)?.value ?? ((await currentUser())?.prefs.theme as string));
 
 export const metadata: Metadata = {
   title: "Kalshi Desk",
@@ -36,7 +39,8 @@ export async function generateViewport(): Promise<Viewport> {
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const [admin, real, book, look] = await Promise.all([isAdmin(), getRealBook(), viewedBook(), theme()]);
+  const [admin, real, book, look, user] = await Promise.all([isAdmin(), getRealBook(), viewedBook(), theme(), currentUser()]);
+  const friend = user?.role === "friend";
   return (
     <html lang="en" data-theme={look} className={`${pixel.variable} ${sans.variable} ${condensed.variable}`}>
       <body>
@@ -50,17 +54,27 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <span className="brand-name">KALSHI DESK</span>
             </Link>
             <nav className="nav">
-              <NavButtons book={book} hasLive={!!real} />
+              {/* A friend sees their own office only: no Live/Training tabs */}
+              {!friend && <NavButtons book={book} hasLive={!!real} />}
               <details className="menu">
                 <summary aria-label="More">☰</summary>
                 <div className="menu-list">
                   <ThemePicker current={look} />
                   <Link href="/settings">📜 Desk rules</Link>
-                  <Link href="/backtests">🕹️ Practice runs</Link>
-                  {admin ? (
-                    <form action={logoutAction}><button>👔 Manager · log out</button></form>
+                  {!friend && <Link href="/backtests">🕹️ Practice runs</Link>}
+                  {admin && <Link href="/offices">🏢 Friends&apos; offices</Link>}
+                  {user ? (
+                    <>
+                      <Link href="/login">👤 {user.name}{user.role === "owner" ? " · manager" : ""}</Link>
+                      <form action={signOut}><button>🚪 Sign out</button></form>
+                    </>
+                  ) : admin ? (
+                    <>
+                      <Link href="/login">📱 Remember this device</Link>
+                      <form action={logoutAction}><button>👔 Manager · log out</button></form>
+                    </>
                   ) : (
-                    <Link href="/admin">🔑 Manager log in</Link>
+                    <Link href="/login">🔑 Sign in</Link>
                   )}
                 </div>
               </details>

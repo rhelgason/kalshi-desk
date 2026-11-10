@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { cache } from "react";
-import { getKillSwitch, getLive, isLongPause, type Book } from "./db";
+import { getKillSwitch, getLive, home, isLongPause, isOffice, type Book } from "./db";
+import { currentUser, officeOf } from "./session";
 
 export type { Book };
 
@@ -39,19 +40,45 @@ export async function defaultBook(): Promise<Book> {
   return real?.live && !real.paused ? "real" : "pretend";
 }
 
-/** The book this visitor is looking at: their pick (Real/Pretend tabs), else the default. */
+/**
+ * The book this visitor is looking at. A friend: always their own office, nothing else. Everyone else: their pick
+ * (Live/Training tabs), else the default; the owner can also open a friend's office from /offices, if that friend
+ * agreed to it when they joined.
+ */
 export const viewedBook = cache(async (): Promise<Book> => {
+  const user = await currentUser();
+  if (user?.role === "friend") return officeOf(user)!;
   const picked = (await cookies()).get(BOOK_COOKIE)?.value;
   if (picked === "pretend") return "pretend";
   if (picked === "real" && (await getRealBook())) return "real";
+  if (isOffice(picked) && user?.role === "owner" && (await sharedOffice(picked))) return picked;
   return defaultBook();
 });
+
+export type OfficeInfo = { slug: string; name: string; status: string; note: string | null; share: boolean };
+
+/** A friend's office, by its book name; null if there's no such office. */
+export const getOffice = cache(async (book: Book): Promise<OfficeInfo | null> => {
+  if (!isOffice(book)) return null;
+  const rows = await home()`
+    SELECT o.slug, coalesce(u.name, o.name) AS name, o.status, o.note, coalesce(u.share_overview, false) AS share
+    FROM public.users u LEFT JOIN public.offices o ON o.slug = u.office
+    WHERE u.office = ${book.slice("office_".length)}`.catch(() => []);
+  if (!rows.length) return null;
+  const r = rows[0];
+  return { slug: book.slice("office_".length), name: r.name, status: r.status ?? "setup", note: r.note, share: !!r.share };
+});
+
+const sharedOffice = async (book: Book) => !!(await getOffice(book))?.share;
 
 /**
  * What to call a book on screen: Live (orders on Kalshi, numbers from the Kalshi account)
  * or Training (pretend money against real prices, for learning).
  */
-export function bookLabel(book: Book, real: RealBook | null): { name: string; badge: string; title: string } {
+export function bookLabel(book: Book, real: RealBook | null, office?: OfficeInfo | null): { name: string; badge: string; title: string } {
+  if (isOffice(book)) {
+    return { name: "Live", badge: `💵 ${office?.name ?? "Friend"}'s office`, title: "Real orders in their own Kalshi account" };
+  }
   if (book === "pretend") {
     return { name: "Training", badge: "🧪 Training", title: "Pretend money against real Kalshi prices: training data" };
   }

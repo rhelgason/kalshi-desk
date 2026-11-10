@@ -253,7 +253,11 @@ def is_postgres(url: str) -> bool:
 class _Postgres:
     """Thin adapter so Ledger can speak SQLite-flavored SQL to Postgres."""
 
-    def __init__(self, url: str, schema: Optional[str] = None):
+    # One connection per database URL for ledgers made with shared=True: the friends' offices (desk/offices.py)
+    # run one after another in one process, and Supabase's pooler only takes 15 clients in all
+    _shared: dict[str, Any] = {}
+
+    def __init__(self, url: str, schema: Optional[str] = None, shared: bool = False):
         import psycopg
         from psycopg.rows import dict_row
 
@@ -261,7 +265,11 @@ class _Postgres:
         self._url = url
         self._dict_row = dict_row
         self.schema = schema
-        self._connect()
+        self.shared = shared
+        if shared and url in self._shared and not self._shared[url].closed:
+            self.conn = self._shared[url]
+        else:
+            self._connect()
         if schema and schema != "public":
             self.conn.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
 
@@ -269,6 +277,8 @@ class _Postgres:
         # prepare_threshold=None: Supabase's pooler doesn't support prepared statements
         self.conn = self._psycopg.connect(self._url, autocommit=True, row_factory=self._dict_row,
                                           prepare_threshold=None)
+        if self.shared:
+            self._shared[self._url] = self.conn
 
     @staticmethod
     def translate(sql: str) -> str:
@@ -282,6 +292,8 @@ class _Postgres:
 
     def execute(self, sql: str, params: tuple = ()):
         sql = self.translate(qualify(sql, self.schema))
+        if self.shared:  # another office may have reconnected it
+            self.conn = self._shared.get(self._url, self.conn)
         for attempt in range(2):
             try:
                 return self.conn.execute(sql, params)
@@ -300,11 +312,12 @@ class _Postgres:
         pass  # autocommit
 
     def close(self) -> None:
-        self.conn.close()
+        if not self.shared:
+            self.conn.close()
 
 
 class Ledger:
-    def __init__(self, path: str | Path = ":memory:", schema: Optional[str] = None):
+    def __init__(self, path: str | Path = ":memory:", schema: Optional[str] = None, shared: bool = False):
         """`schema` keeps a book's tables apart on Postgres (the real-money book uses "real");
         on SQLite each book simply uses its own file."""
         self.url = str(path)
@@ -312,7 +325,7 @@ class Ledger:
             raise ValueError(f"bad schema name {schema!r}")
         self.schema = schema if is_postgres(self.url) and schema != "public" else None
         if is_postgres(self.url):
-            self.db = _Postgres(self.url, self.schema)
+            self.db = _Postgres(self.url, self.schema, shared)
         else:
             if self.url != ":memory:":
                 Path(self.url).parent.mkdir(parents=True, exist_ok=True)

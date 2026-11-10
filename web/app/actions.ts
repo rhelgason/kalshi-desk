@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { login, logout, requireAdmin } from "@/lib/admin";
 import { cookies } from "next/headers";
 import { BOOK_COOKIE, viewedBook, type Book } from "@/lib/book";
-import { bookTag, db, getLive, getPolicy } from "@/lib/db";
+import { bookTag, db, getLive, getPolicy, isOffice } from "@/lib/db";
 import { LEVELS, levelTitle } from "@/lib/hr";
 import type { Policy } from "@/lib/types";
 
@@ -14,6 +14,14 @@ import type { Policy } from "@/lib/types";
 // Each acts on the book being viewed (Real or Pretend tab); the kill switch is always the real book's.
 
 const now = () => new Date().toISOString();
+
+/** The book the manager is changing: never a friend's office (they run on the owner's real-book playbook). */
+async function managedBook(): Promise<Book> {
+  await requireAdmin();
+  const book = await viewedBook();
+  if (isOffice(book)) throw new Error("A friend's office follows your real-money book: change that one instead");
+  return book;
+}
 
 async function event(book: Book, kind: string, strategy: string | null, detail: Record<string, unknown>) {
   await db(book)`INSERT INTO events (ts, strategy, kind, detail)
@@ -41,8 +49,7 @@ export async function logoutAction() {
 }
 
 export async function suspendEmployee(key: string, days: number | null, reason: string) {
-  await requireAdmin();
-  const book = await viewedBook();
+  const book = await managedBook();
   await ensureEmployee(book, key);
   const until = days ? new Date(Date.now() + days * 86_400_000).toISOString() : "9999-12-31T00:00:00+00:00";
   await db(book)`UPDATE employees SET status = 'suspended', suspended_until = ${until}, updated_at = ${now()} WHERE key = ${key}`;
@@ -51,16 +58,14 @@ export async function suspendEmployee(key: string, days: number | null, reason: 
 }
 
 export async function reinstateEmployee(key: string) {
-  await requireAdmin();
-  const book = await viewedBook();
+  const book = await managedBook();
   await db(book)`UPDATE employees SET status = 'active', suspended_until = NULL, strikes = 0, updated_at = ${now()} WHERE key = ${key}`;
   await event(book, "hr", key, { action: "reinstated" });
   done(["/", `/employee/${key}`]);
 }
 
 export async function fireEmployee(key: string, reason: string) {
-  await requireAdmin();
-  const book = await viewedBook();
+  const book = await managedBook();
   await ensureEmployee(book, key);
   await db(book)`UPDATE employees SET status = 'fired', suspended_until = NULL, updated_at = ${now()} WHERE key = ${key}`;
   await event(book, "hr", key, { action: "fired", why: reason || "manager's call" });
@@ -68,8 +73,7 @@ export async function fireEmployee(key: string, reason: string) {
 }
 
 export async function rehireEmployee(key: string) {
-  await requireAdmin();
-  const book = await viewedBook();
+  const book = await managedBook();
   await db(book)`UPDATE employees SET status = 'active', suspended_until = NULL, strikes = 0, level = 0,
     updated_at = ${now()} WHERE key = ${key}`;
   await event(book, "hr", key, { action: "rehired", to: "Intern" });
@@ -77,8 +81,7 @@ export async function rehireEmployee(key: string) {
 }
 
 export async function setLevel(key: string, level: number) {
-  await requireAdmin();
-  const book = await viewedBook();
+  const book = await managedBook();
   const clamped = Math.max(0, Math.min(level, LEVELS.length - 1));
   const rows = await db(book)`SELECT level FROM employees WHERE key = ${key}`;
   const before = rows[0]?.level ?? 1;
@@ -88,16 +91,14 @@ export async function setLevel(key: string, level: number) {
 }
 
 export async function setAutotune(key: string, on: boolean) {
-  await requireAdmin();
-  const book = await viewedBook();
+  const book = await managedBook();
   await db(book)`UPDATE employees SET autotune = ${on ? 1 : 0}, updated_at = ${now()} WHERE key = ${key}`;
   await event(book, "admin", key, { action: on ? "autotune on" : "autotune off" });
   done([`/employee/${key}`]);
 }
 
 export async function saveSettings(key: string, changes: Record<string, unknown>, reset: boolean) {
-  await requireAdmin();
-  const book = await viewedBook();
+  const book = await managedBook();
   const rows = await db(book)`SELECT params FROM employees WHERE key = ${key}`;
   const current = rows.length ? JSON.parse(rows[0].params || "{}") : {};
   const next = reset ? {} : { ...current, ...changes };
@@ -107,15 +108,13 @@ export async function saveSettings(key: string, changes: Record<string, unknown>
 }
 
 export async function setNote(key: string, note: string) {
-  await requireAdmin();
-  const book = await viewedBook();
+  const book = await managedBook();
   await db(book)`UPDATE employees SET note = ${note.slice(0, 500) || null}, updated_at = ${now()} WHERE key = ${key}`;
   done([`/employee/${key}`]);
 }
 
 export async function grantBonus(key: string, amount: number, reason: string) {
-  await requireAdmin();
-  const book = await viewedBook();
+  const book = await managedBook();
   const policy = await getPolicy(book);
   if (!Number.isFinite(amount) || amount === 0) return { error: "Enter an amount" };
   if (amount > policy.reserve) return { error: `The reserve only has $${policy.reserve.toFixed(2)}` };
@@ -155,8 +154,7 @@ async function writePolicy(book: Book, policy: Policy) {
 }
 
 export async function updatePolicy(changes: Partial<Omit<Policy, "pool">> & { autotune?: Partial<Policy["autotune"]>; pool?: Partial<Policy["pool"]> }) {
-  await requireAdmin();
-  const book = await viewedBook();
+  const book = await managedBook();
   const policy = await getPolicy(book);
   const { autotune, pool, ...rest } = changes;
   Object.assign(policy, rest);
@@ -168,8 +166,7 @@ export async function updatePolicy(changes: Partial<Omit<Policy, "pool">> & { au
 }
 
 export async function requestRetune() {
-  await requireAdmin();
-  const book = await viewedBook();
+  const book = await managedBook();
   const policy = await getPolicy(book);
   policy.autotune.requested_at = now();
   await writePolicy(book, policy);
@@ -178,8 +175,7 @@ export async function requestRetune() {
 }
 
 export async function startNewSeason(reserve: number) {
-  await requireAdmin();
-  const book = await viewedBook();
+  const book = await managedBook();
   const policy = await getPolicy(book);
   policy.season += 1;
   policy.last_review = now();

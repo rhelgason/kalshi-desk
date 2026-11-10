@@ -3,7 +3,7 @@ import RealMoney from "@/components/RealMoney";
 import Setup from "@/components/Setup";
 import { isAdmin } from "@/lib/admin";
 import { viewedBook } from "@/lib/book";
-import { getCoverage, getJobs, getKillSwitch, getLive, getPolicy } from "@/lib/db";
+import { getCoverage, getJobs, getKillSwitch, getLive, getPolicy, isOffice } from "@/lib/db";
 import { ago } from "@/lib/format";
 import { LEVELS, awardName, poolShare } from "@/lib/hr";
 
@@ -13,15 +13,18 @@ export default async function Handbook() {
   let data;
   try {
     const book = await viewedBook();
-    // The rules are the viewed book's; the real-money panel is always about the real book
+    // The rules are the viewed book's; the real-money panel is the real book's (a friend's: their office's)
+    const money = isOffice(book) ? book : "real";
     const [policy, jobs, coverage, admin, live, killSwitch] = await Promise.all([
-      getPolicy(book), getJobs(), getCoverage(), isAdmin(), getLive("real").catch(() => null), getKillSwitch("real").catch(() => ({ halted: false })),
+      getPolicy(book), getJobs(), getCoverage(), isAdmin(), getLive(money).catch(() => null), getKillSwitch(money).catch(() => ({ halted: false })),
     ]);
-    data = { policy, jobs, coverage, admin, trading: live?.trading ?? { mode: "paper" as const }, killSwitch };
+    // A friend's office follows the owner's real-book rules: nobody changes them here
+    data = { policy, jobs, coverage, admin: admin && !isOffice(book), office: isOffice(book),
+             trading: live?.trading ?? { mode: "paper" as const }, killSwitch };
   } catch (e) {
     return <Setup error={String(e)} />;
   }
-  const { policy, jobs, coverage, admin, trading, killSwitch } = data;
+  const { policy, jobs, coverage, admin, office, trading, killSwitch } = data;
   const at = policy.autotune;
   return (
     <div className="stack">
@@ -31,7 +34,7 @@ export default async function Handbook() {
           How the desk runs itself. Every {policy.review_days} days a performance review crowns the{" "}
           {awardName(policy.review_days)} (most profit per dollar bet, not most dollars: a busy coin shouldn't win just for
           betting more), promotes strong performers to bigger bets, and benches the ones who keep
-          losing. {admin ? "You can change any rule below." : "Only the manager can change these rules."}
+          losing. {admin ? "You can change any rule below." : office ? "Your office follows the same rules as the manager's own." : "Only the manager can change these rules."}
         </p>
         <div className="table-wrap">
           <table>
@@ -56,7 +59,7 @@ export default async function Handbook() {
         <PolicyForm policy={policy} admin={admin} />
       </section>
 
-      <section className="card">
+      {!office && <section className="card">
         <h2>Background jobs</h2>
         <p className="sub">
           Every 6 hours GitHub Actions syncs new market history, backfills Kalshi&apos;s archive, and retunes employees
@@ -92,7 +95,7 @@ export default async function Handbook() {
             </table>
           </div>
         ) : <div className="empty">Nothing stored yet; the first background job fills this in.</div>}
-      </section>
+      </section>}
     </div>
   );
 }

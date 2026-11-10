@@ -19,7 +19,7 @@ import PlayerCard from "@/components/PlayerCard";
 import { isAdmin } from "@/lib/admin";
 import { advise, betsPerDay, light } from "@/lib/advice";
 import { HOW_THEY_BET, quip } from "@/lib/voice";
-import { getAnalysis, getHistory, getLive, getNews, getPolicy, getRecentFills, getRoster, getSeasonStart, getSettlementStats, getTuningRuns, getCoinStats, getBets, getMoneyMoves, withRoster } from "@/lib/db";
+import { getAnalysis, getHistory, getLive, getNews, getPolicy, getRecentFills, getRoster, getSeasonStart, getSettlementStats, getTuningRuns, getCoinStats, getBets, getMoneyMoves, isOffice, withRoster } from "@/lib/db";
 import { viewedBook } from "@/lib/book";
 import { cents, dollars, money, pct, tone } from "@/lib/format";
 import { parseRange, poolKeys, profitSeries } from "@/lib/portfolio";
@@ -50,7 +50,7 @@ export default async function EmployeePage({ params, searchParams }: {
       movable = !!real && !real.employees.some((x) => x.key === key) && !realPolicy.hired?.includes(key);
     }
     data = { live, history, seasonStart, fills, accuracy: analysis.accuracy, evidence: analysis.evidence, realism: analysis.realism,
-             roster, news, tuning, policy, admin, stats, coins: coins.filter((r) => r.strategy === key), bets, movable, marks };
+             roster, news, tuning, policy, admin: admin && !isOffice(book), stats, coins: coins.filter((r) => r.strategy === key), bets, movable, marks };
   } catch (e) {
     return <Setup error={String(e)} />;
   }

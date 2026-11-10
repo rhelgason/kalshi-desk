@@ -12,12 +12,14 @@ import TeamList from "@/components/TeamList";
 import LatestBets from "@/components/LatestBets";
 import Records from "@/components/Records";
 import ResumeBanner from "@/components/ResumeBanner";
+import { OfficePause } from "@/components/OfficeAdmin";
 import { isAdmin } from "@/lib/admin";
 import { advise, betsPerDay, light } from "@/lib/advice";
-import { bookLabel, getRealBook, viewedBook } from "@/lib/book";
+import { bookLabel, getOffice, getRealBook, viewedBook } from "@/lib/book";
 import {
-  getAnalysis, getBets, getBonusPot, getHistory, getKillSwitch, getLive, getMoneyMoves, getNews, getPolicy, getRecentFills, getRoster, getSettlements, getSettlementsSince, withRoster,
+  getAnalysis, getBets, getBonusPot, getHistory, getKillSwitch, getLive, getMoneyMoves, getNews, getPolicy, getRecentFills, getRoster, getSettlements, getSettlementsSince, isLive, isOffice, withRoster,
 } from "@/lib/db";
+import { currentUser, officeOf } from "@/lib/session";
 import { dollars } from "@/lib/format";
 import { headline, only, parseRange, poolKeys, profitSeries, RANGES, settledSeries } from "@/lib/portfolio";
 import { poolShare } from "@/lib/hr";
@@ -35,22 +37,27 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
   const days = RANGES[range].days;
   const sinceIso = days == null ? null : new Date(Date.now() - days * 86_400_000 - 60_000).toISOString();
   let data;
+  const book = await viewedBook();
   try {
-    const [book, realBook] = await Promise.all([viewedBook(), getRealBook()]);
+    const realBook = await getRealBook();
     const policy = await getPolicy(book);
     const [live, fills, roster, news, analysis, history, season, admin, settled, pot, bets, kill, marks] = await Promise.all([
       getLive(book), getRecentFills(book, policy.season, 25), getRoster(book), getNews(book, 40),
       getAnalysis(book), getHistory(book, policy.season, range),
       range === "season" ? null : getHistory(book, policy.season, "season"), isAdmin(), sinceIso ? getSettlementsSince(book, policy.season, sinceIso) : getSettlements(book, policy.season),
-      getBonusPot(book), getBets(book, policy.season), realBook ? getKillSwitch("real") : null, getMoneyMoves(book, policy.season),
+      getBonusPot(book), getBets(book, policy.season),
+      // A friend's office has its own pause; the owner's real book's pause shows on both of the owner's views
+      isOffice(book) ? getKillSwitch(book) : realBook ? getKillSwitch("real") : null, getMoneyMoves(book, policy.season),
     ]);
-    data = { book, realBook, live, fills, roster, news, policy, analysis, history, season: season ?? history, admin, settled, pot, bets, kill, marks };
+    data = { realBook, live, fills, roster, news, policy, analysis, history, season: season ?? history, settled, pot, bets, kill, marks,
+             admin: admin && !isOffice(book), office: await getOffice(book), user: await currentUser() };
   } catch (e) {
+    if (isOffice(book)) return <OfficeSoon />;
     return <Setup error={String(e)} />;
   }
-  const { book, realBook, live, fills, roster, news, policy, analysis, history, season, admin, settled, pot, bets, kill, marks } = data;
-  const label = bookLabel(book, realBook);
-  if (!live) return <Setup error="The bot hasn't published a status yet. Is it running?" />;
+  const { realBook, live, fills, roster, news, policy, analysis, history, season, admin, settled, pot, bets, kill, marks, office, user } = data;
+  const label = bookLabel(book, realBook, office);
+  if (!live) return isOffice(book) ? <OfficeSoon /> : <Setup error="The bot hasn't published a status yet. Is it running?" />;
 
   const employees = withRoster(live.employees, roster);
   const tz = live.pool?.settings?.timezone || "America/Vancouver";
@@ -60,7 +67,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
   const outside = employees.filter((e) => !members.has(e.key) && e.control).map((e) => e.name);
   const pool = live.pool;
   // Live: the headline is the Kalshi account itself (the widget shows the same number, lib/portfolio headline)
-  const { worth, putIn, kalshi, books } = headline(live, book === "real", season.since);
+  const { worth, putIn, kalshi, books } = headline(live, isLive(book), season.since);
   const seasonStart = season.since;
   const now = Math.max(Date.parse(live.updated_at), Date.now() - 60_000);
 
@@ -117,7 +124,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
     <div className="stack">
       <AutoRefresh seconds={60} />
       {/* A paused real book shows on both views (not a long, deliberate pause), with Resume right here */}
-      {kill?.halted && !kill.long && <ResumeBanner kill={kill} admin={admin} />}
+      {kill?.halted && !kill.long && !isOffice(book) && <ResumeBanner kill={kill} admin={admin} />}
 
       <MoneyHero
         top={
@@ -128,7 +135,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
         }
         under={(
           <>
-            {books && <KalshiCheck books={books} env={realBook?.env ?? "demo"} equity={pool?.equity ?? null} halted={!!kill?.halted} />}
+            {books && <KalshiCheck books={books} env={isOffice(book) ? live.env ?? "prod" : realBook?.env ?? "demo"} equity={pool?.equity ?? null} halted={!!kill?.halted} />}
+            {isOffice(book) && <OfficePause halted={!!kill?.halted} mine={officeOf(user) === book} />}
             <div className="muted">
               {team.length} employees share one pool. An Associate&apos;s bet is {poolShare(1, pool?.settings.bet_pct)} of it
               {pool ? <> ({dollars(pool.bet)} right now)</> : null}.
@@ -144,7 +152,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
         }))}
         outside={outside}
         settled={mine} tz={tz}
-        halted={book === "real" && live.trading?.halted ? live.trading.reason || "Stopped by the manager" : null}
+        halted={isLive(book) && live.trading?.halted ? live.trading.reason || "Stopped by the manager" : null}
         positions={live.positions.filter((p) => members.has(p.strategy))}
         view={{ pool: pool ?? null, worth, putIn, profit, since }}
         footer={best && worst && (
@@ -162,7 +170,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
 
       <Records bets={bets.filter((b) => members.has(b.strategy))} employees={employees} tz={tz} />
 
-      <section className="card">
+      {/* Friends are hands-off: the owner's playbook runs their office, so nothing here needs them */}
+      {!isOffice(book) && <section className="card">
         <h2>Needs your attention</h2>
         {todo.length ? (
           <ul className="todo">
@@ -183,11 +192,11 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
         ) : (
           <p className="all-good">✅ Nothing needs you. Go outside.</p>
         )}
-      </section>
+      </section>}
 
       <section className="card">
         <h2>Your team</h2>
-        <Spotlight award={award} employees={employees} policy={policy} pot={pot} startsAt={book === "real" ? 500 : 0} pool={live.pool?.equity ?? 0} />
+        <Spotlight award={award} employees={employees} policy={policy} pot={pot} startsAt={isLive(book) ? 500 : 0} pool={live.pool?.equity ?? 0} />
         <TeamList rows={rows}
           star={award?.strategy ?? undefined} starTitle={award?.detail.title} />
       </section>
@@ -200,6 +209,21 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
       <div className="row-btns" style={{ justifyContent: "center" }}>
         <StatusPill updatedAt={live.updated_at} />
       </div>
+    </div>
+  );
+}
+
+/** A friend's office before its first run: the server opens it within a couple of minutes of joining. */
+function OfficeSoon() {
+  return (
+    <div className="card narrow stack">
+      <AutoRefresh seconds={30} />
+      <h2>Your office is opening 🏗️</h2>
+      <p>The staff are moving in: it takes a couple of minutes after you connect Kalshi. This page refreshes itself.</p>
+      <p className="sub">
+        Haven&apos;t connected your Kalshi key yet? Use the link from your invite again. Put money in on Kalshi whenever
+        you like: the office notices within about 10 minutes.
+      </p>
     </div>
   );
 }

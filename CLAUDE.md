@@ -105,6 +105,14 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
   money_in_or_out), the bot shares it across the pool by what each member holds, as transfers with reason
   deposit/withdrawal (capital, not profit; the pool's day and high move with it), and logs a `money` event. The
   charts mark it (web MoneyMarks). Shards rebalance when one falls under 3/4 of its share (was half).
+- **11-09: friends' offices** (desk/offices.py, deploy/SERVER.md): up to ~3 friends, each with their own Kalshi account
+  and key, run on the server (`kalshi-offices` service, every 2 min, 30 s after the owner) in schemas `office_<name>`.
+  Same staff and rules as the real book (playbook synced every 10 min: hires, firings, settings, bet size); own pool,
+  levels, reviews, awards, pause button; no phone pings. They decide on the owner's clock (Desk.lag) and join a family
+  bid instead of topping it (Desk.family), so they never get ahead of the owner. Website: passkey logins, 400-day
+  sessions (lib/session.ts), invites from /offices (manager), sign-up at /join/<token>; a friend sees only their office.
+  Kalshi keys are locked to the server's key (/etc/kalshi-desk-offices.pem; public half in web/lib/vault.ts).
+  Tables: deploy/friends.sql. Manager actions refuse office books (app/actions.ts managedBook).
 - **Fast Sadie trial** on the server (desk/fast.py, from 2026-10-26 07:12 UTC): always-on bid vs a 2-minute cron twin,
   pretend money from $87.63 each. `python -m desk fast-report`. So far it fills more, not better per $1.
 

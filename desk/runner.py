@@ -138,6 +138,12 @@ class Desk:
         self._last_status: Optional[datetime] = None
         self._last_accuracy: Optional[datetime] = None
         self.started_at = _now()
+        # Friends' offices (desk/offices.py) share Kalshi's order books with the owner's. `lag`: strategies decide
+        # on the clock of the owner's last run, so a friend never bids on a market before the owner has had the
+        # chance (the owner then never finds a friend's bid to outbid). `family`: the family's best resting bid by
+        # (ticker, side); a bid that would top it by a tick joins it instead. Both off for the owner's own books.
+        self.lag = timedelta(0)
+        self.family: dict[tuple[str, str], float] = {}
         self.tick_count = 0
         # This run's summary (desk/journal.py), saved to the `runs` table at the end of each tick
         self.journal = RunJournal()
@@ -414,7 +420,8 @@ class Desk:
             for o in await _done(self.broker.cancel(self.pool.members)):  # bids waiting come down too
                 self._bid_ended(o, "bid pulled: daily stop")
         halted = bool(self.guard and self.guard.halted)
-        views = {scope: self.scoped(snap, scope) for scope in ("coins", "other")}
+        decide = replace(snap, now=snap.now - self.lag) if self.lag else snap
+        views = {scope: self.scoped(decide, scope) for scope in ("coins", "other")}
         # Higher levels go first, so they get first claim on a window's share of the pool
         for strat in sorted(self.strategies, key=lambda s: -self.multipliers.get(s.key, 1.0)):
             if strat.key in self.inactive:
@@ -524,12 +531,23 @@ class Desk:
         if reprice and len(intent.legs) == 1:
             t = intent.legs[0].ticker
             bid = reprice(intent, snap.markets[t], live[t])
-            return bid, "" if bid else "no room for a bid under the live ask"
+            return (self.join_family(bid, live[t]) if bid else None), "" if bid else "no room for a bid under the live ask"
         for leg in intent.legs:
             ask = live[leg.ticker].ask(leg.side)
             if ask and leg.limit_price >= ask - 1e-9:
                 return None, "bid would cross the live ask"
         return intent, ""
+
+    def join_family(self, bid: TradeIntent, live: Market) -> TradeIntent:
+        """A friend's office (see `family`): when the best bid on the book is the family's own, bid that price
+        rather than a tick over it. The earlier bid keeps its place in the queue, and nobody pays a tick more."""
+        leg = bid.legs[0]
+        best = self.family.get((leg.ticker, leg.side.value))
+        if best is None or leg.limit_price <= best + 1e-9 or abs((live.bid(leg.side) or 0) - best) > 1e-9:
+            return bid
+        count = math.floor(leg.count * leg.limit_price / best * 100) / 100
+        return replace(bid, legs=[replace(leg, limit_price=best, count=count)],
+                       reason=f"joins the family's bid at {best:.3f}: {bid.reason}")
 
     def sized(self, intent: TradeIntent) -> Optional[TradeIntent]:
         return self.size(intent)[0]

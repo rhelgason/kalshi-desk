@@ -2,9 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { savePrefs } from "@/app/account";
 import { THEMES, THEME_COOKIE, type ThemeKey } from "@/lib/theme";
 
-/** The look picker in the ☰ menu: switches at once, remembered on this device for a year. */
+/** The look picker in the ☰ menu: switches at once, remembered on this device for a year (and with their login). */
 export default function ThemePicker({ current }: { current: ThemeKey }) {
   const [picked, setPicked] = useState(current);
   const router = useRouter();
@@ -13,6 +14,7 @@ export default function ThemePicker({ current }: { current: ThemeKey }) {
     document.documentElement.dataset.theme = k;
     document.cookie = `${THEME_COOKIE}=${k}; path=/; max-age=${365 * 86_400}; samesite=lax`;
     document.querySelector('meta[name="theme-color"]')?.setAttribute("content", THEMES[k].color);
+    savePrefs({ theme: k }).catch(() => null); // signed in: their other devices get it too
     router.refresh(); // server-drawn bits (e.g. the taskbar clock's label) follow
   };
   return (
