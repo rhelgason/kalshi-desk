@@ -23,7 +23,7 @@ import math
 import time
 import uuid
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from desk.kalshi.client import KalshiAPIError, KalshiClient
@@ -203,7 +203,11 @@ class LiveBroker(PaperBroker):
         try:
             order = await self.client.get_order(o.order_id, o.ticker)
         except KalshiAPIError as e:
-            logger.warning("Couldn't check bid %s on %s: %s", o.order_id, o.ticker, e)
+            # A bid posted seconds ago can be "not found" for a moment (11-09: Hazel's hourly bids off shard 0,
+            # every run); the next look finds it
+            fresh = datetime.now(timezone.utc) - datetime.fromisoformat(o.placed_at) < timedelta(seconds=60)
+            if not (e.status == 404 and fresh):
+                logger.warning("Couldn't check bid %s on %s: %s", o.order_id, o.ticker, e)
             return [], "resting"
         out = []
         side = Side(o.side)

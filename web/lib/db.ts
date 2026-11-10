@@ -5,7 +5,7 @@ import { coinOfTicker } from "./coin";
 import type { Bet } from "./records";
 import { binFor, RANGES, type History, type RangeKey, type Settlement } from "./portfolio";
 import type {
-  Accuracy, BacktestSummary, Evidence, Fill, LiveStatus, NewsItem, Point, Policy, Realism, RosterRow, TuningRun,
+  Accuracy, BacktestSummary, Evidence, Fill, LiveStatus, MoneyMove, NewsItem, Point, Policy, Realism, RosterRow, TuningRun,
 } from "./types";
 
 // Use Supabase's SESSION pooler (port 5432) for the dashboard. Through the
@@ -132,7 +132,7 @@ async function getRosterQuery(book: Book): Promise<Record<string, RosterRow>> {
 async function getNewsQuery(book: Book, limit = 30, strategy?: string): Promise<NewsItem[]> {
   const rows = await db(book)`
     SELECT id, ts, strategy, kind, detail FROM events
-    WHERE kind IN ('hr', 'award', 'tune', 'review', 'season', 'admin')
+    WHERE kind IN ('hr', 'award', 'tune', 'review', 'season', 'admin', 'money')
     ${strategy ? db(book)`AND strategy = ${strategy}` : db(book)``}
     ORDER BY id DESC LIMIT ${limit}`;
   return rows.map((r) => ({ ...r, detail: safeJson(r.detail) })) as NewsItem[];
@@ -297,6 +297,14 @@ async function getBetsQuery(book: Book, season: number): Promise<Bet[]> {
   }));
 }
 
+/** Deposits and withdrawals this season (one per move: the bot writes each employee's share at the same moment). */
+async function getMoneyMovesQuery(book: Book, season: number): Promise<MoneyMove[]> {
+  const rows = await db(book)`
+    SELECT ts, sum(amount) AS amount FROM transfers
+    WHERE season = ${season} AND reason IN ('deposit', 'withdrawal') GROUP BY ts ORDER BY ts`;
+  return rows.map((r) => ({ t: Date.parse(r.ts), amount: Number(r.amount) }));
+}
+
 export type Activity = {
   lastFill: { ts: string; side: string; count: number; price: number } | null;
   betsLastHour: number;
@@ -436,6 +444,7 @@ export const getPoolRecord = sturdy("getPoolRecord", getPoolRecordQuery);
 export const getCoinStats = sturdy("getCoinStats", getCoinStatsQuery);
 export const getSettlements = sturdy("getSettlements", getSettlementsQuery);
 export const getBets = sturdy("getBets", getBetsQuery);
+export const getMoneyMoves = sturdy("getMoneyMoves", getMoneyMovesQuery);
 export const getSettlementsSince = sturdy("getSettlementsSince", getSettlementsSinceQuery);
 
 /** Each employee's bets settled today (in the pool's timezone): the widget's "today" story. */

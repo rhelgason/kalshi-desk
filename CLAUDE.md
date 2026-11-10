@@ -100,6 +100,11 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
 - **11-09: the books repair themselves from Kalshi.** On any difference, LiveBroker.repair reads Kalshi's fills list
   (every shard), books fills on our finished bids that we missed (matched by order id, so never twice), settles
   them and looks again; only timing differences are left to wait out. Claude may also fix real-book records directly.
+- **11-09: money in or out mid-season needs nothing from anyone.** Deposit or withdraw on Kalshi; once Kalshi's cash
+  stays off from ours by the same amount for 5 checks (~10 min) with every position agreeing (runner.CASH_CHECKS,
+  money_in_or_out), the bot shares it across the pool by what each member holds, as transfers with reason
+  deposit/withdrawal (capital, not profit; the pool's day and high move with it), and logs a `money` event. The
+  charts mark it (web MoneyMarks). Shards rebalance when one falls under 3/4 of its share (was half).
 - **Fast Sadie trial** on the server (desk/fast.py, from 2026-10-26 07:12 UTC): always-on bid vs a 2-minute cron twin,
   pretend money from $87.63 each. `python -m desk fast-report`. So far it fills more, not better per $1.
 

@@ -2,7 +2,7 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import { betCount, winCount, type PortfolioPoint, type Settlement } from "@/lib/portfolio";
-import type { Point, PoolSummary, Position } from "@/lib/types";
+import type { MoneyMove, Point, PoolSummary, Position } from "@/lib/types";
 import { dollars, pct, shortName } from "@/lib/format";
 import Avatar from "./Avatar";
 import PoolGauges, { type PoolRecord } from "./PoolGauges";
@@ -48,6 +48,8 @@ const names = (ms: Member[]) =>
 export default function MoneyHero(props: {
   top: ReactNode; under?: ReactNode; tabs: ReactNode; footer?: ReactNode;
   points: PortfolioPoint[]; period: string; showChange: boolean;
+  /** deposits and withdrawals this season, marked on the chart */
+  marks?: MoneyMove[];
   /** the chart's range in a few words for the cards ("today", "this week", "lifetime") */
   scope: string;
   team: Member[]; outside: string[];
@@ -149,7 +151,7 @@ export default function MoneyHero(props: {
       )}
 
       {props.tabs}
-      <PortfolioChart points={points} alt={alt} />
+      <PortfolioChart points={points} alt={alt} marks={props.marks} />
       {props.showChange && first && (
         <p className="range-change">
           {props.period}: <strong className={actual >= 0 ? "up" : "down"}>{actual >= 0 ? "▲ up" : "▼ down"} {dollars(Math.abs(actual))}</strong>

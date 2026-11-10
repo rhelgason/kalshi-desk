@@ -19,7 +19,7 @@ import PlayerCard from "@/components/PlayerCard";
 import { isAdmin } from "@/lib/admin";
 import { advise, betsPerDay, light } from "@/lib/advice";
 import { HOW_THEY_BET, quip } from "@/lib/voice";
-import { getAnalysis, getHistory, getLive, getNews, getPolicy, getRecentFills, getRoster, getSeasonStart, getSettlementStats, getTuningRuns, getCoinStats, getBets, withRoster } from "@/lib/db";
+import { getAnalysis, getHistory, getLive, getNews, getPolicy, getRecentFills, getRoster, getSeasonStart, getSettlementStats, getTuningRuns, getCoinStats, getBets, getMoneyMoves, withRoster } from "@/lib/db";
 import { viewedBook } from "@/lib/book";
 import { cents, dollars, money, pct, tone } from "@/lib/format";
 import { parseRange, poolKeys, profitSeries } from "@/lib/portfolio";
@@ -37,11 +37,11 @@ export default async function EmployeePage({ params, searchParams }: {
   try {
     const book = await viewedBook();
     const policy = await getPolicy(book);
-    const [live, history, seasonStart, fills, analysis, roster, news, tuning, admin, stats, coins, bets] = await Promise.all([
+    const [live, history, seasonStart, fills, analysis, roster, news, tuning, admin, stats, coins, bets, marks] = await Promise.all([
       getLive(book), getHistory(book, policy.season, range), getSeasonStart(book, policy.season),
       getRecentFills(book, policy.season, 8, key), getAnalysis(book), getRoster(book), getNews(book, 20, key),
       getTuningRuns(key), isAdmin(), getSettlementStats(book, policy.season, key), getCoinStats(book, policy.season),
-      getBets(book, policy.season),
+      getBets(book, policy.season), getMoneyMoves(book, policy.season),
     ]);
     // On Training, can the manager move this employee to real money? (not when they're already there)
     let movable = false;
@@ -50,7 +50,7 @@ export default async function EmployeePage({ params, searchParams }: {
       movable = !!real && !real.employees.some((x) => x.key === key) && !realPolicy.hired?.includes(key);
     }
     data = { live, history, seasonStart, fills, accuracy: analysis.accuracy, evidence: analysis.evidence, realism: analysis.realism,
-             roster, news, tuning, policy, admin, stats, coins: coins.filter((r) => r.strategy === key), bets, movable };
+             roster, news, tuning, policy, admin, stats, coins: coins.filter((r) => r.strategy === key), bets, movable, marks };
   } catch (e) {
     return <Setup error={String(e)} />;
   }
@@ -115,7 +115,7 @@ export default async function EmployeePage({ params, searchParams }: {
       <section className="card">
         <h2>Profit over time</h2>
         <RangeTabs value={range} path={`/employee/${key}`} />
-        <CompareChart series={series} focus={key} given={Object.fromEntries(everyone.map((x) => [x.key, x.starting_cash ?? 1000]))}
+        <CompareChart series={series} marks={data.marks} focus={key} given={Object.fromEntries(everyone.map((x) => [x.key, x.starting_cash ?? 1000]))}
           members={poolKeys(data.live)} />
       </section>
 

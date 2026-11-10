@@ -30,6 +30,10 @@ function describe(n: NewsItem, name: React.ReactNode): { icon: string; text: Rea
   switch (n.kind) {
     case "award":
       return { icon: "🏆", text: <>{name} is <strong>{d.title}</strong> ({d.roi != null ? <>{perDollar(d.roi)} on {d.settled} bets, </> : null}{money(d.pnl)} this period){d.bonus ? <>, with a {money(d.bonus, false)} bonus</> : null}</> };
+    case "money":
+      return d.amount >= 0
+        ? { icon: "💵", text: <><strong>{money(d.amount, false)}</strong> was added to the pool. Everyone&apos;s bets grow with it (not counted as profit)</> }
+        : { icon: "🏧", text: <><strong>{money(-d.amount, false)}</strong> was taken out of the pool. Bets shrink with it (not counted as a loss)</> };
     case "review":
       return { icon: "📋", text: <>Performance review finished for {d.standings?.length ?? 0} employees</> };
     case "season":

@@ -16,7 +16,7 @@ import { isAdmin } from "@/lib/admin";
 import { advise, betsPerDay, light } from "@/lib/advice";
 import { bookLabel, getRealBook, viewedBook } from "@/lib/book";
 import {
-  getAnalysis, getBets, getBonusPot, getHistory, getKillSwitch, getLive, getNews, getPolicy, getRecentFills, getRoster, getSettlements, getSettlementsSince, withRoster,
+  getAnalysis, getBets, getBonusPot, getHistory, getKillSwitch, getLive, getMoneyMoves, getNews, getPolicy, getRecentFills, getRoster, getSettlements, getSettlementsSince, withRoster,
 } from "@/lib/db";
 import { dollars } from "@/lib/format";
 import { headline, only, parseRange, poolKeys, profitSeries, RANGES, settledSeries } from "@/lib/portfolio";
@@ -38,17 +38,17 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
   try {
     const [book, realBook] = await Promise.all([viewedBook(), getRealBook()]);
     const policy = await getPolicy(book);
-    const [live, fills, roster, news, analysis, history, season, admin, settled, pot, bets, kill] = await Promise.all([
+    const [live, fills, roster, news, analysis, history, season, admin, settled, pot, bets, kill, marks] = await Promise.all([
       getLive(book), getRecentFills(book, policy.season, 25), getRoster(book), getNews(book, 40),
       getAnalysis(book), getHistory(book, policy.season, range),
       range === "season" ? null : getHistory(book, policy.season, "season"), isAdmin(), sinceIso ? getSettlementsSince(book, policy.season, sinceIso) : getSettlements(book, policy.season),
-      getBonusPot(book), getBets(book, policy.season), realBook ? getKillSwitch("real") : null,
+      getBonusPot(book), getBets(book, policy.season), realBook ? getKillSwitch("real") : null, getMoneyMoves(book, policy.season),
     ]);
-    data = { book, realBook, live, fills, roster, news, policy, analysis, history, season: season ?? history, admin, settled, pot, bets, kill };
+    data = { book, realBook, live, fills, roster, news, policy, analysis, history, season: season ?? history, admin, settled, pot, bets, kill, marks };
   } catch (e) {
     return <Setup error={String(e)} />;
   }
-  const { book, realBook, live, fills, roster, news, policy, analysis, history, season, admin, settled, pot, bets, kill } = data;
+  const { book, realBook, live, fills, roster, news, policy, analysis, history, season, admin, settled, pot, bets, kill, marks } = data;
   const label = bookLabel(book, realBook);
   if (!live) return <Setup error="The bot hasn't published a status yet. Is it running?" />;
 
@@ -136,7 +136,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
           </>
         )}
         tabs={<RangeTabs value={range} path="/" />}
-        points={points} period={RANGE_WORDS[range]} scope={RANGE_SCOPE[range]} showChange={range !== "season"}
+        points={points} marks={marks} period={RANGE_WORDS[range]} scope={RANGE_SCOPE[range]} showChange={range !== "season"}
         team={rows.filter(({ e }) => members.has(e.key)).map(({ e, light: l }) => ({
           key: e.key, name: e.name, emoji: e.emoji, light: l.key, bets: analysis.evidence[e.key]?.bets ?? 0,
           profit: [...(rangeProfits[e.key] ?? []), { t: end, v: settledTotals[e.key] ?? 0 }],

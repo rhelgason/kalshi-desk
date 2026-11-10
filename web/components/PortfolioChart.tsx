@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import type { PortfolioPoint } from "@/lib/portfolio";
+import type { MoneyMove } from "@/lib/types";
+import MoneyMarks from "./MoneyMarks";
 import { axisMoney, dollars } from "@/lib/format";
 import { niceTicks, useWidth } from "./useWidth";
 import { lerpAt } from "@/lib/interp";
@@ -20,8 +22,10 @@ const fmtWhen = (t: number, spanDays: number) =>
  * the chart so a finger never covers it, and says how much has changed since
  * that moment (the line after it fades back). "Now ✕" returns to the present.
  */
-export default function PortfolioChart({ points, alt, height = 220, profitOnly }: {
+export default function PortfolioChart({ points, alt, height = 220, profitOnly, marks }: {
   points: PortfolioPoint[];
+  /** money put in or taken out mid-season, marked where it happened */
+  marks?: MoneyMove[];
   /** a running profit line (one coin's settled bets) instead of the pool's value: what to call it */
   profitOnly?: string;
   /** an alternative "what it would be worth" line (the what-if), same times as points */
@@ -156,6 +160,7 @@ export default function PortfolioChart({ points, alt, height = 220, profitOnly }
             </>
           )}
         </g>
+        <MoneyMarks marks={marks} x={x} x0={x0} x1={x1} top={pad.t} bottom={pad.t + h} />
         {hover != null && <line x1={x(p.t)} x2={x(p.t)} y1={pad.t} y2={pad.t + h} stroke="var(--axis)" strokeWidth={1} />}
         {hover != null && <circle cx={x(p.t)} cy={y(p.putIn)} r={3} fill="var(--surface-1)" stroke="var(--text-muted)" strokeWidth={1.5} />}
         {altNow != null && <circle cx={x(p.t)} cy={y(altNow)} r={4} fill="var(--series-2)" stroke="var(--surface-1)" strokeWidth={2} />}

@@ -12,7 +12,7 @@ from desk.live.broker import client_order_id
 from desk.live.reconcile import our_books, reconcile
 from desk.paper.account import PaperAccount
 from desk.paper.ledger import Ledger
-from desk.runner import MISMATCH_CHECKS
+from desk.runner import CASH_CHECKS, MISMATCH_CHECKS
 from desk.runner import Desk
 from desk.strategies import LongshotFade
 from desk.strategies.base import Leg, TradeIntent
@@ -248,6 +248,39 @@ async def test_a_lasting_mismatch_halts_trading_and_pulls_bids(live, monkeypatch
     assert client.cancel_all_calls == 1 and desk.broker.resting == []
     desk.guard.resume()
     assert not desk.guard.halted and desk.guard.books() == {}
+
+
+async def test_money_put_in_or_taken_out_mid_season_joins_the_pool(live, monkeypatch):
+    """2026-11-09: a deposit or withdrawal is shared across the pool as capital (not profit), with no new season
+    and no pause; a one-check blip (a payout seconds apart) isn't one."""
+    broker, client, ledger, accounts = live
+    desk = _desk(live, monkeypatch)
+    accounts["e0"].cash, accounts["e1"].cash = 300.0, 100.0
+    client.cash = 400.0
+    desk.pool.update(400, NOW, desk.pool.capital(accounts))
+    await desk.reconcile_live()  # baseline
+    client.cash += 3.0
+    await desk.reconcile_live()
+    client.cash -= 3.0  # gone again: never booked
+    for _ in range(CASH_CHECKS):
+        await desk.reconcile_live()
+    assert ledger._rows("SELECT * FROM transfers") == []
+
+    client.cash += 100.0  # the owner deposits $100
+    for _ in range(CASH_CHECKS):
+        await desk.reconcile_live()
+    assert (round(accounts["e0"].cash, 2), round(accounts["e1"].cash, 2)) == (375.0, 125.0)  # by what each held
+    assert accounts["e0"].transfers == 75.0 and not desk.guard.halted
+    assert desk.guard.books()["last"]["drift"] == 0.0
+    events = [e for e in ledger.events_since() if e["kind"] == "money"]
+    assert events and '"deposit"' in str(events[-1]["detail"])
+
+    client.cash -= 50.0  # ...and later takes $50 out
+    for _ in range(MISMATCH_CHECKS):
+        await desk.reconcile_live()
+    assert round(accounts["e0"].cash + accounts["e1"].cash, 2) == 450.0 and not desk.guard.halted
+    assert {round(r["amount"], 2) for r in ledger._rows("SELECT amount FROM transfers WHERE reason = 'withdrawal'")} \
+        == {-37.5, -12.5}
 
 
 async def test_the_safety_check_resumes_on_its_own_once_the_books_agree(live, monkeypatch):

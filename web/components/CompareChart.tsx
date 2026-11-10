@@ -1,7 +1,8 @@
 "use client";
 
 import { useId, useMemo, useState } from "react";
-import type { Point, Series } from "@/lib/types";
+import type { MoneyMove, Point, Series } from "@/lib/types";
+import MoneyMarks from "./MoneyMarks";
 import { axisMoney, dollars, pct, shortName } from "@/lib/format";
 import Avatar from "./Avatar";
 import { niceTicks, useWidth } from "./useWidth";
@@ -20,7 +21,9 @@ const median = (vs: number[]) => {
  * dashed: the median of the office pool, so one wild employee can't drag it),
  * plus one teammate picked from the menu (orange) to compare with.
  */
-export default function CompareChart({ series, focus, given, members, height = 240 }: {
+export default function CompareChart({ series, focus, given, members, height = 240, marks }: {
+  /** money put in or taken out of the pool mid-season, marked where it happened */
+  marks?: MoneyMove[];
   series: Series[];
   focus: string;
   /** money each employee was given, for "% of their money" */
@@ -157,6 +160,7 @@ export default function CompareChart({ series, focus, given, members, height = 2
           {them && <path d={path(them.points)} fill="none" stroke="var(--series-2)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />}
           <path d={path(me.points)} fill="none" stroke="var(--series-1)" strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
         </g>
+        <MoneyMarks marks={marks} x={x} x0={x0} x1={x1} top={pad.t} bottom={pad.t + h} />
         {hover != null && <line x1={x(t)} x2={x(t)} y1={pad.t} y2={pad.t + h} stroke="var(--axis)" strokeWidth={1} />}
         {dot(typical, mid, "var(--text-muted)")}
         {them && dot(them.points, theirs, "var(--series-2)")}

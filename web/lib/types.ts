@@ -105,6 +105,9 @@ export type RosterRow = {
   updated_at: string;
 };
 
+/** Money put in (+) or taken out (−) of the pool mid-season, pool-wide (desk/runner.py money_in_or_out) */
+export type MoneyMove = { t: number; amount: number };
+
 export type Policy = {
   season: number;
   hired?: string[]; // put on this book mid-season (desk/hr.py hire), over the yaml's `enabled: false`

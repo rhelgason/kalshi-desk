@@ -61,7 +61,10 @@ DAILY_HOUR = 21  # 9 PM  # smallest bet the pool places (Kalshi's own step is 0.
 # would rather keep trading through a difference that fixes itself; the $40 daily-loss stop still guards the money.
 MISMATCH_CHECKS = 15
 BOOKS_HALT = "our books don't match Kalshi"
-SHARD_MOVE = "_shard_move"  # status key: the last cash transfer between Kalshi shards
+SHARD_MOVE = "_shard_move"
+# Cash off by the same amount this many checks in a row, with every position agreeing, is money put in or taken out
+# (about 10 minutes: Kalshi can take ~6 to pay a market out)
+CASH_CHECKS = 5  # status key: the last cash transfer between Kalshi shards
 
 class Desk:
     def __init__(
@@ -874,7 +877,7 @@ class Desk:
         """Kalshi pays for an order from its market's exchange shard only: coins trade on shard 2, weather on 0.
         desk.real.yaml `shards` says how to split the cash (percent per shard). 11-03 we asked Kalshi to keep that
         split itself (target allocation), but by 11-04 it had moved nothing: shard 0 still had $0 and Wendell's
-        bids were refused for "insufficient balance". So the bot moves the cash itself: a shard under half its
+        bids were refused for "insufficient balance". So the bot moves the cash itself: a shard under 3/4 of its
         share is topped up to its share from the shard with the most to spare, at most once every 10 minutes
         (a transfer takes Kalshi a moment, and the next run mustn't send it twice)."""
         want = {int(k): int(v) for k, v in (self.config.shards or {}).items()}
@@ -893,7 +896,7 @@ class Desk:
             return
         for shard, pct in sorted(want.items()):
             share = total * pct / 100
-            if have.get(shard, 0.0) >= share / 2:
+            if have.get(shard, 0.0) >= share * 0.75:  # 11-09: was half, so a deposit sat on one shard for days
                 continue
             spare = {k: v - total * want.get(k, 0) / 100 for k, v in have.items() if k != shard}
             source = max(spare, key=spare.get, default=None)
@@ -942,6 +945,9 @@ class Desk:
                 except KalshiAPIError as e:
                     logger.warning("Couldn't check our books against Kalshi: %s", e)
                     return
+        moved = self.money_in_or_out(r, books)
+        if moved:
+            r.expected, r.drift = round(r.expected + moved, 4), round(r.drift - moved, 4)
         # A difference only counts while it lasts. Fills, payouts and results reach Kalshi and our books seconds
         # apart, so one market can differ for one check and be gone by the next (11-03: BNB, then BNB again, then
         # SOL, on three checks in a row, halted trading though each fixed itself). A market has to differ on
@@ -973,6 +979,42 @@ class Desk:
                 for o in await self.broker.cancel_everything():
                     self._bid_ended(o, "bid pulled: trading halted")
         self.guard.save_books(books)
+
+    def money_in_or_out(self, r, books: dict) -> float:
+        """
+        Money added to or taken out of the Kalshi account mid-season (2026-11-09; the owner expects to do both
+        often). Fills we missed are repaired before this, so with every position agreeing, cash that stays off by
+        the same amount for CASH_CHECKS checks can only be a deposit or a withdrawal. It's shared among the pool's
+        members by the money each holds now, as transfers (capital, never profit: the pool's day and high move
+        with it), so bets size up or down on the next run. The season, profits and limits carry on unchanged.
+        """
+        if r.mismatches or abs(r.drift) < 1.0:
+            books.pop("cash_move", None)
+            return 0.0
+        last = books.get("cash_move") or {}
+        n = last.get("checks", 0) + 1 if abs(float(last.get("drift", 0.0)) - r.drift) < 0.02 else 1
+        books["cash_move"] = {"drift": r.drift, "checks": n}
+        if n < CASH_CHECKS:
+            return 0.0
+        books.pop("cash_move", None)
+        amount = round(r.drift, 2)
+        members = sorted(k for k in self.pool.members if k in self.accounts)
+        if not members:
+            return 0.0
+        held = {k: max(self.accounts[k].cash + self.accounts[k].cost_basis(), 0.0) for k in members}
+        total = sum(held.values())
+        what = "deposit" if amount > 0 else "withdrawal"
+        ts, given = _now().isoformat(), 0.0
+        for i, k in enumerate(members):
+            share = round(amount - given if i == len(members) - 1
+                          else amount * (held[k] / total if total > 0 else 1 / len(members)), 4)
+            given += share
+            self.accounts[k].apply_transfer(share)
+            self.ledger.record_transfer(k, share, what, ts=ts)
+        self.ledger.record_event("money", {"action": what, "amount": amount})
+        logger.warning("Kalshi's cash is $%+.2f from our books with every position agreeing: booked as a %s, "
+                       "shared across the pool", amount, what)
+        return amount
 
     def office_pnl_since_review(self) -> float:
         """The office pool's settled profit since the last review (the bonus pot takes a share)."""
