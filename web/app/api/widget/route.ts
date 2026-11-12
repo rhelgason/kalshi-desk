@@ -89,7 +89,10 @@ export async function GET(req: NextRequest) {
   const from = Math.max(start, seasonStart ?? start);
   const settled = await getSettlementsSince(book, policy.season, new Date(from).toISOString());
   const full = from === start;
-  const series = settledSeries(only(history, members), settled, from, Math.max(now, Date.parse(live.updated_at)))
+  // The same headline as the website (Kalshi's own balance for real money), not the bot's pool figure,
+  // which can be a few cents off it; the chart ends on it too
+  const top = headline(live, book === "real", seasonStart ?? now - 86_400_000);
+  const series = settledSeries(only(history, members), settled, from, Math.max(now, Date.parse(live.updated_at)), top.worth)
     .map((p) => [p.t, Math.round(p.worth * 100) / 100] as [number, number]);
   const startValue = series[0][1];
   const endValue = series[series.length - 1][1];
@@ -99,9 +102,6 @@ export async function GET(req: NextRequest) {
     .map((r) => ({ key: r.strategy, name: names[r.strategy] ?? r.strategy, n: r.n, won: r.won,
                    pnl: Math.round(Number(r.pnl) * 100) / 100 }))
     .sort((a, b) => b.pnl - a.pnl);
-  // The same headline as the website (Kalshi's own balance for real money), not the bot's pool figure,
-  // which can be a few cents off it
-  const top = headline(live, book === "real", seasonStart ?? now - 86_400_000);
   const open = live.positions.filter((p) => members.includes(p.strategy)).length;
   const dollars = Math.round((pool.equity - pool.day_open) * 100) / 100;
   const day: Day = { dollars, today: pool.today, stopped: pool.stopped, braked: pool.braked, rows,

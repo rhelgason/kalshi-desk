@@ -73,9 +73,9 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
 
   const mine = settled.filter((s) => members.has(s.strategy));
   const profit = worth - putIn;
-  // Finished bets only: a bet still riding counts at what it cost, so the line doesn't dip
-  // (or jump) while it waits to settle. The headline above is the live account value.
-  const points = settledSeries(only(history, members), mine, Math.max(history.since, seasonStart), now);
+  // Finished bets, then the headline's own number for now: bets still riding count at what they cost until the
+  // last point, so the line doesn't wobble with them but always ends where the headline says
+  const points = settledSeries(only(history, members), mine, Math.max(history.since, seasonStart), now, worth);
   const first = points[0];
 
   // Each employee's running profit from their settled bets since `since`

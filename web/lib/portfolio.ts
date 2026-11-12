@@ -102,8 +102,12 @@ export const winCount = (rows: Settlement[]) => rows.reduce((s, r) => s + (r.won
  * profit. A bet that's still riding counts at what it cost until it settles, so it never
  * shows as a loss just because its price wobbled. Employees are the ones in `h.starting`;
  * one point per time bucket (binFor) from `from` to `now`.
+ *
+ * `end` (the headline's worth, see headline below) is the last point: the line finishes on the number shown above
+ * it, open bets at what they're worth now (2026-11-12: a weather bet already lost, but not paid out until the next
+ * morning, had the chart $16 above the headline).
  */
-export function settledSeries(h: History, settled: Settled[], from: number, now: number): PortfolioPoint[] {
+export function settledSeries(h: History, settled: Settled[], from: number, now: number, end?: number): PortfolioPoint[] {
   const keys = Object.keys(h.starting);
   const mine = settled.filter((s) => s.strategy in h.starting);
   const putInAt = (t: number) => keys.reduce((s, k) => s + givenBy(h, k, t), 0);
@@ -124,7 +128,7 @@ export function settledSeries(h: History, settled: Settled[], from: number, now:
     profit += e.pnl;
     push(e.t);
   }
-  out.push({ t: Math.max(now, out[out.length - 1].t), worth: putInAt(now) + profit, putIn: putInAt(now) });
+  out.push({ t: Math.max(now, out[out.length - 1].t), worth: end ?? putInAt(now) + profit, putIn: putInAt(now) });
   return out;
 }
 
