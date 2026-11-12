@@ -131,6 +131,31 @@ One bet an hour at 5-9 min with the check: +1.55c (t 3.9) on 695 bets, but its n
 Real but about half the 15-minute coins' edge: 🐿️ Hourly Hazel (`hourly_btc`) bets it on Training from 11-03,
 5-21 min left, 92-99.5c, every strike (the pool's window cap, per hour, limits how many).
 
+## Hourly ladders for the other coins (2026-11-12): no Hazel for them
+
+Hazel's test (`hourly_check.py`, every strike within 1% of the coin, harsh fills, $10 a market) on the other coins'
+hourly "above $X" ladders, Oct 22 - Nov 12 (`tape.py 21 22 data/tape_hourly2 KXETHD KXSOLD ...`, NEAR=0.01).
+Every strike, no coin check:
+
+| Coin | Bets, 5-21 min left | c per $1 by window (5-9 / 9-15 / 15-21 min) | Verdict |
+|---|---|---|---|
+| ETH | 2,191 | -0.70 / -0.05 / -1.31 | no edge, plenty of data |
+| SOL | 886 | -2.38 / -2.82 / -2.69 | loses, both halves |
+| XRP | 187 | -4.53 / -2.97 / -3.92 | loses |
+| HYPE | 51 | -12.5 / -10.0 / +5.7 | loses (too thin anyway) |
+| DOGE | 59 | -3.54 / +3.05 / +3.00 | too few bets to tell (1 loss) |
+| BNB | 155 | -3.75 / +0.54 / -5.19 | too few bets to tell |
+| NEAR, ZEC | 0 | no settled traded markets in 3 weeks | nothing to bet |
+
+The coin check doesn't rescue ETH or SOL (it makes both worse at 5-9 min). For scale, bitcoin's own ladder on the same
+test over the overlap (Oct 22 - Nov 3): +0.68 / +0.57 / +0.93c on ~1,700-2,000 bets a window, so the test isn't
+just harsh. Hazel's edge is bitcoin's: its ladder is the busy one, with sellers who dip below fair often enough to
+pay for the occasional loss; the others are either fairly priced (ETH) or move too much for 92-99c bids (SOL, XRP).
+Recheck DOGE and BNB in a month or two if their ladders get busier.
+
+(Also fixed here: the Binance loaders sized their price arrays by the number of files, so a missing day cut off the
+newest prices; earlier results only lost their last few days, no prices shifted.)
+
 ## Commodities: gold, oil, silver (2026-11-09)
 
 Kalshi's 15-minute commodity markets on Sadie's rules, two months of their trades (Sep 10 - Nov 9; `tape.py 60 15
