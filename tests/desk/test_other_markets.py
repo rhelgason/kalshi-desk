@@ -60,12 +60,14 @@ def hourly(yes_bid, yes_ask, close_in, strike="T86999.99"):
 
 
 class TestHourlyHazel:
-    def test_bids_on_an_hourly_favorite_5_to_21_minutes_out(self, account):
+    def test_bids_on_an_hourly_favorite_2_to_29_minutes_out(self, account):
         h = HourlyHazel()
         [bid] = h.evaluate(snap(hourly(0.95, 0.97, timedelta(minutes=12)), now=NOW), account)
         assert bid.post_only and bid.legs[0].side is Side.YES and bid.legs[0].limit_price == 0.96
-        assert h.evaluate(snap(hourly(0.95, 0.97, timedelta(minutes=4)), now=NOW), account) == []
-        assert h.evaluate(snap(hourly(0.95, 0.97, timedelta(minutes=25)), now=NOW), account) == []
+        for minutes in (3, 25):
+            assert len(h.evaluate(snap(hourly(0.95, 0.97, timedelta(minutes=minutes)), now=NOW), account)) == 1
+        for minutes in (1.5, 31):
+            assert h.evaluate(snap(hourly(0.95, 0.97, timedelta(minutes=minutes)), now=NOW), account) == []
 
     def test_several_strikes_in_one_hour_and_no_15_minute_coins(self, account):
         h = HourlyHazel()

@@ -149,10 +149,12 @@ class HourlyHazel(FavoriteBidder):
     # 11-03, Kalshi's hourly "bitcoin above $X at 3 pm" ladders on Sadie's rules (research/fast_coco/hourly_check.py,
     # the final 30 minutes of every traded strike near the price, Oct 4 - Nov 3): +0.9 to +1.2c per $1 from 5 to 21
     # minutes left, every price band up; the coin check didn't help here. Each hour is its own window for the cap.
+    # 11-12: 2 to 29 minutes left (was 5-21): every distance and price band up again on Nov 3-12 (+0.8 to +1.4c),
+    # and on Oct 4 - Nov 3 at every distance too (research/fast_coco/README.md, "Hazel's wider window").
     series = ("KXBTCD",)
 
-    def __init__(self, min_price: float = 0.92, max_price: float = 0.995, min_seconds: float = 300,
-                 max_seconds: float = 1260, **kw):
+    def __init__(self, min_price: float = 0.92, max_price: float = 0.995, min_seconds: float = 120,
+                 max_seconds: float = 1740, **kw):
         super().__init__(min_price=min_price, max_price=max_price, **kw)
         self.min_seconds = min_seconds
         self.max_seconds = max_seconds

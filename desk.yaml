@@ -93,7 +93,7 @@ strategies:
                           # to 2 h after; no football (11-02 year replay, fiona_years.py)
     min_price: 0.97
     max_price: 0.995
-  hourly_btc:             # 🐿️ Hourly Hazel (squirrel) - 92-99.5c favorites on bitcoin's hourly ladders, 5-21 min left
+  hourly_btc:             # 🐿️ Hourly Hazel (squirrel) - 92-99.5c favorites on bitcoin's hourly ladders, 2-29 min left (11-12)
     min_price: 0.92       # 11-03: research/fast_coco/hourly_check.py, every price band and 5-29 minutes left up
     max_price: 0.995
   longshot_buy:           # 🐦 Lucky the Pigeon - control group: buys long shots
