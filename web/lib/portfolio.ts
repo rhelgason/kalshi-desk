@@ -167,7 +167,8 @@ export function headline(live: LiveStatus, real: boolean, seasonStart: number) {
   const check = real ? live.trading?.books ?? null : null;
   // Only a check from this season counts: an older one may be another account (the demo)
   const books = check && Date.parse(check.at) >= seasonStart ? check : null;
-  const kalshi = books ? books.balance + (books.held ?? 0) : null;
+  // Kalshi's own two numbers: `balance` also counts payouts on their way, which Kalshi still values in `held`
+  const kalshi = books ? (books.cash ?? books.balance) + (books.held ?? 0) : null;
   const worth = kalshi ?? live.pool?.equity ?? team.reduce((s, e) => s + (e.equity ?? 0), 0);
   const putIn = live.pool?.capital ?? team.reduce((s, e) => s + (e.starting_cash ?? 0), 0);
   return { worth, putIn, profit: worth - putIn, kalshi, books };

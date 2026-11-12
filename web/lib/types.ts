@@ -171,6 +171,7 @@ export type TradingStatus = {
     at: string; ok: boolean;
     balance: number; // Kalshi's cash
     held?: number; // what Kalshi says the open positions are worth
+    cash?: number; // Kalshi's cash as Kalshi reports it (balance also counts payouts on their way)
     expected: number; drift: number; baseline?: number;
     mismatches: Record<string, [number, number]>;
   } | null;

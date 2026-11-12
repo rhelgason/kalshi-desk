@@ -44,7 +44,8 @@ class Binance:
         files = sorted(f for f in os.listdir(d) if f.startswith(coin + "USDT-1s-"))
         self.t0 = int(datetime.fromisoformat(files[0][-14:-4] + "T00:00:00+00:00").timestamp())
         import array
-        self.px = array.array("d", [0.0]) * (len(files) * 86400 + 86400)
+        t1 = int(datetime.fromisoformat(files[-1][-14:-4] + "T00:00:00+00:00").timestamp())
+        self.px = array.array("d", [0.0]) * (t1 - self.t0 + 2 * 86400)  # by dates, not file count: days can be missing
         for f in files:
             with zipfile.ZipFile(os.path.join(d, f)) as z:
                 for row in csv.reader(io.TextIOWrapper(z.open(z.namelist()[0]))):

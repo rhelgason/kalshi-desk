@@ -34,7 +34,8 @@ def tick(p):
 def load_binance(coin):
     files = sorted(f for f in os.listdir(BIN) if f.startswith(coin + "USDT-1s-"))
     t0 = int(datetime.fromisoformat(files[0][-14:-4] + "T00:00:00+00:00").timestamp())
-    px = array.array("d", [0.0]) * (len(files) * 86400 + 86400)
+    t1 = int(datetime.fromisoformat(files[-1][-14:-4] + "T00:00:00+00:00").timestamp())
+    px = array.array("d", [0.0]) * (t1 - t0 + 2 * 86400)  # by dates, not file count: days can be missing
     for f in files:
         with zipfile.ZipFile(os.path.join(BIN, f)) as z:
             for row in csv.reader(io.TextIOWrapper(z.open(z.namelist()[0]))):

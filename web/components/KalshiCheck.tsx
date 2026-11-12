@@ -9,7 +9,7 @@ export default function KalshiCheck({ books, env, equity, halted = false }: {
   const drift = Math.abs(books.drift);
   return (
     <p className="muted small">
-      Straight from {where}: {dollars(books.balance)} cash + {dollars(books.held ?? 0)} in open bets, checked {ago(books.at)}.{" "}
+      Straight from {where}: {dollars(books.cash ?? books.balance)} cash + {dollars(books.held ?? 0)} in open bets, checked {ago(books.at)}.{" "}
       {drift < 0.01
         ? <span className="up">Our books match to the cent.</span>
         : books.ok

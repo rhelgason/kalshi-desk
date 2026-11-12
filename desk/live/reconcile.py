@@ -42,6 +42,10 @@ class Reconciliation:
     positions: dict[str, tuple[float, float]] = field(default_factory=dict)  # ticker -> (ours, Kalshi's)
     mismatches: dict[str, tuple[float, float]] = field(default_factory=dict)
     held: float = 0.0  # what Kalshi says the open positions are worth
+    # Kalshi's cash as Kalshi reports it. `balance` also counts payouts on their way (settling, below), and Kalshi
+    # still values those positions in `held`, so the site's headline adds this to `held`, never `balance`
+    # (2026-11-12: just after each 15-minute window it counted the window's winnings twice, ~$80)
+    cash: Optional[float] = None
     @property
     def ok(self) -> bool:
         return not self.mismatches
@@ -91,4 +95,5 @@ async def reconcile(client: KalshiClient, accounts: dict[str, PaperAccount], mem
     mismatches = {t: v for t, v in both.items() if abs(v[0] - v[1]) > tolerance}
     return Reconciliation(balance=round(balance, 4), expected=round(expected, 4),
                           drift=round(balance - expected - base, 4), baseline=round(base, 4),
-                          positions=both, mismatches=mismatches, held=round(account["positions"], 4))
+                          positions=both, mismatches=mismatches, held=round(account["positions"], 4),
+                          cash=round(account["cash"], 4))
