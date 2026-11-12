@@ -100,10 +100,12 @@ def main():
     D, COINS = sys.argv[1], sys.argv[2:]
     rows = []
     for coin in COINS:
-        path = os.path.join(D, f"KX{coin}D.jsonl.gz")
+        # A coin (ETH: its ladder KXETHD, checked with Binance), or a series name (KXINXU, KXBTC ranges): no coin
+        # check for those (S&P has no free price here; a range isn't "above X"), every bid counts as passing it
+        path = os.path.join(D, f"{coin}.jsonl.gz" if coin.startswith("KX") else f"KX{coin}D.jsonl.gz")
         if not os.path.exists(path):
             continue
-        v = Binance(coin)
+        v = None if coin.startswith("KX") else Binance(coin)
         n = 0
         for m in markets(path):
             strike = strike_of(m)
@@ -115,7 +117,7 @@ def main():
                 if not r:
                     continue
                 side, spent, got, at, price = r
-                odds = side_odds(v, m["close"], strike, int(at), side)
+                odds = side_odds(v, m["close"], strike, int(at), side) if v else 1.0
                 if odds is None:
                     continue
                 rows.append({"coin": coin, "w": (a, b), "event": m["ticker"].rsplit("-", 1)[0], "close": m["close"],

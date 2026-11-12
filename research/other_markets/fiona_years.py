@@ -19,6 +19,17 @@ LO, HI = float(os.environ.get("LO", "0.97")), float(os.environ.get("HI", "0.995"
 FROM, TO = float(os.environ.get("FROM", "-3")), float(os.environ.get("TO", "2"))
 LEAGUE = {"KXNFLGAME": "NFL", "KXNCAAFGAME": "college football", "KXNBAGAME": "NBA", "KXMLBGAME": "MLB",
           "KXNHLGAME": "NHL"}
+# 2026-11-12, more sports (data/sports_more): SERIES=KXEPLGAME,KXATPMATCH,... replays those instead
+MORE = {"KXEPLGAME": "Premier League", "KXLALIGAGAME": "La Liga", "KXSERIEAGAME": "Serie A",
+        "KXBUNDESLIGAGAME": "Bundesliga", "KXLIGUE1GAME": "Ligue 1", "KXLIGAMXGAME": "Liga MX", "KXMLSGAME": "MLS",
+        "KXNCAAMBGAME": "college basketball", "KXATPMATCH": "ATP tennis", "KXWTAMATCH": "WTA tennis",
+        "KXATPCHALLENGERMATCH": "ATP Challenger", "KXCS2GAME": "Counter-Strike", "KXLOLGAME": "League of Legends",
+        "KXDOTA2GAME": "Dota 2", "KXESOCCERGAME": "eSoccer", "KXEBASKETBALLGAME": "eBasketball"}
+if os.environ.get("SERIES"):
+    LEAGUE = {k: (LEAGUE | MORE).get(k, k) for k in os.environ["SERIES"].split(",")}
+# Kalshi's `fee_type`: only these charge makers (quadratic_with_maker_fees); the rest are free to bid in
+MAKER_FEE = {"KXNFLGAME", "KXNCAAFGAME", "KXNBAGAME", "KXMLBGAME", "KXNHLGAME", "KXEPLGAME", "KXLALIGAGAME",
+             "KXSERIEAGAME", "KXBUNDESLIGAGAME", "KXLIGUE1GAME", "KXNCAAMBGAME", "KXATPMATCH", "KXWTAMATCH"}
 
 
 def side_price(yp, taker):
@@ -49,7 +60,7 @@ def replay(m, s):
                 if q >= 0.01:
                     spent += q * price; got += q
             if spent > 0:
-                fee = math.ceil(0.0175 * got * price * (1 - price) * 100 - 1e-9) / 100
+                fee = math.ceil(0.0175 * got * price * (1 - price) * 100 - 1e-9) / 100 if s in MAKER_FEE else 0.0
                 return {"s": s, "close": m["ref"], "at": (look - m["ref"]) / 3600, "price": price, "spent": spent,
                         "pnl": (got if m["result"] == sd else 0) - spent - fee, "ticker": m["ticker"]}
         look += 120

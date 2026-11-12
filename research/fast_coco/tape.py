@@ -1,7 +1,8 @@
 """Kalshi trade tape for the final WINDOW minutes of every settled market, streamed to disk (resumable).
     python tape.py DAYS WINDOW_MIN OUTDIR SERIES...     env RATE (req/s, default 8), CONC (default 4),
         NEAR (hourly ladders: skip strikes more than this fraction from the coin's Binance price WINDOW_MIN before
-        the close; they sit at 0c/100c the whole window and cost a request each)
+        the close; they sit at 0c/100c the whole window and cost a request each), COIN (NEAR for a series not
+        named KX<COIN>D, e.g. COIN=BTC for the KXBTC ranges)
 Writes OUTDIR/SERIES.jsonl.gz, one market per line:
     {"ticker", "close", "result", "strike", "t": [[unix_seconds_float, yes_price, count, taker_side], ...]}
 """
@@ -74,13 +75,14 @@ async def series(http, s):
         if not cur or not d.get("markets"):
             break
     ms = [m for m in ms if m.get("result") in ("yes", "no") and float(m.get("volume_fp") or 0) > 0 and m["ticker"] not in done]
-    if os.environ.get("NEAR") and s.endswith("D"):
+    if os.environ.get("NEAR") and (s.endswith("D") or os.environ.get("COIN")):
         sys.path.insert(0, os.path.dirname(__file__))
         from hourly_check import Binance
-        v, near = Binance(s[2:-1]), float(os.environ["NEAR"])
-        def close_to(m):
-            px, k = v.get(int(ts(m["close_time"])) - WIN * 60), m.get("floor_strike")
-            return px is None or not k or abs(k / px - 1) <= near
+        v, near = Binance(os.environ.get("COIN") or s[2:-1]), float(os.environ["NEAR"])
+        def close_to(m):  # a ladder's strike, or (hourly ranges, COIN=BTC) the nearer edge of the range
+            px = v.get(int(ts(m["close_time"])) - WIN * 60)
+            ks = [k for k in (m.get("floor_strike"), m.get("cap_strike")) if k]
+            return px is None or not ks or min(abs(k / px - 1) for k in ks) <= near
         ms = [m for m in ms if close_to(m)]
     print(s, len(ms), "markets to fetch,", len(done), "already saved", flush=True)
     sem, n = asyncio.Semaphore(int(os.environ.get("CONC", "4"))), 0
