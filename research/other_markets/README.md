@@ -115,4 +115,9 @@ maker fee) on new series, saved on the server in data/sports_more:
 - **College basketball, a year:** 5,199 bets, +0.01c (t -1.2). Flat.
 - **Tennis (ATP + WTA), four months:** 1,266 bets, -0.30c. ATP -1.35c, WTA +0.65c (t -0.5). No.
 
+- **ATP Challenger tennis, four months:** 3,728 bets, +0.49c (halves +0.69 / +0.29, t 1.2). Up in both halves
+  but small and not steady by when or by price: re-check in a few months.
+- **Esports (Counter-Strike, League of Legends, Dota 2), four months:** 4,668 bets, +0.35c (halves +0.92 / -0.22).
+  Counter-Strike +0.48c, LoL +0.50c, Dota -0.46c. No.
+
 Verdict: no new sports hire. End-of-game favorites in these leagues are priced about right.
