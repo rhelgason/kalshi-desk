@@ -167,6 +167,8 @@ newest prices; earlier results only lost their last few days, no prices shifted.
   15-21 -2.65, 21-29 -0.27. A range can be lost from either side: no.
 - **S&P 500 hourly ladder (KXINXU), Oct 23 - Nov 12:** every distance loses (2-5 min -5.1c, 5-9 -1.5, 9-15 -3.3,
   15-21 -15.0, 21-29 -18.4). The index moves on news during market hours and its sellers aren't careless: no.
+- **Nasdaq-100 hourly ladder (KXNASDAQ100U), same dates:** worse, -11c to -45c per $1 at every distance, with
+  13-51% of 92c+ favorites losing (thin trading, so fills come mostly when the price is about to fall). No.
 
 ## Commodities: gold, oil, silver (2026-11-09)
 
