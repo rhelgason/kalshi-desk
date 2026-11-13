@@ -156,6 +156,18 @@ Recheck DOGE and BNB in a month or two if their ladders get busier.
 (Also fixed here: the Binance loaders sized their price arrays by the number of files, so a missing day cut off the
 newest prices; earlier results only lost their last few days, no prices shifted.)
 
+## Hazel's wider window, bitcoin ranges, the S&P hourly ladder (2026-11-12)
+
+`tape.py` into data/tape_hourly3, then `hourly_check.py` (harsh fills, queue 0.3, $10 a market):
+
+- **Bitcoin hourly ladder (KXBTCD), Nov 3-12**, every distance up: 2-5 min +0.84c, 5-9 +0.95, 9-15 +1.37,
+  15-21 +1.38, 21-29 +1.20c per $1, and every price band up in both periods (Oct 4 - Nov 3 too). Hazel now bids
+  from 29 to 2 minutes before the hour (was 21 to 5), both books.
+- **Bitcoin hourly ranges (KXBTC, "between $X and $Y"), Oct 23 - Nov 12:** 2-5 min -3.21c, 5-9 -5.05, 9-15 -1.56,
+  15-21 -2.65, 21-29 -0.27. A range can be lost from either side: no.
+- **S&P 500 hourly ladder (KXINXU), Oct 23 - Nov 12:** every distance loses (2-5 min -5.1c, 5-9 -1.5, 9-15 -3.3,
+  15-21 -15.0, 21-29 -18.4). The index moves on news during market hours and its sellers aren't careless: no.
+
 ## Commodities: gold, oil, silver (2026-11-09)
 
 Kalshi's 15-minute commodity markets on Sadie's rules, two months of their trades (Sep 10 - Nov 9; `tape.py 60 15

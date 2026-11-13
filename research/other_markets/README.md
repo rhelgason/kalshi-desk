@@ -103,3 +103,16 @@ out of nine would be luck-fitting: no new cities. The rest: Phoenix +1.2c (t 1.7
 Dallas +0.9c, San Francisco +0.4c, Seattle +0.1c, San Diego too thin. Daily LOWS in Wendell's six cities (decided
 overnight, in his hours): NYC +0.3c, Denver +0.5c, LA +0.1c, Chicago -0.7c, Miami -1.7c, Austin -2.5c: no edge.
 Verdict over all 21: nothing worth adding; at most Phoenix/Las Vegas to re-check in a few months.
+
+## More sports for Ziggy (2026-11-12, `sports_history.py` -> `fiona_years.py` with `SERIES=`)
+
+Ziggy's rules (92-99.5c, 3 h before Kalshi's expected end to 2 h after, harsh fills, $10 a game, each series' own
+maker fee) on new series, saved on the server in data/sports_more:
+
+- **Soccer, a year:** 2,427 bets, +0.35c per $1 (t -0.1). Serie A +2.30c (t 3.7, both halves), Ligue 1 +1.46,
+  Liga MX +1.12, EPL +0.23, La Liga -0.20, Bundesliga -0.97, MLS -0.80. The worst losses are TIE markets at 92-94c.
+  Picking Serie A out of seven leagues would be luck-fitting: re-check it on next season.
+- **College basketball, a year:** 5,199 bets, +0.01c (t -1.2). Flat.
+- **Tennis (ATP + WTA), four months:** 1,266 bets, -0.30c. ATP -1.35c, WTA +0.65c (t -0.5). No.
+
+Verdict: no new sports hire. End-of-game favorites in these leagues are priced about right.
