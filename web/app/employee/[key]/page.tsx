@@ -1,3 +1,4 @@
+import type { Employee } from "@/lib/types";
 import { Fragment } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -57,7 +58,7 @@ export default async function EmployeePage({ params, searchParams }: {
   }
   const base = data.live?.employees.find((x) => x.key === key);
   if (!base || !data.live) notFound();
-  const e = withRoster([base], data.roster)[0];
+  const e = { ...withRoster([base], data.roster)[0] };
   const lastTune = data.tuning[0];
   const acc = data.accuracy.find((a) => a.strategy === key);
   const positions = data.live.positions.filter((p) => p.strategy === key);
@@ -65,7 +66,12 @@ export default async function EmployeePage({ params, searchParams }: {
   const ev = data.evidence[key];
   const status = light(e, ev);
   const advice = advise(e, ev, data.realism[key], data.policy, betsPerDay(ev?.bets ?? 0, data.seasonStart));
-  const everyone = withRoster(data.live.employees, data.roster);
+  // Open bets count at cost until they're decided (11-16, like the headline): take out what they've moved since bought
+  const drift: Record<string, number> = {};
+  for (const q of data.live.positions)
+    if (q.mark != null) drift[q.strategy] = (drift[q.strategy] ?? 0) + q.yes * q.mark + q.no * (1 - q.mark) - q.cost;
+  const atCost = (x: Employee) => ({ ...x, pnl: (x.pnl ?? 0) - (drift[x.key] ?? 0), equity: (x.equity ?? 0) - (drift[x.key] ?? 0) });
+  const everyone = withRoster(data.live.employees, data.roster).map(atCost);
   const profits = profitSeries(data.history);
   const liveT = Date.parse(data.live.updated_at);
   const series = everyone
@@ -75,6 +81,7 @@ export default async function EmployeePage({ params, searchParams }: {
       key: x.key, label: x.name, emoji: x.emoji,
       points: [...profits[x.key], { t: Math.max(liveT, profits[x.key].at(-1)!.t), v: x.pnl ?? 0 }],
     }));
+  Object.assign(e, atCost(e));
   const pnl = e.pnl ?? 0;
   const settled = (e.wins ?? 0) + (e.losses ?? 0);
 
@@ -99,13 +106,13 @@ export default async function EmployeePage({ params, searchParams }: {
           <div className="value">{dollars(e.starting_cash)}</div>
         </div>
         <div className="card tile">
-          <div className="label">Worth now</div>
+          <div className="label">Worth</div>
           <div className="value">{dollars(e.equity)}</div>
         </div>
         <div className="card tile">
           <div className="label">{pnl >= 0 ? "Gained" : "Lost"}</div>
           <div className={`value ${tone(pnl)}`}>{dollars(pnl, true)}</div>
-          <div className={`note ${tone(pnl)}`}>{pct(e.roi, true)}</div>
+          <div className={`note ${tone(pnl)}`}>{e.starting_cash ? pct(pnl / e.starting_cash, true) : ""}</div>
         </div>
       </div>
 

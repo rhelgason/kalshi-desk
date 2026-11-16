@@ -1,5 +1,5 @@
 import type { Employee, Position } from "@/lib/types";
-import { coinOfTicker } from "@/lib/coin";
+import { marketLabel } from "@/lib/coin";
 import { dollars, shortName } from "@/lib/format";
 import Avatar from "./Avatar";
 
@@ -41,7 +41,7 @@ export default function RidingCard({ positions, employees, held }: {
             <li key={`${p.strategy}-${p.ticker}`} className="bet-row">
               <Avatar k={p.strategy} emoji={e?.emoji ?? "•"} size={28} />
               <div className="bet-what">
-                <div><strong>{e ? shortName(e.name) : p.strategy}</strong> · {coinOfTicker(p.ticker)} {side}</div>
+                <div><strong>{e ? shortName(e.name) : p.strategy}</strong> · {marketLabel(p.ticker)} {side}</div>
                 <div className="muted small">{dollars(p.cost)} to win {dollars(Math.max(p.yes, p.no) - p.cost)}</div>
               </div>
               <div className="bet-side">

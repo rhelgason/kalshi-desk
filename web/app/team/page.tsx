@@ -66,6 +66,8 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
   const team = employees.filter((e) => members.has(e.key));
   const outside = employees.filter((e) => !members.has(e.key) && e.control).map((e) => e.name);
   const pool = live.pool;
+  const profits: Record<string, number> = {};
+  for (const b of bets) profits[b.strategy] = (profits[b.strategy] ?? 0) + b.pnl;
   // Live: the headline is the Kalshi account itself (the widget shows the same number, lib/portfolio headline)
   const { worth, putIn, kalshi, books, held } = headline(live, isLive(book), season.since);
   const seasonStart = season.since;
@@ -154,7 +156,7 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
       <section className="card">
         <h2>Team</h2>
         <Spotlight award={award} employees={employees} policy={policy} pot={pot} startsAt={isLive(book) ? 500 : 0} pool={live.pool?.equity ?? 0} />
-        <TeamList rows={rows}
+        <TeamList rows={rows} profits={profits}
           star={award?.strategy ?? undefined} starTitle={award?.detail.title} />
       </section>
 
