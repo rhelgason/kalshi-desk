@@ -1,0 +1,10 @@
+[Unit]
+Description=Kalshi Desk: the owner's books every 2 minutes, on even minutes (deploy/tick.service)
+
+[Timer]
+OnCalendar=*-*-* *:00/2:05
+AccuracySec=1s
+Persistent=false
+
+[Install]
+WantedBy=timers.target

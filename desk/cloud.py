@@ -21,6 +21,7 @@ the month is on pace to go over, so the account never gets paused.
 from __future__ import annotations
 
 import logging
+import os
 import resource
 from dataclasses import asdict
 import time
@@ -42,7 +43,8 @@ logger = logging.getLogger(__name__)
 STATE_KEY = "_state"
 LEASE = "tick"
 LEASE_SECONDS = 150
-MONTHLY_CPU_BUDGET = 3.0 * 3600  # seconds; Vercel Hobby includes 4 CPU-hours (dashboard uses some)
+# seconds; Vercel Hobby includes 4 CPU-hours (dashboard uses some). 0: no budget (the server, `desk tick`, 11-16)
+MONTHLY_CPU_BUDGET = float(os.getenv("DESK_CPU_BUDGET_HOURS", "3")) * 3600
 
 # Cloud runs happen every couple of minutes, so heavier work is spaced out
 CLOUD_OVERRIDES = dict(
@@ -136,6 +138,8 @@ def load_feed(feed: CryptoFeed, data: dict) -> None:
 
 def _budget_check(state: dict, now: datetime) -> tuple[bool, dict]:
     """Is this month on pace to stay under the CPU budget?"""
+    if MONTHLY_CPU_BUDGET <= 0:
+        return True, state.get("budget") or {}
     month = now.strftime("%Y-%m")
     budget = state.get("budget") or {}
     if budget.get("month") != month:

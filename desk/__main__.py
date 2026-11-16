@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import logging
 import sys
 from pathlib import Path
@@ -687,6 +688,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("notify-test", help="send a test phone notification (needs PUSHOVER_TOKEN and PUSHOVER_USER)")
     sub.add_parser("fast", help="run the always-on Fast Sadie and her 2-minute twin (the server's job)")
     sub.add_parser("fast-report", help="Fast Sadie vs her twin by month: is the server worth it?")
+    sub.add_parser("tick", help="one run of every book, like the hosted bot's /api/tick (the server's timer, 11-16)")
     p_off = sub.add_parser("offices", help="run the friends' offices every 2 minutes (the server's job, desk/offices.py)")
     p_off.add_argument("--once", action="store_true", help="one round now, then stop")
     args = parser.parse_args(argv)
@@ -751,6 +753,14 @@ def main(argv: list[str] | None = None) -> int:
             from desk.fast import run_fast
 
             asyncio.run(run_fast(cfg.db_path))
+        elif args.cmd == "tick":
+            from desk.cloud import run_all_books
+
+            result = asyncio.run(run_all_books())
+            print(json.dumps({k: (v if not isinstance(v, dict) else {x: v[x] for x in ("ok", "skipped", "error", "fills",
+                              "seconds") if x in v}) for k, v in result.items()}))
+            if not result.get("ok"):
+                sys.exit(1)
         elif args.cmd == "offices":
             from desk.offices import run_offices
 

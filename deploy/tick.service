@@ -1,0 +1,16 @@
+[Unit]
+Description=Kalshi Desk: the owner's books, one run (real money + Training; was Vercel's /api/tick until 2026-11-16)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=desk
+WorkingDirectory=/home/desk/kalshi-desk
+EnvironmentFile=/etc/kalshi-desk.env
+Environment=KALSHI_LIVE_TRADING=yes
+# No Vercel CPU budget to pace against here
+Environment=DESK_CPU_BUDGET_HOURS=0
+ExecStart=/home/desk/kalshi-desk/.venv/bin/python -u -m desk tick
+TimeoutStartSec=110
+MemoryMax=400M
