@@ -501,3 +501,11 @@ textarea.pem { width: 100%; min-height: 90px; font-family: ui-monospace, monospa
 
 .viewing-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: -8px 0 16px;
   padding: 10px 14px; border-radius: 10px; background: var(--wash); border: 1px solid var(--border); }
+
+.returns-chart svg { display: block; width: 100%; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; font-size: 12.5px; color: var(--text-secondary); }
+.legend-item { display: inline-flex; align-items: center; gap: 6px; }
+.legend-swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.cockpit-table td, .cockpit-table th { white-space: nowrap; }
+.cockpit-table tr.is-mine td { background: var(--wash); }
+.cockpit-table form { margin: 0; }
