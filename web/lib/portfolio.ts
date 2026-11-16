@@ -169,7 +169,13 @@ export function headline(live: LiveStatus, real: boolean, seasonStart: number) {
   const books = check && Date.parse(check.at) >= seasonStart ? check : null;
   // Kalshi's own two numbers: `balance` also counts payouts on their way, which Kalshi still values in `held`
   const kalshi = books ? (books.cash ?? books.balance) + (books.held ?? 0) : null;
-  const worth = kalshi ?? live.pool?.equity ?? team.reduce((s, e) => s + (e.equity ?? 0), 0);
+  // ...but only while Kalshi and our books agree. A bid can fill seconds after it goes up, and Kalshi counts it
+  // before our books do (up to one run, 2 min): Kalshi's figure then held a bet the open-bets list didn't show
+  // (11-15, a friend's first bet: -$0.03 on the chart, nothing open). Meanwhile our own figure, which the
+  // open bets come from, is used; the two agree to the cent once the fill is booked.
+  const agree = books && books.ok && Math.abs(books.drift ?? 0) < 0.02;
+  const own = live.pool?.equity ?? team.reduce((s, e) => s + (e.equity ?? 0), 0);
+  const worth = kalshi != null && agree ? kalshi : own;
   const putIn = live.pool?.capital ?? team.reduce((s, e) => s + (e.starting_cash ?? 0), 0);
   return { worth, putIn, profit: worth - putIn, kalshi, books };
 }
