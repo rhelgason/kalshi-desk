@@ -1,6 +1,10 @@
 import PolicyForm from "@/components/PolicyForm";
 import RealMoney from "@/components/RealMoney";
 import Setup from "@/components/Setup";
+import ThemePicker from "@/components/ThemePicker";
+import { cookies } from "next/headers";
+import { currentUser } from "@/lib/session";
+import { THEME_COOKIE, THEME_PREF, parseTheme } from "@/lib/theme";
 import { isAdmin } from "@/lib/admin";
 import { viewedBook, requireViewer } from "@/lib/book";
 import { getCoverage, getJobs, getKillSwitch, getLive, getPolicy, isOffice } from "@/lib/db";
@@ -27,10 +31,15 @@ export default async function Handbook() {
   }
   const { policy, jobs, coverage, admin, office, trading, killSwitch } = data;
   const at = policy.autotune;
+  const look = parseTheme((await cookies()).get(THEME_COOKIE)?.value ?? ((await currentUser())?.prefs[THEME_PREF] as string));
   return (
     <div className="stack">
       <section className="card">
-        <h2>📘 Employee handbook</h2>
+        <h2>Settings</h2>
+        <ThemePicker current={look} />
+      </section>
+      <section className="card">
+        <h2>Employee handbook</h2>
         <p className="sub">
           How the desk runs itself. Every {policy.review_days} days a performance review crowns the{" "}
           {awardName(policy.review_days)} (most profit per dollar bet, not most dollars: a busy coin shouldn't win just for

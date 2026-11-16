@@ -207,7 +207,8 @@ export async function viewOffice(book: Book | null) {
   if (!(await isAdmin())) return;
   const jar = await cookies();
   if (book && isOffice(book) && (await getOffice(book))) {
-    jar.set(BOOK_COOKIE, book, { path: "/", maxAge: 86_400, sameSite: "lax", httpOnly: true, secure: true });
+    // An hour: the app opens on the owner's own office (11-16)
+    jar.set(BOOK_COOKIE, book, { path: "/", maxAge: 3600, sameSite: "lax", httpOnly: true, secure: true });
   } else {
     jar.delete(BOOK_COOKIE);
   }

@@ -208,10 +208,14 @@ export async function resumeTrading() {
   done(["/settings", "/"]);
 }
 
-/** The Real / Pretend tabs: remember which book this visitor is looking at. */
+/**
+ * My office / Training: which of the owner's books to show. The app always opens on My office (11-16, owner), so
+ * Training is only remembered for an hour, and picking My office forgets any other pick.
+ */
 export async function pickBook(book: Book) {
-  (await cookies()).set(BOOK_COOKIE, book === "real" ? "real" : "pretend",
-    { path: "/", maxAge: 365 * 86_400, sameSite: "lax", httpOnly: true, secure: true });
+  const jar = await cookies();
+  if (book === "pretend") jar.set(BOOK_COOKIE, "pretend", { path: "/", maxAge: 3600, sameSite: "lax", httpOnly: true, secure: true });
+  else jar.delete(BOOK_COOKIE);
   revalidatePath("/", "layout");
 }
 
