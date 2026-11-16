@@ -1,14 +1,14 @@
 import type { Employee } from "@/lib/types";
 import { dollars, shortName } from "@/lib/format";
 import { biggest, days, lastDays, type Bet } from "@/lib/records";
-import Avatar from "./Avatar";
+import StatRow, { toneOf } from "./ui/StatRow";
 
 const STRIP = 21;
 const dayLabel = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 
 /**
- * The bottom of the office's top card (11-16): four small tiles for the range on the chart (its change, the biggest
- * win, the busiest employee and the top earner), then the last three weeks as green and red squares.
+ * The bottom of the office's top card (11-16): the range on the chart in four cells (its change, the biggest win,
+ * the busiest employee and the top earner), then up to three weeks as green and red days.
  */
 export default function HeroFacts({ period, change, inRange, all, employees, tz, since }: {
   period: string; change: number; inRange: Bet[]; all: Bet[]; employees: Employee[]; tz: string; since: number;
@@ -20,8 +20,9 @@ export default function HeroFacts({ period, change, inRange, all, employees, tz,
   const busiest = topOf(count), earner = topOf(made);
   const win = biggest(inRange).win;
   const when = (t: number) => new Date(t).toLocaleDateString("en-US", { timeZone: tz, month: "short", day: "numeric" });
-  const face = (k: string) => <Avatar k={k} emoji={who[k]?.emoji ?? "•"} size={22} />;
+  const face = (k: string) => ({ k, emoji: who[k]?.emoji });
   const name = (k: string) => (who[k] ? shortName(who[k].name) : k);
+  const range = period.toLowerCase();
 
   // Up to three weeks, never from before the season started
   const n = Math.max(1, Math.min(STRIP, Math.ceil((Date.now() - since) / 86_400_000)));
@@ -31,34 +32,18 @@ export default function HeroFacts({ period, change, inRange, all, employees, tz,
 
   return (
     <div className="hero-facts">
-      <div className="fact-grid">
-        <div className="fact">
-          <span className="fact-label">{period}</span>
-          <strong className={`fact-value ${change >= 0 ? "up" : "down"}`}>{dollars(change, true)}</strong>
-          <span className="fact-note">{inRange.length} bets finished</span>
-        </div>
-        <div className="fact">
-          <span className="fact-label">Biggest win</span>
-          {win ? <>
-            <strong className="fact-value up">{dollars(win.pnl, true)}</strong>
-            <span className="fact-note">{face(win.strategy)} {name(win.strategy)} · {when(win.t)}</span>
-          </> : <span className="fact-note">none yet</span>}
-        </div>
-        <div className="fact">
-          <span className="fact-label">Busiest</span>
-          {busiest ? <>
-            <strong className="fact-value fact-who">{face(busiest[0])} {name(busiest[0])}</strong>
-            <span className="fact-note">{busiest[1]} bets</span>
-          </> : <span className="fact-note">no bets yet</span>}
-        </div>
-        <div className="fact">
-          <span className="fact-label">Top earner</span>
-          {earner ? <>
-            <strong className="fact-value fact-who">{face(earner[0])} {name(earner[0])}</strong>
-            <span className={`fact-note ${earner[1] >= 0 ? "up" : "down"}`}>{dollars(earner[1], true)}</span>
-          </> : <span className="fact-note">no bets yet</span>}
-        </div>
-      </div>
+      <StatRow stats={[
+        { label: period, value: dollars(change, true), tone: toneOf(change), note: `${inRange.length} bets finished` },
+        win
+          ? { label: "Biggest Win", face: face(win.strategy), value: dollars(win.pnl, true), tone: "up", note: `${name(win.strategy)} · ${when(win.t)}` }
+          : { label: "Biggest Win", value: "–", note: "none yet" },
+        busiest
+          ? { label: "Busiest", face: face(busiest[0]), value: name(busiest[0]), note: `${busiest[1]} bets ${range}` }
+          : { label: "Busiest", value: "–", note: "no bets yet" },
+        earner
+          ? { label: "Top Earner", face: face(earner[0]), value: name(earner[0]), note: <><span className={toneOf(earner[1]) ?? ""}>{dollars(earner[1], true)}</span> {range}</> }
+          : { label: "Top Earner", value: "–", note: "no bets yet" },
+      ]} />
       <div className="day-strip" role="img" aria-label={`Profit by day, last ${n} days`} style={{ gridTemplateColumns: `repeat(${n}, 1fr)` }}>
         {strip.map((d) => (
           <span key={d.day} className={`day ${d.n ? (d.pnl >= 0 ? "day-up" : "day-down") : "day-none"}`}

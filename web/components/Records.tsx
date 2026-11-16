@@ -34,7 +34,7 @@ export default function Records({ bets, employees, tz, strip = 21 }: { bets: Bet
 
   return (
     <section className="card records">
-      <h2>Streaks &amp; records</h2>
+      <h2>Streaks &amp; Records</h2>
       <div className="record-grid">
         <div className={`record ${s.currentIsBest ? "record-hot" : ""}`}>
           <span className="record-label">🔥 Win streak</span>

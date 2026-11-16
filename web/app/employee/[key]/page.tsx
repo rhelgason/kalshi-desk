@@ -120,7 +120,7 @@ export default async function EmployeePage({ params, searchParams }: {
       {data.admin && <ManagerBar e={e} movable={data.movable} />}
 
       <section className="card">
-        <h2>Profit over time</h2>
+        <h2>Profit Over Time</h2>
         <RangeTabs value={range} path={`/employee/${key}`} />
         <CompareChart series={series} marks={data.marks} focus={key} given={Object.fromEntries(everyone.map((x) => [x.key, x.starting_cash ?? 1000]))}
           members={poolKeys(data.live)} />
@@ -128,7 +128,7 @@ export default async function EmployeePage({ params, searchParams }: {
 
       <div className="grid three">
         <section className="card">
-          <h2>Bets won</h2>
+          <h2>Bets Won</h2>
           <WinDonut wins={data.stats.wins} losses={data.stats.losses} open={positions.length} />
           {data.coins.length > 1 && (
             <ul className="coin-split small">
@@ -143,23 +143,23 @@ export default async function EmployeePage({ params, searchParams }: {
           )}
         </section>
         <section className="card">
-          <h2>Where the money went</h2>
+          <h2>Where the Money Went</h2>
           <MoneySplit won={data.stats.won} lost={data.stats.lost} fees={e.fees ?? 0} />
         </section>
         <section className="card">
-          <h2>Profit by day</h2>
+          <h2>Profit by Day</h2>
           <DailyBars days={data.stats.days} />
         </section>
       </div>
 
       <section className="card">
-        <h2>Skill or luck?</h2>
+        <h2>Skill or Luck?</h2>
         <SkillCheck e={ev} />
       </section>
 
       <div className="grid two">
         <section className="card">
-          <h2>Bets still open ({positions.length})</h2>
+          <h2>Bets Still Open ({positions.length})</h2>
           {positions.length ? (
             <div className="table-wrap">
               <table>
@@ -187,15 +187,15 @@ export default async function EmployeePage({ params, searchParams }: {
           )}
         </section>
         <section className="card">
-        <h2>Recent bets</h2>
+        <h2>Recent Bets</h2>
         <TradeFeed fills={data.fills} employees={data.live.employees} />
       </section>
       </div>
 
       <details className="card fold">
-        <summary><h2>Behind the scenes</h2><span className="muted small">fill check, accuracy, settings, HR file</span></summary>
+        <summary><h2>Behind the Scenes</h2><span className="muted small">fill check, accuracy, settings, HR file</span></summary>
         <section className="card" style={{ marginTop: 12 }}>
-          <h2>Would this work with real money?</h2>
+          <h2>Would This Work with Real Money?</h2>
           <p className="sub">Compares each pretend trade with what was really for sale at that moment.</p>
           <RealityCheck r={data.realism[key]} />
         </section>
@@ -225,7 +225,7 @@ export default async function EmployeePage({ params, searchParams }: {
             )}
           </section>
           <section className="card">
-            <h2>HR file</h2>
+            <h2>HR File</h2>
             <dl className="kv" style={{ marginBottom: 12 }}>
               <dt>Level</dt><dd>{e.level_title} (each bet {poolShare(e.multiplier ?? 1)} of the office pool)</dd>
               <dt>Awards</dt><dd>{e.awards ?? 0}</dd>
@@ -237,7 +237,7 @@ export default async function EmployeePage({ params, searchParams }: {
         </div>
         <div style={{ marginTop: 16 }}>
           <section className="card">
-            <h2>Settings & tuning</h2>
+            <h2>Settings & Tuning</h2>
             <p className="sub">
               {e.backtestable === false
                 ? "Can't be replayed from price history; the performance reviews judge this employee."

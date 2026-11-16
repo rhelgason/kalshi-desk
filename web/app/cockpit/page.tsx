@@ -1,4 +1,6 @@
 import AutoRefresh from "@/components/AutoRefresh";
+import Card from "@/components/ui/Card";
+import StatRow, { toneOf } from "@/components/ui/StatRow";
 import ReturnsChart, { type ReturnLine } from "@/components/ReturnsChart";
 import { isAdmin } from "@/lib/admin";
 import { requireViewer } from "@/lib/book";
@@ -78,16 +80,12 @@ export default async function CockpitPage() {
   return (
     <div className="stack">
       <AutoRefresh seconds={120} />
-      <section className="card">
-        <div className="card-head">
-          <h2>Cockpit</h2>
-          <span className="muted small">{offices.length} offices · same staff, same rules</span>
-        </div>
+      <Card title="Cockpit" aside={`${offices.length} offices · same staff, same rules`}>
         <ReturnsChart lines={lines} />
-      </section>
+      </Card>
 
       <section className="card">
-        <h2>Every office</h2>
+        <h2>Every Office</h2>
         <div className="table-wrap">
           <table className="cockpit-table">
             <thead>
@@ -138,24 +136,12 @@ export default async function CockpitPage() {
       </section>
 
       <section className="card">
-        <h2>All offices together</h2>
-        <div className="hero-stats">
-          <div className="hero-stat">
-            <div className="hero-stat-label">Bets finished</div>
-            <div className="hero-stat-value">{all.length.toLocaleString()}</div>
-            <div className="hero-stat-note">over {days} days</div>
-          </div>
-          <div className="hero-stat">
-            <div className="hero-stat-label">Won</div>
-            <div className="hero-stat-value">{all.length ? pct(won(all) / all.length, false, 1) : "–"}</div>
-            <div className="hero-stat-note">{all.length - won(all)} lost</div>
-          </div>
-          <div className="hero-stat">
-            <div className="hero-stat-label">Profit per $1 bet</div>
-            <div className={`hero-stat-value ${(allPer ?? 0) >= 0 ? "up" : "down"}`}>{allPer == null ? "–" : `${(allPer * 100).toFixed(2)}¢`}</div>
-            <div className="hero-stat-note">after fees</div>
-          </div>
-        </div>
+        <h2>All Offices Together</h2>
+        <StatRow stats={[
+          { label: "Bets Finished", value: all.length.toLocaleString(), note: `over ${days} days` },
+          { label: "Won", value: all.length ? pct(won(all) / all.length, false, 1) : "–", note: `${all.length - won(all)} lost` },
+          { label: "Per $1 Bet", value: allPer == null ? "–" : `${(allPer * 100).toFixed(2)}¢`, tone: toneOf(allPer), note: "profit, after fees" },
+        ]} />
         <p className="muted small">
           Most bets are strong favorites: each win earns a few cents per dollar, and a loss costs nearly the whole bet. So
           one office can look great or poor over a few days by luck alone. What matters is profit per $1 across all

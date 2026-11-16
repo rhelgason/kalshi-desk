@@ -127,7 +127,7 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
 
       {/* Friends are hands-off: the owner's playbook runs their office, so nothing here needs them */}
       {!isOffice(book) && <section className="card">
-        <h2>Needs your attention</h2>
+        <h2>Needs Your Attention</h2>
         {todo.length ? (
           <ul className="todo">
             {todo.map(({ e, advice }) => (
@@ -153,7 +153,7 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
 
 
       <details className="card fold">
-        <summary><h2>Office news</h2></summary>
+        <summary><h2>Office News</h2></summary>
         <NewsFeed items={news.filter((n) => n.kind !== "review").slice(0, 25)} employees={employees} />
       </details>
 

@@ -35,7 +35,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   }
   return (
     <div className="card narrow stack auth">
-      <h2>Sign in</h2>
+      <h2>Sign In</h2>
       <p className="sub">With the passkey you made when you joined: your face, fingerprint or device PIN. You stay signed in.</p>
       <PasskeyLogin next={next ?? "/"} />
       {admin ? (

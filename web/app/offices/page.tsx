@@ -37,7 +37,7 @@ export default async function OfficesPage() {
   return (
     <div className="stack">
       <section className="card">
-        <h2>🏢 Friends&apos; offices</h2>
+        <h2>Friends&apos; Offices</h2>
         <p className="sub">
           Each friend&apos;s own Kalshi account, run by your real-money staff and playbook (who&apos;s hired, bet size,
           review rules), with its own pool, levels and awards. They run on the server half a minute after yours, and
@@ -66,13 +66,13 @@ export default async function OfficesPage() {
         ) : <p className="muted">No friends yet.</p>}
       </section>
       <section className="card narrow">
-        <h2>Invite a friend</h2>
+        <h2>Invite a Friend</h2>
         <p className="sub">They open the link on their phone or computer, save a passkey and connect their Kalshi key. About five minutes.</p>
         <InviteForm />
       </section>
       {rows.length > 0 && (
         <section className="card narrow">
-          <h2>New sign-in link</h2>
+          <h2>New Sign-In Link</h2>
           <p className="sub">For a friend on a new phone without their passkey: they add one and carry on.</p>
           {rows.filter((r) => r.user_id).map((r) => (
             <div key={r.slug} className="stack-tight"><strong>{r.name}</strong><InviteForm forUser={r.user_id!} name={r.name} /></div>

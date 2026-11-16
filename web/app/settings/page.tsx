@@ -39,7 +39,7 @@ export default async function Handbook() {
         <ThemePicker current={look} />
       </section>
       <section className="card">
-        <h2>Employee handbook</h2>
+        <h2>Employee Handbook</h2>
         <p className="sub">
           How the desk runs itself. Every {policy.review_days} days a performance review crowns the{" "}
           {awardName(policy.review_days)} (most profit per dollar bet, not most dollars: a busy coin shouldn't win just for
@@ -65,12 +65,12 @@ export default async function Handbook() {
       <RealMoney trading={trading} killSwitch={killSwitch} admin={admin} />
 
       <section className="card">
-        <h2>Desk rules</h2>
+        <h2>Desk Rules</h2>
         <PolicyForm policy={policy} admin={admin} />
       </section>
 
       {!office && <section className="card">
-        <h2>Background jobs</h2>
+        <h2>Background Jobs</h2>
         <p className="sub">
           Every 6 hours GitHub Actions syncs new market history, backfills Kalshi&apos;s archive, and retunes employees
           when due (every {at.every_hours}h{at.enabled ? "" : ", currently paused"}).

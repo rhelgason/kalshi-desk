@@ -1,8 +1,9 @@
 import AutoRefresh from "@/components/AutoRefresh";
 import LatestBets from "@/components/LatestBets";
-import HeroChart, { type WhatIfMember } from "@/components/HeroChart";
+import HeroChart, { type WhatIfBet, type WhatIfMember } from "@/components/HeroChart";
 import HeroFacts from "@/components/HeroFacts";
-import OfficeHero, { type HeroStat } from "@/components/OfficeHero";
+import OfficeHero from "@/components/OfficeHero";
+import { toneOf, type Stat } from "@/components/ui/StatRow";
 import RangeTabs from "@/components/RangeTabs";
 import ResumeBanner from "@/components/ResumeBanner";
 import RaceTrack from "@/components/RaceTrack";
@@ -11,6 +12,7 @@ import StatusPill from "@/components/StatusPill";
 import Spotlight from "@/components/Spotlight";
 import TeamList from "@/components/TeamList";
 import Link from "next/link";
+import Card from "@/components/ui/Card";
 import { OfficePause } from "@/components/OfficeAdmin";
 import { isAdmin } from "@/lib/admin";
 import { advise, betsPerDay, light } from "@/lib/advice";
@@ -20,12 +22,13 @@ import {
   getSettlements, getSettlementsSince, isLive, isOffice, withRoster,
 } from "@/lib/db";
 import { currentUser, officeOf } from "@/lib/session";
+import { dollars, pct } from "@/lib/format";
 import { perDollar, teamNotes } from "@/lib/records";
 import { headline, only, parseRange, poolKeys, profitSeries, RANGES, settledSeries } from "@/lib/portfolio";
 
 export const dynamic = "force-dynamic";
 
-const RANGE_WORDS = { day: "Today", week: "This week", month: "This month", quarter: "Last 3 months", season: "Since the start" };
+const RANGE_WORDS = { day: "Today", week: "This Week", month: "This Month", quarter: "Last 3 Months", season: "All Time" };
 
 /** The day (in the office's time zone) a moment falls on, as YYYY-MM-DD. */
 const dayOf = (t: number, tz: string) => new Date(t).toLocaleDateString("en-CA", { timeZone: tz });
@@ -86,10 +89,11 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
   const weeks = pool.filter((b) => b.t >= weekAgo);
   const won = (xs: typeof pool) => xs.filter((b) => b.pnl > 0).length;
   const record = (xs: typeof pool) => xs.length ? `${won(xs)} of ${xs.length} won (${Math.round((won(xs) / xs.length) * 100)}%)` : "nothing finished yet";
-  const stats: HeroStat[] = [
-    { label: "Today", value: sum(todays), note: record(todays) },
-    { label: "Last 7 days", value: sum(weeks), note: record(weeks) },
-    { label: "All time", value: (worth - putIn) / (putIn || 1), percent: true, note: record(pool) },
+  const allTime = (worth - putIn) / (putIn || 1);
+  const stats: Stat[] = [
+    { label: "Today", value: dollars(sum(todays), true), tone: toneOf(sum(todays)), note: record(todays) },
+    { label: "Last 7 Days", value: dollars(sum(weeks), true), tone: toneOf(sum(weeks)), note: record(weeks) },
+    { label: "All Time", value: pct(allTime, true, 1), tone: toneOf(allTime), note: record(pool) },
   ];
   const profits: Record<string, number> = {};
   for (const b of pool) profits[b.strategy] = (profits[b.strategy] ?? 0) + b.pnl;
@@ -113,12 +117,10 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
   // The chart's range: where it starts, what changed over it, and each member's running profit for the what-if
   const chartStart = points[0]?.t ?? season.since;
   const rangeChange = Math.round(pool.filter((b) => b.t >= chartStart).reduce((s, b) => s + b.pnl, 0) * 100) / 100 || 0;
-  const whatIf: WhatIfMember[] = team.filter((e) => !e.control).map((e) => {
-    let run = 0;
-    const steps = pool.filter((b) => b.strategy === e.key).sort((a, b) => a.t - b.t)
-      .map((b) => [b.t, Math.round((run += b.pnl) * 100) / 100] as [number, number]);
-    return { key: e.key, name: e.name, emoji: e.emoji, steps };
-  }).filter((m) => m.steps.length);
+  const whatIf: WhatIfMember[] = team.filter((e) => !e.control && pool.some((b) => b.strategy === e.key)).map((e) => ({
+    key: e.key, name: e.name, emoji: e.emoji,
+    inRange: Math.round(pool.filter((b) => b.strategy === e.key && b.t >= chartStart).reduce((s, b) => s + b.pnl, 0) * 100) / 100,
+  })).sort((a, b) => a.inRange - b.inRange);
   // When each open bet filled (its first fill), so the race knows where each lane started
   const started: Record<string, number> = {};
   for (const f of fills) if (f.yes_value == null) {
@@ -142,7 +144,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
         worth={worth} putIn={putIn} stats={stats}
         tabs={<RangeTabs value={range} path="/" />}
         chart={<HeroChart points={points} marks={marks} checked={books?.at ?? live.updated_at} members={whatIf}
-                          putIn={putIn} betPct={policy.pool.bet_pct} />}
+                          bets={pool.map((b) => [b.t, b.strategy, Math.round(b.pnl * 100) / 100] as WhatIfBet)}
+                          putIn={putIn} betPct={policy.pool.bet_pct} period={RANGE_WORDS[range]} />}
         facts={<HeroFacts period={RANGE_WORDS[range]} change={rangeChange} inRange={pool.filter((b) => b.t >= chartStart)}
                           all={pool} employees={employees} tz={tz} since={season.since} />}
         under={isOffice(book) ? <OfficePause halted={!!kill?.halted} mine={officeOf(user) === book} /> : null}
@@ -153,16 +156,14 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
 
       <LatestBets fills={fills.filter((f) => members.has(f.strategy) && f.yes_value != null)} employees={employees} day={lastDay} />
 
-      <section className="card">
-        <div className="card-head">
-          <h2>Your team</h2>
-          <Link href="/team" className="small">
-            {attention > 0 ? <strong>{attention} {attention === 1 ? "needs" : "need"} you · </strong> : null}Records &amp; news →
-          </Link>
-        </div>
+      <Card title="Your Team" aside={(
+        <Link href="/team">
+          {attention > 0 ? <strong>{attention} {attention === 1 ? "needs" : "need"} you · </strong> : null}Records &amp; news →
+        </Link>
+      )}>
         <Spotlight award={award} employees={employees} policy={policy} pot={pot} startsAt={isLive(book) ? 500 : 0} pool={live.pool?.equity ?? 0} />
         <TeamList rows={rows} profits={profits} rates={rates} notes={notes} star={award?.strategy ?? undefined} starTitle={award?.detail.title} />
-      </section>
+      </Card>
 
       <div className="row-btns" style={{ justifyContent: "center" }}>
         <StatusPill updatedAt={live.updated_at} />
@@ -176,7 +177,7 @@ function OfficeSoon() {
   return (
     <div className="card narrow stack">
       <AutoRefresh seconds={30} />
-      <h2>Your office is opening</h2>
+      <h2>Your Office Is Opening</h2>
       <p>It takes a couple of minutes after you connect Kalshi. This page refreshes itself.</p>
       <p className="sub">
         Haven&apos;t connected your Kalshi key yet? Use the link from your invite again. Put money in on Kalshi whenever

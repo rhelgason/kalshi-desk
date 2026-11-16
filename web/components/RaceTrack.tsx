@@ -5,6 +5,8 @@ import type { Employee, Position } from "@/lib/types";
 import { marketLabel } from "@/lib/coin";
 import { dollars, shortName } from "@/lib/format";
 import Avatar from "./Avatar";
+import Card from "./ui/Card";
+import StatRow, { toneOf } from "./ui/StatRow";
 
 const SHOWN = 3; // lanes per employee before "more"
 
@@ -54,17 +56,13 @@ export default function RaceTrack({ positions, employees, held, started, now }: 
   const pays = lanes.reduce((s, l) => s + l.win + l.p.cost, 0);
 
   return (
-    <section className="card race">
-      <div className="race-head">
-        <div>
-          <h2>Riding now</h2>
-          <div className="muted small">{positions.length} {positions.length === 1 ? "bet" : "bets"} · {dollars(cost)} in · pays {dollars(pays)} if all win</div>
-        </div>
-        <div className="race-total">
-          <span className="muted small">worth now</span>
-          <strong className={worth >= cost ? "up" : "down"}>{dollars(worth)}</strong>
-        </div>
-      </div>
+    <Card title="Riding Now" className="race">
+      {/* What went in, what Kalshi would pay to buy them back today, and what they pay if every one wins */}
+      <StatRow stats={[
+        { label: "Put In", value: dollars(cost), note: `${positions.length} open ${positions.length === 1 ? "bet" : "bets"}` },
+        { label: "Worth Now", value: dollars(worth), tone: toneOf(worth - cost), note: <>{dollars(worth - cost, true)} at today&apos;s prices</> },
+        { label: "If All Win", value: dollars(pays), note: <>{dollars(pays - cost, true)} profit</> },
+      ]} />
       {groups.map((ls) => {
         const k = ls[0].p.strategy, e = who[k];
         const open = all.includes(k);
@@ -107,6 +105,6 @@ export default function RaceTrack({ positions, employees, held, started, now }: 
           </div>
         );
       })}
-    </section>
+    </Card>
   );
 }

@@ -30,7 +30,7 @@ export default function AdminPanel({ e, roster, reserve }: { e: Employee; roster
 
   return (
     <section className="card">
-      <h2>Manager controls</h2>
+      <h2>Manager Controls</h2>
       <p className="sub">Only you can see this. Changes are logged in the office news.</p>
 
       <div className="section-title">Employment</div>

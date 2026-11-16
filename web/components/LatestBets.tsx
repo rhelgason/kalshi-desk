@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { Employee, Fill } from "@/lib/types";
 import { dollars } from "@/lib/format";
 import TradeFeed from "./TradeFeed";
+import Card from "./ui/Card";
 
 const STEP = 10;
 
@@ -17,15 +18,11 @@ export default function LatestBets({ fills, employees, day }: {
 }) {
   const [shown, setShown] = useState(STEP);
   return (
-    <section className="card latest">
-      <div className="card-head">
-        <h2>Latest bets</h2>
-        <span className="muted small">
-          Last 24h: {day.n
-            ? <>{day.won} of {day.n} won · <strong className={day.pnl >= 0 ? "up" : "down"}>{dollars(day.pnl, true)}</strong></>
-            : "nothing finished"}
-        </span>
-      </div>
+    <Card title="Latest Bets" className="latest" aside={<>
+      Last 24h: {day.n
+        ? <>{day.won} of {day.n} won · <strong className={day.pnl >= 0 ? "up" : "down"}>{dollars(day.pnl, true)}</strong></>
+        : "nothing finished"}
+    </>}>
       <TradeFeed fills={fills.slice(0, shown)} employees={employees} />
       {(fills.length > shown || shown > STEP) && (
         <div className="more-row">
@@ -35,6 +32,6 @@ export default function LatestBets({ fills, employees, day }: {
           {shown > STEP && <button className="btn small ghost" onClick={() => setShown(STEP)}>Show fewer</button>}
         </div>
       )}
-    </section>
+    </Card>
   );
 }
