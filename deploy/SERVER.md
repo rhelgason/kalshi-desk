@@ -29,6 +29,21 @@ must never trade one account), and the twin keeps running as the "without the se
 needs real orders and cancels: a pull is only worth anything if
 the cancel reaches Kalshi within a second. research/fast_coco/README.md has the backtest behind her design.
 
+## The owner's books (2026-11-16)
+
+Vercel Hobby's Fluid allowance ran out on 11-16 (the bot was 93% of it) and Vercel disabled both projects, so the
+owner's books moved here: `python -m desk tick` (one run of the real book, then Training, exactly what /api/tick did)
+from a systemd timer every 2 minutes at :05 past even minutes (`deploy/tick.service` + `deploy/tick.timer` ->
+`/etc/systemd/system/kalshi-tick.{service,timer}`). It trades with the server's own Kalshi key ("Server") and has no
+CPU budget (`DESK_CPU_BUDGET_HOURS=0`). The pg_cron job `kalshi-desk-tick` that called Vercel is switched off
+(`cron.alter_job(1, active := false)`): never turn it back on while this timer runs, or two bots trade one account.
+Vercel now only hosts the website.
+
+```bash
+ssh root@104.131.18.118 'systemctl list-timers kalshi-tick.timer --no-pager; journalctl -u kalshi-tick -n 40 --no-pager'
+ssh root@104.131.18.118 'systemctl stop kalshi-tick.timer'    # stop the owner's bot (bets already on settle on Kalshi)
+```
+
 ## Friends' offices (2026-11-09)
 
 `python -m desk offices` (desk/offices.py, `deploy/offices.service` -> `/etc/systemd/system/kalshi-offices.service`) runs

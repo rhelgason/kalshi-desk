@@ -2,8 +2,8 @@
 
 A Kalshi trading bot whose strategies are "employees" sharing one office pool. Two books run side by
 side on every hosted run: **Training** (pretend money, `desk.yaml`) and the **real book** (real money
-on Kalshi, `desk.real.yaml`). Hosting: Supabase Postgres + pg_cron, the bot and dashboard on Vercel,
-background jobs on GitHub Actions (see deploy/README.md). Local commands read the same Supabase
+on Kalshi, `desk.real.yaml`). Hosting: Supabase Postgres, the dashboard on Vercel, the bot on the always-on server since 2026-11-16
+(deploy/SERVER.md: systemd timer every 2 min; Vercel's free plan ran out), background jobs on GitHub Actions. Local commands read the same Supabase
 database through `DATABASE_URL` in `.env` (session pooler, port 5432).
 
 **Pushing to main deploys** (2026-11-03): both Vercel projects build production from GitHub, each only when its own
