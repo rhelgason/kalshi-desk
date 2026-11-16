@@ -70,9 +70,16 @@ def test_offices_follow_the_owners_playbook_but_keep_their_own_reviews():
     roster = {r["key"]: hr.EmployeeRecord.from_row(r) for r in office.employee_rows()}
     assert set(roster) == {"maker_btc", "maker_eth", "hourly_btc"}  # not the yardstick left off real money
     assert roster["maker_btc"].params == {"odds_margin": 0.01}
-    assert roster["maker_btc"].level != 3  # levels are earned in the office's own reviews
+    assert roster["maker_btc"].level == 3  # new to the office: starts at the owner's level
     assert roster["maker_eth"].status == "fired"  # the owner's firing holds everywhere
     assert not sync_playbook(real, office, strategies)  # nothing new
+
+    # After that, levels are the office's own reviews'
+    rec = roster["maker_btc"]
+    rec.level = 1
+    office.upsert_employee(rec.to_row())
+    sync_playbook(real, office, strategies)
+    assert next(r for r in office.employee_rows() if r["key"] == "maker_btc")["level"] == 1
 
     rec = hr.EmployeeRecord.from_row(next(r for r in real.employee_rows() if r["key"] == "maker_eth"))
     rec.status = "active"

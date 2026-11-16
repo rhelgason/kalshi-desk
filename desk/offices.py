@@ -4,7 +4,9 @@ Friends' offices (2026-11-09): a friend's own Kalshi account, run by the same st
 Each office stands alone: its own Kalshi key and money, its own schema (office_<slug>: pool, levels, reviews,
 Employee of the Week), its own pause button. What it shares with the owner is the playbook, copied from the
 real book every few minutes: who is on staff (hires and firings), their settings, bet size and the review rules.
-Friends never hire or fire; levels and strikes come from each office's own weekly reviews.
+Friends never hire or fire. An office starts with the owner's levels (2026-11-15: same staff, same markets, so no
+reason to make them earn it again), and an employee new to an office joins at the owner's level for them; from
+then on levels and strikes come from each office's own weekly reviews.
 
 All offices run on the always-on server (`python -m desk offices`, deploy/offices.service), one after another
 in one process, every 2 minutes, half a minute after the owner's run. Each office stays in memory between runs,
@@ -110,11 +112,14 @@ def sync_playbook(real: Ledger, office: Ledger, strategies: dict) -> bool:
     hired = set(new.get("hired") or [])
     owner = {r["key"]: r for r in real.employee_rows()
              if r["key"] in REGISTRY and ((strategies.get(r["key"]) or {}).get("enabled", True) or r["key"] in hired)}
+    joining = set(owner) - {r["key"] for r in office.employee_rows()}
     roster = hr.load_roster(office, list(owner))
     for k, rec in roster.items():
         o = hr.EmployeeRecord.from_row(owner[k])
         before = rec.to_row()
         rec.params = o.params
+        if k in joining:
+            rec.level = o.level  # joins at the owner's level for them
         if o.status == "fired" and rec.status != "fired":
             rec.status = "fired"
             office.record_event("hr", {"action": "fired", "why": "the owner let them go"}, strategy=k)
@@ -220,7 +225,9 @@ class Offices:
         policy = hr.load_policy(o.ledger)
         policy["season"] = 0  # start_season counts up: the office's first season is season 1
         hr.save_policy(o.ledger, policy)
-        detail = hr.start_season(o.ledger, staff, cash, o.cfg.starting_cash, {}, "the office opened")
+        levels = {r["key"]: int(r["level"]) for r in self.real.employee_rows() if r["key"] in staff}
+        detail = hr.start_season(o.ledger, staff, cash, o.cfg.starting_cash, levels,
+                                 "the office opened with the owner's levels")
         o.ledger.set_status(STATE_KEY, {})
         self.note(o.slug, "active", None)
         logger.warning("Office %s opened with $%.2f shared by %d employees", o.slug, cash, len(detail["members"]))
