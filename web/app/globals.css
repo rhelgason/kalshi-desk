@@ -608,3 +608,21 @@ textarea.pem { width: 100%; min-height: 90px; font-family: ui-monospace, monospa
 .person-chip .up, .person-chip .down { font-variant-numeric: tabular-nums; font-size: 12px; margin-left: 2px; }
 .person-chip[aria-pressed="true"] .up, .person-chip[aria-pressed="true"] .down { color: #fff; opacity: 0.9; }
 .race .stat-cells { margin-top: 0; }
+
+/* Switching the chart's range (11-16): the chart and its numbers grey out with "Updating…" until the new range arrives */
+.office-hero .chart { position: relative; }
+html[data-range-loading] .office-hero .chart svg, html[data-range-loading] .office-hero .chart .readout,
+html[data-range-loading] .office-hero .hero-facts { opacity: 0.35; transition: opacity 0.15s; }
+html[data-range-loading] .office-hero .chart::after { content: "Updating…"; position: absolute; left: 50%; top: 45%;
+  transform: translate(-50%, -50%); padding: 6px 14px 6px 32px; border-radius: 999px; font-size: 13px; font-weight: 600;
+  background: var(--surface-1); color: var(--text-primary); border: 1px solid var(--border); box-shadow: 0 6px 20px var(--shadow);
+  background-image: radial-gradient(circle at 16px 50%, var(--series-1) 0 4px, transparent 4.5px); animation: range-pulse 0.9s ease-in-out infinite; }
+@keyframes range-pulse { 50% { background-image: radial-gradient(circle at 16px 50%, var(--series-1) 0 2px, transparent 2.5px); } }
+.chev { font-size: 11px; margin-left: 4px; opacity: 0.8; }
+.whatif-close { justify-self: start; background: none; border: 0; padding: 0; font: inherit; font-weight: 600; color: var(--text-primary); cursor: pointer; }
+
+/* Streaks & records on its own card: no boxes inside the box (11-16) */
+.records .record-grid { background: none; border: 0; border-radius: 0; gap: 16px 20px; overflow: visible; }
+.records .record { background: none; padding: 0; }
+.records .record-hot { background: none; }
+.records .record-hot .record-value { color: var(--series-2); }

@@ -11,11 +11,12 @@ import Setup from "@/components/Setup";
 import StatusPill from "@/components/StatusPill";
 import Spotlight from "@/components/Spotlight";
 import TeamList from "@/components/TeamList";
-import Link from "next/link";
+import NewsFeed from "@/components/NewsFeed";
+import Records from "@/components/Records";
 import Card from "@/components/ui/Card";
 import { OfficePause } from "@/components/OfficeAdmin";
 import { isAdmin } from "@/lib/admin";
-import { advise, betsPerDay, light } from "@/lib/advice";
+import { light } from "@/lib/advice";
 import { bookLabel, getOffice, getRealBook, viewedBook, requireViewer } from "@/lib/book";
 import {
   getAnalysis, getBets, getBonusPot, getHistory, getNews, getKillSwitch, getLive, getMoneyMoves, getPolicy, getRecentFills, getRoster,
@@ -35,8 +36,8 @@ const dayOf = (t: number, tz: string) => new Date(t).toLocaleDateString("en-CA",
 
 /**
  * An office (11-16): the owner's own on opening the app, a friend's only one. Top to bottom: what it's worth and the
- * chart, the bets riding now, the latest bets, and the team in one row. The rest of the old page (award, records,
- * needs-attention, news) is on /team.
+ * chart, the bets riding now, the team, the latest bets, streaks and records, and office news (folded). The
+ * manager's to-do list is on the cockpit.
  */
 export default async function Home({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   await requireViewer();
@@ -107,10 +108,6 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
     .filter((e) => members.has(e.key) || e.control)
     .map((e) => ({ e, light: light(e, analysis.evidence[e.key]), trend: trends[e.key] ?? [] }))
     .sort((a, b) => away(a) - away(b) || (profits[b.e.key] ?? 0) - (profits[a.e.key] ?? 0));
-  const attention = admin
-    ? team.filter((e) => advise(e, analysis.evidence[e.key], analysis.realism[e.key], policy,
-        betsPerDay(analysis.evidence[e.key]?.bets ?? 0, season.since)).tone === "act").length
-    : 0;
   const rates = Object.fromEntries(rows.map((r) => [r.e.key, perDollar(bets.filter((b) => b.strategy === r.e.key))]));
   const notes = teamNotes(rows.map((r) => ({ key: r.e.key, benched: r.light.key === "benched" || r.light.key === "fired",
     benchedUntil: r.e.suspended_until })), bets, tz);
@@ -154,16 +151,20 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
       <RaceTrack positions={live.positions.filter((p) => members.has(p.strategy))} employees={employees} held={held}
                  started={started} now={Date.now()} />
 
-      <LatestBets fills={fills.filter((f) => members.has(f.strategy) && f.yes_value != null)} employees={employees} day={lastDay} />
-
-      <Card title="Your Team" aside={(
-        <Link href="/team">
-          {attention > 0 ? <strong>{attention} {attention === 1 ? "needs" : "need"} you · </strong> : null}Records &amp; news →
-        </Link>
-      )}>
+      <Card title="Your Team">
         <Spotlight award={award} employees={employees} policy={policy} pot={pot} startsAt={isLive(book) ? 500 : 0} pool={live.pool?.equity ?? 0} />
         <TeamList rows={rows} profits={profits} rates={rates} notes={notes} star={award?.strategy ?? undefined} starTitle={award?.detail.title} />
       </Card>
+
+      <LatestBets fills={fills.filter((f) => members.has(f.strategy) && f.yes_value != null)} employees={employees} day={lastDay} />
+
+      {/* The day strip is already in the top card */}
+      <Records bets={pool} employees={employees} tz={tz} strip={0} />
+
+      <details className="card fold">
+        <summary><h2>Office News</h2></summary>
+        <NewsFeed items={news.filter((n) => n.kind !== "review").slice(0, 25)} employees={employees} />
+      </details>
 
       <div className="row-btns" style={{ justifyContent: "center" }}>
         <StatusPill updatedAt={live.updated_at} />

@@ -10,6 +10,7 @@ const dayLabel = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("e
  * Streaks and records for the season: win streaks, best and worst days, the golden hour, the biggest
  * loss (and how many wins it cost), and a strip of the last three weeks coloured by how each day went.
  */
+/** strip: how many days of coloured squares to show (0: none, when the page already has them). */
 export default function Records({ bets, employees, tz, strip = 21 }: { bets: Bet[]; employees: Employee[]; tz: string; strip?: number }) {
   if (bets.length < 5) return null;
   const who = Object.fromEntries(employees.map((e) => [e.key, e]));
@@ -27,7 +28,7 @@ export default function Records({ bets, employees, tz, strip = 21 }: { bets: Bet
   const runs = Object.entries(Object.groupBy(bets, (b) => b.strategy)).map(([k, bs]) => ({ k, run: streaks(bs!).current }))
     .sort((a, b) => b.run - a.run);
   const hot = runs[0]?.run > 0 ? runs[0] : null;
-  const strip21 = lastDays(all, strip, tz);
+  const strip21 = strip ? lastDays(all, strip, tz) : [];
   const scale = Math.max(...strip21.map((d) => Math.abs(d.pnl)), 0.01);
   const face = (k: string) => who[k] ? <Avatar k={k} emoji={who[k].emoji} size={20} /> : null;
   const name = (k: string) => (who[k] ? shortName(who[k].name) : k);
@@ -83,6 +84,7 @@ export default function Records({ bets, employees, tz, strip = 21 }: { bets: Bet
           <span className="record-note">{dayLabel(busiest.day)} · {dollars(busiest.pnl, true)} · {perDollar(sumRatio(bets, busiest.day, tz))}</span>
         </div>
       </div>
+      {strip > 0 && <>
       <div className="day-strip" role="img" aria-label={`Profit by day, last ${strip} days`}>
         {strip21.map((d) => {
           const a = d.n ? 0.25 + 0.75 * Math.min(1, Math.abs(d.pnl) / scale) : 0;
@@ -94,6 +96,7 @@ export default function Records({ bets, employees, tz, strip = 21 }: { bets: Bet
         })}
       </div>
       <div className="day-strip-legend muted small"><span>{dayLabel(strip21[0].day)}</span><span>Each square is a day: green up, red down</span><span>today</span></div>
+      </>}
     </section>
   );
 }

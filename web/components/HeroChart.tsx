@@ -69,7 +69,10 @@ export default function HeroChart({ points, marks, checked, members, bets, putIn
     });
   }, [on, marks, bets, points, putIn, k, ratio, out]);
 
-  const reset = () => { setMoneyOn(false); setBetOn(false); setOut([]); setOpen(false); };
+  const reset = () => {
+    setMoneyOn(false); setMoney(String(Math.round(putIn))); setBetOn(false); setBet(String(+(betPct * 100).toFixed(2)));
+    setOut([]); setOpen(false);
+  };
   const toggleOut = (key: string) => setOut((o) => (o.includes(key) ? o.filter((x) => x !== key) : [...o, key]));
   const end = alt?.[alt.length - 1];
   const endPut = (points[points.length - 1]?.putIn ?? putIn) * k;
@@ -80,11 +83,14 @@ export default function HeroChart({ points, marks, checked, members, bets, putIn
       <PortfolioChart points={points} marks={marks} checked={checked} alt={alt} altScale={k} />
       <div className="whatif-bar">
         {!open ? (
-          <button type="button" className="btn small whatif-open" onClick={() => setOpen(true)}>🔮 What if…</button>
+          <button type="button" className="btn small whatif-open" aria-expanded={false} onClick={() => setOpen(true)}>
+            🔮 What if… <span className="chev" aria-hidden>▾</span>
+          </button>
         ) : (
           <div className="whatif-panel">
+            <button type="button" className="whatif-close" aria-expanded onClick={reset}>🔮 What if… <span className="chev" aria-hidden>▴</span></button>
             <div className="whatif-row">
-              <button type="button" className="chip" aria-pressed={moneyOn} onClick={() => setMoneyOn(!moneyOn)}>With</button>
+              <button type="button" className="chip" aria-pressed={moneyOn} onClick={() => { if (moneyOn) setMoney(String(Math.round(putIn))); setMoneyOn(!moneyOn); }}>With</button>
               <label className="whatif-input">$
                 <input type="text" inputMode="numeric" value={money} onFocus={(e) => e.target.select()}
                        onChange={(e) => { setMoney(tidy(e.target.value, false)); setMoneyOn(true); }}
@@ -97,7 +103,7 @@ export default function HeroChart({ points, marks, checked, members, bets, putIn
               <span className="muted">put in</span>
             </div>
             <div className="whatif-row">
-              <button type="button" className="chip" aria-pressed={betOn} onClick={() => setBetOn(!betOn)}>Every bet</button>
+              <button type="button" className="chip" aria-pressed={betOn} onClick={() => { if (betOn) setBet(String(+(betPct * 100).toFixed(2))); setBetOn(!betOn); }}>Every bet</button>
               <label className="whatif-input">
                 <input type="text" inputMode="decimal" value={bet} onFocus={(e) => e.target.select()}
                        onChange={(e) => { setBet(tidy(e.target.value, true)); setBetOn(true); }}

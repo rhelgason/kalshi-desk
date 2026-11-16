@@ -200,3 +200,5 @@ html[data-theme="studio"] .card-head { margin-bottom: 12px; align-items: center;
 html[data-theme="studio"] .lvl-0 { background: color-mix(in srgb, #84cc16 14%, transparent); color: #65a30d; box-shadow: inset 0 0 0 1px color-mix(in srgb, #84cc16 55%, transparent); }
 @media (prefers-color-scheme: dark) { html[data-theme="studio"] .lvl-0 { color: #a3e635; } }
 html[data-theme="studio"] .whatif-open { border-color: color-mix(in srgb, var(--series-2) 60%, var(--border)); color: var(--text-primary); }
+html[data-theme="studio"] .records .record-grid { background: none; border-radius: 0; }
+html[data-theme="studio"] .records .record, html[data-theme="studio"] .records .record-hot { background: none; }

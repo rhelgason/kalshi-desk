@@ -4,9 +4,12 @@ import StatRow, { toneOf } from "@/components/ui/StatRow";
 import ReturnsChart, { type ReturnLine } from "@/components/ReturnsChart";
 import { isAdmin } from "@/lib/admin";
 import { requireViewer } from "@/lib/book";
-import { getBets, getKillSwitch, getLive, getPolicy, getSeasonStart, home, type Book } from "@/lib/db";
+import { getAnalysis, getBets, getKillSwitch, getLive, getPolicy, getRoster, getSeasonStart, home, withRoster, type Book } from "@/lib/db";
+import NeedsAttention from "@/components/NeedsAttention";
+import { advise, betsPerDay, type Advice } from "@/lib/advice";
+import type { Employee } from "@/lib/types";
 import { ago, dollars, pct } from "@/lib/format";
-import { headline } from "@/lib/portfolio";
+import { headline, poolKeys } from "@/lib/portfolio";
 import { perDollar, type Bet } from "@/lib/records";
 import { currentUser, officeOf } from "@/lib/session";
 import { viewOffice } from "../account";
@@ -71,6 +74,20 @@ export default async function CockpitPage() {
   await requireViewer();
   const [admin, user] = await Promise.all([isAdmin(), currentUser()]);
   const offices = await loadOffices(admin ? "real" : officeOf(user));
+  // The manager's to-do list for their real-money office (moved here from the old Team page, 11-16)
+  let todo: { e: Employee; advice: Advice }[] = [];
+  if (admin) {
+    try {
+      const policy = await getPolicy("real");
+      const [live, roster, analysis, start] = await Promise.all([getLive("real"), getRoster("real"), getAnalysis("real"),
+        getSeasonStart("real", policy.season)]);
+      const members = new Set(live ? poolKeys(live) : []);
+      todo = withRoster(live?.employees ?? [], roster).filter((e) => members.has(e.key) && e.status !== "fired")
+        .map((e) => ({ e, advice: advise(e, analysis.evidence[e.key], analysis.realism[e.key], policy,
+          betsPerDay(analysis.evidence[e.key]?.bets ?? 0, start ?? Date.now())) }))
+        .filter((r) => r.advice.tone === "act");
+    } catch { /* the list is a nicety: the cockpit still shows without it */ }
+  }
   const weekAgo = Date.now() - 7 * 86_400_000;
   const lines = offices.map(returnLine);
   const all = offices.flatMap((o) => o.bets);
@@ -80,6 +97,7 @@ export default async function CockpitPage() {
   return (
     <div className="stack">
       <AutoRefresh seconds={120} />
+      {admin && <NeedsAttention todo={todo} />}
       <Card title="Cockpit" aside={`${offices.length} offices · same staff, same rules`}>
         <ReturnsChart lines={lines} />
       </Card>
