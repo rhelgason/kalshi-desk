@@ -1,5 +1,4 @@
 import AutoRefresh from "@/components/AutoRefresh";
-import KalshiCheck from "@/components/KalshiCheck";
 import LatestBets from "@/components/LatestBets";
 import OfficeHero, { type HeroStat } from "@/components/OfficeHero";
 import RangeTabs from "@/components/RangeTabs";
@@ -7,17 +6,19 @@ import ResumeBanner from "@/components/ResumeBanner";
 import RidingCard from "@/components/RidingCard";
 import Setup from "@/components/Setup";
 import StatusPill from "@/components/StatusPill";
-import TeamStrip from "@/components/TeamStrip";
+import Spotlight from "@/components/Spotlight";
+import TeamList from "@/components/TeamList";
+import Link from "next/link";
 import { OfficePause } from "@/components/OfficeAdmin";
 import { isAdmin } from "@/lib/admin";
-import { advise, betsPerDay } from "@/lib/advice";
+import { advise, betsPerDay, light } from "@/lib/advice";
 import { bookLabel, getOffice, getRealBook, viewedBook, requireViewer } from "@/lib/book";
 import {
-  getAnalysis, getBets, getHistory, getKillSwitch, getLive, getMoneyMoves, getPolicy, getRecentFills, getRoster,
+  getAnalysis, getBets, getBonusPot, getHistory, getNews, getKillSwitch, getLive, getMoneyMoves, getPolicy, getRecentFills, getRoster,
   getSettlements, getSettlementsSince, isLive, isOffice, withRoster,
 } from "@/lib/db";
 import { currentUser, officeOf } from "@/lib/session";
-import { headline, only, parseRange, poolKeys, RANGES, settledSeries } from "@/lib/portfolio";
+import { headline, only, parseRange, poolKeys, profitSeries, RANGES, settledSeries } from "@/lib/portfolio";
 
 export const dynamic = "force-dynamic";
 
@@ -52,15 +53,14 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
       isOffice(book) ? getKillSwitch(book) : realBook ? getKillSwitch("real") : null, getMoneyMoves(book, policy.season),
       getOffice(book), currentUser(),
     ]);
-    // The manager's to-do count for the team row (their own books only)
-    const analysis = admin && !isOffice(book) ? await getAnalysis(book) : null;
+    const [analysis, news, pot] = await Promise.all([getAnalysis(book), getNews(book, 40), getBonusPot(book)]);
     data = { realBook, live, fills, roster, policy, history, season: season ?? history, admin: admin && !isOffice(book),
-             settled, bets, kill, marks, office, user, analysis };
+             settled, bets, kill, marks, office, user, analysis, news, pot };
   } catch (e) {
     if (isOffice(book)) return <OfficeSoon />;
     return <Setup error={String(e)} />;
   }
-  const { realBook, live, fills, roster, policy, history, season, admin, settled, bets, kill, marks, office, user, analysis } = data;
+  const { realBook, live, fills, roster, policy, history, season, admin, settled, bets, kill, marks, office, user, analysis, news, pot } = data;
   if (!live) return isOffice(book) ? <OfficeSoon /> : <Setup error="The bot hasn't published a status yet. Is it running?" />;
 
   const label = bookLabel(book, realBook, office);
@@ -82,23 +82,32 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
   const todays = pool.filter((b) => dayOf(b.t, tz) === today);
   const weeks = pool.filter((b) => b.t >= weekAgo);
   const won = (xs: typeof pool) => xs.filter((b) => b.pnl > 0).length;
+  const record = (xs: typeof pool) => xs.length ? `${won(xs)} of ${xs.length} won (${Math.round((won(xs) / xs.length) * 100)}%)` : "nothing finished yet";
   const stats: HeroStat[] = [
-    { label: "Today", value: sum(todays), note: todays.length ? `${won(todays)} of ${todays.length} won` : "nothing finished yet" },
-    { label: "Last 7 days", value: sum(weeks), note: weeks.length ? `${won(weeks)} of ${weeks.length} won` : "nothing finished yet" },
-    { label: "Since the start", value: (worth - putIn) / (putIn || 1), percent: true, note: `${pool.length} bets` },
+    { label: "Today", value: sum(todays), note: record(todays) },
+    { label: "Last 7 days", value: sum(weeks), note: record(weeks) },
+    { label: "All time", value: (worth - putIn) / (putIn || 1), percent: true, note: record(pool) },
   ];
   const profits: Record<string, number> = {};
   for (const b of pool) profits[b.strategy] = (profits[b.strategy] ?? 0) + b.pnl;
   const dayAgo = Date.now() - 86_400_000;
   const recent = pool.filter((b) => b.t >= dayAgo);
   const lastDay = { n: recent.length, won: won(recent), pnl: sum(recent) };
-  const attention = analysis
+  // The team as it always looked: award, then everyone with their status light and profit line
+  const trends = profitSeries(season);
+  const away = (r: { light: { key: string } }) => (r.light.key === "benched" || r.light.key === "fired" ? 1 : 0);
+  const rows = employees
+    .filter((e) => members.has(e.key) || e.control)
+    .map((e) => ({ e, light: light(e, analysis.evidence[e.key]), trend: trends[e.key] ?? [] }))
+    .sort((a, b) => away(a) - away(b) || (profits[b.e.key] ?? 0) - (profits[a.e.key] ?? 0));
+  const attention = admin
     ? team.filter((e) => advise(e, analysis.evidence[e.key], analysis.realism[e.key], policy,
         betsPerDay(analysis.evidence[e.key]?.bets ?? 0, season.since)).tone === "act").length
     : 0;
-  const since = new Date(season.since).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const seasonStarted = news.findIndex((n) => n.kind === "season");
+  const award = (seasonStarted < 0 ? news : news.slice(0, seasonStarted)).find((n) => n.kind === "award") ?? null;
   const name = isOffice(book) ? (officeOf(user) === book ? "Your office" : `${office?.name ?? "Friend"}'s office`)
-    : book === "pretend" ? "Training" : "My office";
+    : book === "pretend" ? "Training" : "My Office";
 
   return (
     <div className="stack">
@@ -109,22 +118,26 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
       <OfficeHero
         label={name}
         badge={book === "pretend" ? <span className="badge" title={label.title}>Pretend money</span> : null}
-        worth={worth} putIn={putIn} since={since} stats={stats}
+        worth={worth} putIn={putIn} stats={stats} checked={books?.at ?? live.updated_at}
         tabs={<RangeTabs value={range} path="/" />}
         points={points} marks={marks} period={RANGE_WORDS[range]}
-        under={(
-          <>
-            {books && <KalshiCheck books={books} env={isOffice(book) ? live.env ?? "prod" : realBook?.env ?? "demo"} halted={!!kill?.halted} />}
-            {isOffice(book) && <OfficePause halted={!!kill?.halted} mine={officeOf(user) === book} />}
-          </>
-        )}
+        under={isOffice(book) ? <OfficePause halted={!!kill?.halted} mine={officeOf(user) === book} /> : null}
       />
 
       <RidingCard positions={live.positions.filter((p) => members.has(p.strategy))} employees={employees} held={held} />
 
-      <LatestBets fills={fills.filter((f) => members.has(f.strategy))} employees={employees} day={lastDay} />
+      <LatestBets fills={fills.filter((f) => members.has(f.strategy) && f.yes_value != null)} employees={employees} day={lastDay} />
 
-      <TeamStrip team={team} profits={profits} attention={attention} />
+      <section className="card">
+        <div className="card-head">
+          <h2>Your team</h2>
+          <Link href="/team" className="small">
+            {attention > 0 ? <strong>{attention} {attention === 1 ? "needs" : "need"} you · </strong> : null}Records &amp; news →
+          </Link>
+        </div>
+        <Spotlight award={award} employees={employees} policy={policy} pot={pot} startsAt={isLive(book) ? 500 : 0} pool={live.pool?.equity ?? 0} />
+        <TeamList rows={rows} profits={profits} star={award?.strategy ?? undefined} starTitle={award?.detail.title} />
+      </section>
 
       <div className="row-btns" style={{ justifyContent: "center" }}>
         <StatusPill updatedAt={live.updated_at} />

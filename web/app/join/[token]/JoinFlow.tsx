@@ -52,7 +52,7 @@ export default function JoinFlow({ token, name, owner, hasKey, signedIn }:
   });
 
   return (
-    <div className="card narrow stack">
+    <div className="card narrow stack auth">
       <div className="steps" aria-hidden>{[0, 2, 3].map((s) => <span key={s} data-on={step >= s ? "" : undefined} />)}</div>
 
       {step === 0 && (

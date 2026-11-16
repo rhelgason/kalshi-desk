@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import type { PortfolioPoint } from "@/lib/portfolio";
 import type { MoneyMove } from "@/lib/types";
 import MoneyMarks from "./MoneyMarks";
-import { axisMoney, dollars } from "@/lib/format";
+import { ago, axisMoney, dollars } from "@/lib/format";
 import { niceTicks, useWidth } from "./useWidth";
 import { lerpAt } from "@/lib/interp";
 
@@ -20,9 +20,11 @@ const fmtWhen = (t: number, spanDays: number) =>
  * real line and the what-if (one color, so lines that cross don't turn to confetti).
  * Drag a finger (or mouse) across to read any moment; the readout sits above
  * the chart so a finger never covers it, and says how much has changed since
- * that moment (the line after it fades back). "Now ✕" returns to the present.
+ * that moment (the line after it fades back). Letting go (or the mouse leaving) goes back to now (11-16).
  */
-export default function PortfolioChart({ points, alt, height = 220, profitOnly, marks }: {
+export default function PortfolioChart({ points, alt, height = 220, profitOnly, marks, checked }: {
+  /** when the bot last looked at Kalshi, shown under the chart */
+  checked?: string | null;
   points: PortfolioPoint[];
   /** money put in or taken out mid-season, marked where it happened */
   marks?: MoneyMove[];
@@ -104,7 +106,6 @@ export default function PortfolioChart({ points, alt, height = 220, profitOnly, 
         {sinceThen != null && (
           <span className="since-then">since then <strong className={sinceThen >= 0 ? "up" : "down"}>{sinceThen >= 0 ? "▲" : "▼"} {dollars(Math.abs(sinceThen))}</strong></span>
         )}
-        {hover != null && <button type="button" className="readout-reset" onClick={() => setHover(null)} aria-label="Back to now">Now ✕</button>}
         {altNow != null && altProfit != null && (
           <span><span className="swatch" style={{ background: "var(--series-2)" }} /> what if: <strong>{dollars(altNow)}</strong>{" "}
             <span className="muted">({altProfit >= 0 ? "up" : "down"} {dollars(Math.abs(altProfit))})</span></span>
@@ -118,7 +119,9 @@ export default function PortfolioChart({ points, alt, height = 220, profitOnly, 
         onPointerMove={(e) => { if (e.pointerType === "mouse" || e.buttons) pick(e.clientX, e.currentTarget.getBoundingClientRect()); }}
         // Keep following the finger even when it drifts off the chart mid-drag
         onPointerDown={(e) => { e.currentTarget.setPointerCapture?.(e.pointerId); pick(e.clientX, e.currentTarget.getBoundingClientRect()); }}
-        // On a phone the reading stays after lifting the finger; with a mouse it clears on leaving
+        // Back to now when the finger lifts or the mouse leaves
+        onPointerUp={(e) => { if (e.pointerType !== "mouse") setHover(null); }}
+        onPointerCancel={() => setHover(null)}
         onPointerLeave={(e) => { if (e.pointerType === "mouse") setHover(null); }}
       >
         <defs>
@@ -167,10 +170,11 @@ export default function PortfolioChart({ points, alt, height = 220, profitOnly, 
         <circle cx={x(p.t)} cy={y(p.worth)} r={4} fill="var(--series-1)" stroke="var(--surface-1)" strokeWidth={2} />
       </svg>
       <div className="legend">
-        <span><span className="key" style={{ background: "var(--series-1)" }} />{profitOnly ?? "Worth, from finished bets"}</span>
+        <span><span className="key" style={{ background: "var(--series-1)" }} />{profitOnly ?? "Account value"}</span>
         {alt && <span><span className="key" style={{ background: "var(--series-2)" }} />What if</span>}
         {alt && <span><span className="key band" />The difference they made</span>}
-        <span><span className="key dashed" />{profitOnly ? "Break-even" : `Money put in: ${dollars(p.putIn)}`}</span>
+        <span><span className="key dashed" />{profitOnly ? "Break-even" : "Money put in"}</span>
+        {checked && <span className="legend-checked" suppressHydrationWarning>Checked {ago(checked)}</span>}
       </div>
     </div>
   );

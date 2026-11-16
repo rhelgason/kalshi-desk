@@ -7,6 +7,7 @@ import PullToRefresh from "@/components/PullToRefresh";
 import Ticker from "@/components/Ticker";
 import Taskbar from "@/components/Taskbar";
 import { THEMES, THEME_COOKIE, THEME_PREF, parseTheme } from "@/lib/theme";
+import Avatar from "@/components/Avatar";
 import { getOffice, getRealBook, viewedBook } from "@/lib/book";
 import { isOffice } from "@/lib/db";
 import { isAdmin } from "@/lib/admin";
@@ -50,7 +51,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <div className="shell">
           <header className="topbar">
             <Link href="/" className="brand">
-              <span className="brand-name">Kalshi Desk</span>
+              <span className="brand-mark"><Avatar k="dart_monkey" size={34} /></span>
+              <span className="brand-words">
+                <span className="brand-name">Kalshi <em>Desk</em></span>
+                <span className="brand-tag">Dart Monkey Dan&apos;s trading floor</span>
+              </span>
             </Link>
             <nav className="nav">
               {(user || admin) && <NavButtons book={book} hasLive={!!real} manager={admin} />}

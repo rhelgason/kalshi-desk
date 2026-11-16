@@ -11,9 +11,9 @@ export type HeroStat = { label: string; value: number; note?: string; percent?: 
  * (today, this week, since the start) and the chart. Every figure here moves only when a bet wins or loses
  * (lib/portfolio headline); what open bets are worth now is in the riding card instead.
  */
-export default function OfficeHero({ label, badge, worth, putIn, since, stats, tabs, points, marks, period, under }: {
-  label: string; badge?: ReactNode; worth: number; putIn: number; since: string; stats: HeroStat[];
-  tabs: ReactNode; points: PortfolioPoint[]; marks?: MoneyMove[]; period: string; under?: ReactNode;
+export default function OfficeHero({ label, badge, worth, putIn, stats, tabs, points, marks, period, checked, under }: {
+  label: string; badge?: ReactNode; worth: number; putIn: number; stats: HeroStat[];
+  tabs: ReactNode; points: PortfolioPoint[]; marks?: MoneyMove[]; period: string; checked?: string | null; under?: ReactNode;
 }) {
   const profit = worth - putIn;
   const first = points[0], last = points[points.length - 1];
@@ -21,12 +21,12 @@ export default function OfficeHero({ label, badge, worth, putIn, since, stats, t
   return (
     <section className="card money-hero office-hero">
       <div className="hero-head">
-        <span className="label">{label}</span>
+        <h1 className="office-title">{label}</h1>
         {badge}
       </div>
-      <div className="big-number">{dollars(worth)}</div>
-      <div className={`change ${profit >= 0 ? "up" : "down"}`}>
-        {dollars(profit, true)} ({pct(profit / (putIn || 1), true, 1)}) since {since}
+      <div className={`big-number ${profit >= 0 ? "up" : "down"}`}>{dollars(worth)}</div>
+      <div className="change">
+        <strong className={profit >= 0 ? "up" : "down"}>{dollars(profit, true)}</strong> of {dollars(putIn)} put in
       </div>
       <div className="hero-stats">
         {stats.map((s) => (
@@ -42,7 +42,7 @@ export default function OfficeHero({ label, badge, worth, putIn, since, stats, t
       <div className="hero-chart-head">
         {tabs}
       </div>
-      <PortfolioChart points={points} marks={marks} />
+      <PortfolioChart points={points} marks={marks} checked={checked} />
       <p className="range-change">
         {period}: <strong className={change >= 0 ? "up" : "down"}>{dollars(change, true)}</strong>
       </p>

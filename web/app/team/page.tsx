@@ -6,9 +6,7 @@ import NewsFeed from "@/components/NewsFeed";
 import MoneyHero from "@/components/MoneyHero";
 import RangeTabs from "@/components/RangeTabs";
 import Setup from "@/components/Setup";
-import Spotlight from "@/components/Spotlight";
 import StatusPill from "@/components/StatusPill";
-import TeamList from "@/components/TeamList";
 import LatestBets from "@/components/LatestBets";
 import Records from "@/components/Records";
 import ResumeBanner from "@/components/ResumeBanner";
@@ -153,12 +151,6 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
 
       <Records bets={bets.filter((b) => members.has(b.strategy))} employees={employees} tz={tz} />
 
-      <section className="card">
-        <h2>Team</h2>
-        <Spotlight award={award} employees={employees} policy={policy} pot={pot} startsAt={isLive(book) ? 500 : 0} pool={live.pool?.equity ?? 0} />
-        <TeamList rows={rows} profits={profits}
-          star={award?.strategy ?? undefined} starTitle={award?.detail.title} />
-      </section>
 
       <details className="card fold">
         <summary><h2>Office news</h2></summary>

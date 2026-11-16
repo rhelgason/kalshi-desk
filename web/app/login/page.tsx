@@ -14,8 +14,8 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   if (user) {
     const keys = await home()`SELECT device, created_at, last_used FROM public.passkeys WHERE user_id = ${user.id} ORDER BY created_at`;
     return (
-      <div className="card narrow stack">
-        <h2>Hi {user.name} 👋</h2>
+      <div className="card narrow stack auth">
+        <h2>Hi {user.name}</h2>
         <p className="sub">
           You stay signed in on this device{user.role === "friend" ? " and see only your own office" : ""}. Your passkeys:
         </p>
@@ -28,13 +28,13 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           A passkey saved on an iPhone works on your other Apple devices too (and Android ones across your Google
           account). On a computer without one, choose &quot;use a phone&quot; when you sign in and scan the code.
         </p>
-        <AddPasskey label="➕ Add a passkey on this device" />
+        <AddPasskey label="Add a passkey on this device" />
         <form action={signOut}><button className="btn">Sign out</button></form>
       </div>
     );
   }
   return (
-    <div className="card narrow stack">
+    <div className="card narrow stack auth">
       <h2>Sign in</h2>
       <p className="sub">With the passkey you made when you joined: your face, fingerprint or device PIN. You stay signed in.</p>
       <PasskeyLogin next={next ?? "/"} />
@@ -44,7 +44,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           <AddPasskey askName />
         </>
       ) : (
-        <p className="muted small">Running the desk? <Link href="/admin">Manager password</Link></p>
+        <p className="muted small">Running the desk? <Link href="/admin">Enter your manager password here</Link></p>
       )}
     </div>
   );
