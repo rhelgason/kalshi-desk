@@ -1,3 +1,4 @@
+import { dollars } from "./format";
 /**
  * Streaks and records, from every settled bet of the season (lib/db getBets). Pure functions, so the home page's
  * records card and each employee's player card read the same numbers.
@@ -88,4 +89,47 @@ export function winsToRecover(loss: number, bets: Bet[]) {
   const w = bets.filter(won);
   const avg = w.length ? w.reduce((s, b) => s + b.pnl, 0) / w.length : 0;
   return avg > 0 ? Math.ceil(Math.abs(loss) / avg) : null;
+}
+
+/**
+ * One short line per employee for the team list (11-16): the most telling fact about them right now, worded plainly.
+ * Team-wide firsts (best rate, busiest today) go to one person each, so neighbouring rows read differently.
+ */
+export function teamNotes(people: { key: string; benchedUntil?: string | null; benched?: boolean }[], bets: Bet[], tz: string,
+                          now = Date.now()): Record<string, string> {
+  const by: Record<string, Bet[]> = {};
+  for (const b of bets) (by[b.strategy] ??= []).push(b);
+  const today = dayKey(now, tz);
+  const short = (t: number) => new Date(t).toLocaleDateString("en-US", { timeZone: tz, month: "short", day: "numeric" });
+  const rate = (k: string) => (by[k]?.length ?? 0) >= 30 ? perDollar(by[k]) : null;
+  const todays = (k: string) => (by[k] ?? []).filter((b) => dayKey(b.t, tz) === today).length;
+  const top = (f: (k: string) => number | null) => {
+    let best: string | null = null, v = -Infinity;
+    for (const p of people) { const x = f(p.key); if (x != null && x > v && !p.benched) { v = x; best = p.key; } }
+    return best;
+  };
+  const bestRate = top(rate), busiest = top((k) => todays(k) || null);
+  const longest = top((k) => streaks(by[k] ?? []).current || null);
+  const out: Record<string, string> = {};
+  for (const p of people) {
+    const mine = by[p.key] ?? [];
+    const n = mine.length, pnl = mine.reduce((s, b) => s + b.pnl, 0);
+    const s = streaks(mine);
+    const last = mine.length ? biggest(mine.filter((b) => now - b.t < 86_400_000)).loss : null;
+    const run = greenRun(days(mine, tz), tz, now);
+    out[p.key] =
+      p.benched ? (p.benchedUntil && !p.benchedUntil.startsWith("9999") ? `Benched until ${short(Date.parse(p.benchedUntil))}` : "On the bench")
+      : !n ? "Waiting for a first bet"
+      : n < 20 ? `New here · ${n} ${n === 1 ? "bet" : "bets"} so far`
+      : p.key === bestRate ? `Best rate on the team · ${((rate(p.key) ?? 0) * 100).toFixed(1)}¢ per $1`
+      : p.key === longest && s.current >= 10 ? `${s.current} wins in a row, the team's longest run`
+      : last ? `Lost ${dollars(-last.pnl)} ${dayKey(last.t, tz) === today ? "today" : "yesterday"}, ${winsToRecover(last.pnl, mine) ?? "a few"} wins to earn it back`
+      : p.key === busiest ? `Busiest today · ${todays(p.key)} bets`
+      : pnl < 0 ? `Down ${dollars(-pnl)} so far · needs a good week`
+      : s.current >= 5 && s.current < n ? `No loss since ${short(mine[n - s.current - 1].t)} · ${s.current} wins since`
+      : s.current === n ? `Hasn't lost yet · ${n} bets`
+      : run >= 3 ? `Up ${run} days running`
+      : `${Math.round((mine.filter(won).length / n) * 100)}% won over ${n} bets`;
+  }
+  return out;
 }

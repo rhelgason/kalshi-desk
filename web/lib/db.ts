@@ -1,4 +1,5 @@
 import { unstable_cache } from "next/cache";
+import { cache } from "react";
 import postgres from "postgres";
 import { LEVELS, mergePolicy } from "./hr";
 import { coinOfTicker } from "./coin";
@@ -70,6 +71,8 @@ export function db(book: Book = "pretend"): Tag {
  *  - an older copy: ask the database again, but if it's down or slow, show the old copy
  *    instead of an error page.
  * Manager changes (app/actions.ts) clear the copies straight away (revalidateTag).
+ * A book's reads are also keyed by when its bot last reported (11-16, `reported`): one tiny query per page load,
+ * so a refresh after the bot's run reads everything afresh, and between runs the copies serve.
  */
 const FRESH_MS = 60_000;
 const TRY_MS = 3_000;
@@ -77,13 +80,29 @@ const REST_MS = 30_000; // after the database fails to answer, don't wait on it 
 let downUntil = 0;
 export const bookTag = (book: Book | "shared") => `db:${book}`;
 
+/** When the book's bot last wrote its status (once per page load); null if the database doesn't answer quickly. */
+const reported = cache(async (book: Book): Promise<string | null> => {
+  if (Date.now() < downUntil) return null;
+  try {
+    const rows = await Promise.race([
+      db(book)`SELECT updated_at FROM status WHERE key = 'live'`,
+      new Promise<never>((_, no) => setTimeout(() => no(new Error("database slow")), TRY_MS)),
+    ]);
+    return rows.length ? String(rows[0].updated_at) : null;
+  } catch {
+    return null;
+  }
+});
+
 function sturdy<A extends unknown[], R>(name: string, query: (...a: A) => Promise<R>): (...a: A) => Promise<R> {
   return async (...a: A) => {
     const book = isBook(a[0]) ? a[0] : "shared";
-    const kept = unstable_cache(async () => ({ at: Date.now(), v: await query(...a) }), [name, JSON.stringify(a)],
-      { revalidate: 30, tags: [bookTag(book)] });
+    const stamp = book === "shared" ? null : await reported(book);
+    const kept = unstable_cache(async () => ({ at: Date.now(), v: await query(...a) }), [name, JSON.stringify(a), stamp ?? ""],
+      { revalidate: stamp ? 600 : 30, tags: [bookTag(book)] });
     const copy = await kept();
-    if (Date.now() - copy.at < FRESH_MS || Date.now() < downUntil) return copy.v;
+    // Nothing new since the bot's last report: this copy is the latest there is
+    if (stamp || Date.now() - copy.at < FRESH_MS || Date.now() < downUntil) return copy.v;
     try {
       return await Promise.race([
         query(...a),

@@ -1,9 +1,11 @@
 import AutoRefresh from "@/components/AutoRefresh";
 import LatestBets from "@/components/LatestBets";
+import HeroChart, { type WhatIfMember } from "@/components/HeroChart";
+import HeroFacts from "@/components/HeroFacts";
 import OfficeHero, { type HeroStat } from "@/components/OfficeHero";
 import RangeTabs from "@/components/RangeTabs";
 import ResumeBanner from "@/components/ResumeBanner";
-import RidingCard from "@/components/RidingCard";
+import RaceTrack from "@/components/RaceTrack";
 import Setup from "@/components/Setup";
 import StatusPill from "@/components/StatusPill";
 import Spotlight from "@/components/Spotlight";
@@ -18,6 +20,7 @@ import {
   getSettlements, getSettlementsSince, isLive, isOffice, withRoster,
 } from "@/lib/db";
 import { currentUser, officeOf } from "@/lib/session";
+import { perDollar, teamNotes } from "@/lib/records";
 import { headline, only, parseRange, poolKeys, profitSeries, RANGES, settledSeries } from "@/lib/portfolio";
 
 export const dynamic = "force-dynamic";
@@ -104,6 +107,24 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
     ? team.filter((e) => advise(e, analysis.evidence[e.key], analysis.realism[e.key], policy,
         betsPerDay(analysis.evidence[e.key]?.bets ?? 0, season.since)).tone === "act").length
     : 0;
+  const rates = Object.fromEntries(rows.map((r) => [r.e.key, perDollar(bets.filter((b) => b.strategy === r.e.key))]));
+  const notes = teamNotes(rows.map((r) => ({ key: r.e.key, benched: r.light.key === "benched" || r.light.key === "fired",
+    benchedUntil: r.e.suspended_until })), bets, tz);
+  // The chart's range: where it starts, what changed over it, and each member's running profit for the what-if
+  const chartStart = points[0]?.t ?? season.since;
+  const rangeChange = Math.round(pool.filter((b) => b.t >= chartStart).reduce((s, b) => s + b.pnl, 0) * 100) / 100 || 0;
+  const whatIf: WhatIfMember[] = team.filter((e) => !e.control).map((e) => {
+    let run = 0;
+    const steps = pool.filter((b) => b.strategy === e.key).sort((a, b) => a.t - b.t)
+      .map((b) => [b.t, Math.round((run += b.pnl) * 100) / 100] as [number, number]);
+    return { key: e.key, name: e.name, emoji: e.emoji, steps };
+  }).filter((m) => m.steps.length);
+  // When each open bet filled (its first fill), so the race knows where each lane started
+  const started: Record<string, number> = {};
+  for (const f of fills) if (f.yes_value == null) {
+    const k = `${f.strategy}|${f.ticker}`, t = Date.parse(f.ts);
+    started[k] = Math.min(started[k] ?? t, t);
+  }
   const seasonStarted = news.findIndex((n) => n.kind === "season");
   const award = (seasonStarted < 0 ? news : news.slice(0, seasonStarted)).find((n) => n.kind === "award") ?? null;
   const name = isOffice(book) ? (officeOf(user) === book ? "Your office" : `${office?.name ?? "Friend"}'s office`)
@@ -118,13 +139,17 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
       <OfficeHero
         label={name}
         badge={book === "pretend" ? <span className="badge" title={label.title}>Pretend money</span> : null}
-        worth={worth} putIn={putIn} stats={stats} checked={books?.at ?? live.updated_at}
+        worth={worth} putIn={putIn} stats={stats}
         tabs={<RangeTabs value={range} path="/" />}
-        points={points} marks={marks} period={RANGE_WORDS[range]}
+        chart={<HeroChart points={points} marks={marks} checked={books?.at ?? live.updated_at} members={whatIf}
+                          putIn={putIn} betPct={policy.pool.bet_pct} />}
+        facts={<HeroFacts period={RANGE_WORDS[range]} change={rangeChange} inRange={pool.filter((b) => b.t >= chartStart)}
+                          all={pool} employees={employees} tz={tz} since={season.since} />}
         under={isOffice(book) ? <OfficePause halted={!!kill?.halted} mine={officeOf(user) === book} /> : null}
       />
 
-      <RidingCard positions={live.positions.filter((p) => members.has(p.strategy))} employees={employees} held={held} />
+      <RaceTrack positions={live.positions.filter((p) => members.has(p.strategy))} employees={employees} held={held}
+                 started={started} now={Date.now()} />
 
       <LatestBets fills={fills.filter((f) => members.has(f.strategy) && f.yes_value != null)} employees={employees} day={lastDay} />
 
@@ -136,7 +161,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
           </Link>
         </div>
         <Spotlight award={award} employees={employees} policy={policy} pot={pot} startsAt={isLive(book) ? 500 : 0} pool={live.pool?.equity ?? 0} />
-        <TeamList rows={rows} profits={profits} star={award?.strategy ?? undefined} starTitle={award?.detail.title} />
+        <TeamList rows={rows} profits={profits} rates={rates} notes={notes} star={award?.strategy ?? undefined} starTitle={award?.detail.title} />
       </section>
 
       <div className="row-btns" style={{ justifyContent: "center" }}>

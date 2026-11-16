@@ -52,10 +52,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <header className="topbar">
             <Link href="/" className="brand">
               <span className="brand-mark"><Avatar k="dart_monkey" size={34} /></span>
-              <span className="brand-words">
-                <span className="brand-name">Kalshi <em>Desk</em></span>
-                <span className="brand-tag">Dart Monkey Dan&apos;s trading floor</span>
-              </span>
+              <span className="brand-name">Kalshi <em>Desk</em></span>
             </Link>
             <nav className="nav">
               {(user || admin) && <NavButtons book={book} hasLive={!!real} manager={admin} />}

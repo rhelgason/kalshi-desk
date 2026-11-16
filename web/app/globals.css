@@ -522,3 +522,64 @@ textarea.pem { width: 100%; min-height: 90px; font-family: ui-monospace, monospa
 .brand-tag { font-size: 11px; color: var(--text-muted); font-weight: 500; }
 .brand-name em { font-style: normal; }
 .hero-stat-note { white-space: normal; }
+.readout-checked { margin-left: auto; color: var(--text-muted); font-size: 12px; }
+/* Every team row's columns line up, whatever the numbers (11-16) */
+.team .money-col { min-width: 96px; }
+.team .trend { width: 72px; }
+
+/* Highlights under the office chart (11-16) */
+.hero-facts { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--grid); }
+.fact-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 600px) { .fact-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.fact { display: grid; gap: 2px; align-content: start; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); min-width: 0; }
+.fact-label { font-size: 11.5px; color: var(--text-muted); }
+.fact-value { font-size: 16px; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fact-who, .fact-note { display: flex; align-items: center; gap: 6px; }
+.fact-note { font-size: 12px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hero-facts .day-strip { margin-top: 12px; }
+
+/* What if… (11-16): one quiet link until it's wanted */
+.whatif-bar { display: flex; justify-content: flex-end; margin-top: 4px; }
+.link-btn { background: none; border: 0; padding: 2px 0; font: inherit; font-size: 13px; color: var(--series-1); cursor: pointer; }
+.link-btn:hover { text-decoration: underline; }
+.whatif-panel { width: 100%; display: grid; gap: 8px; padding: 12px; border-radius: 12px; border: 1px dashed var(--series-2);
+  background: color-mix(in srgb, var(--series-2) 6%, transparent); font-size: 13px; }
+.whatif-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.whatif-row .chip[aria-pressed="true"], .person-chip[aria-pressed="true"] { background: var(--series-2); color: #fff; border-color: var(--series-2); }
+.whatif-input { display: inline-flex; align-items: center; gap: 2px; font-variant-numeric: tabular-nums; }
+.whatif-input input { width: 76px; padding: 4px 6px; font: inherit; }
+.person-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px 3px 4px; font-size: 12.5px; cursor: pointer; }
+.whatif-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.whatif-row .chip { cursor: pointer; font: inherit; font-size: 12.5px; padding: 4px 10px; }
+
+/* Riding now as a race (11-16) */
+.race-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; margin-bottom: 6px; }
+.race-head h2 { margin: 0 0 2px; }
+.race-total { display: grid; justify-items: end; line-height: 1.15; }
+.race-total strong { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.race-group { margin-top: 12px; padding: 10px; border-radius: 12px; background: var(--surface-2); }
+.race-group-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.race-group-gain { margin-left: auto; font-weight: 650; font-variant-numeric: tabular-nums; }
+.lane { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(90px, 1.6fr) 74px; align-items: center; gap: 12px;
+  padding: 8px 2px; border-top: 1px dashed var(--grid); }
+.lane-market { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lane-side { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+.lane-left { font-size: 12px; font-weight: 500; color: var(--text-muted); }
+.track { position: relative; height: 30px; margin-right: 8px; }
+.track::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 2px dashed var(--border); }
+.track-trail { position: absolute; left: 0; top: calc(50% - 3px); height: 6px; border-radius: 3px; }
+.lane.ahead .track-trail { background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--up) 70%, transparent)); }
+.lane.behind .track-trail { background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--down) 75%, transparent)); }
+.track-runner { position: absolute; top: 50%; transform: translate(-50%, -58%); animation: runner-bob 0.9s ease-in-out infinite; z-index: 1; }
+.track-runner .avatar { display: block; filter: drop-shadow(0 2px 2px var(--shadow)); }
+.lane.behind .track-runner { animation-duration: 1.6s; }
+.track-finish { position: absolute; right: -8px; top: 3px; bottom: 3px; width: 8px; border-radius: 2px;
+  background: repeating-conic-gradient(var(--text-primary) 0 25%, var(--surface-1) 0 50%) 0 0 / 8px 8px; opacity: 0.75; }
+@keyframes runner-bob { 0%, 100% { transform: translate(-50%, -58%); } 50% { transform: translate(-50%, -72%); } }
+@media (prefers-reduced-motion: reduce) { .track-runner { animation: none; } }
+.race-more { margin-top: 4px; }
+@media (max-width: 600px) {
+  .lane { grid-template-columns: minmax(0, 1fr) auto; row-gap: 2px; }
+  .lane .track { grid-column: 1 / -1; grid-row: 2; }
+}
+.hero-facts .day { aspect-ratio: auto; height: 22px; }

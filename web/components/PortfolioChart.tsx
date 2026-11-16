@@ -4,9 +4,15 @@ import { useMemo, useState } from "react";
 import type { PortfolioPoint } from "@/lib/portfolio";
 import type { MoneyMove } from "@/lib/types";
 import MoneyMarks from "./MoneyMarks";
-import { ago, axisMoney, dollars } from "@/lib/format";
+import { axisMoney, dollars } from "@/lib/format";
 import { niceTicks, useWidth } from "./useWidth";
 import { lerpAt } from "@/lib/interp";
+
+/** "now", "1m ago", "3h ago": whole minutes are plenty for a bot that reports every 2 minutes. */
+const updatedAgo = (iso: string) => {
+  const m = Math.floor((Date.now() - Date.parse(iso)) / 60_000);
+  return m < 1 ? "now" : m < 60 ? `${m}m ago` : `${Math.floor(m / 60)}h ago`;
+};
 
 const fmtWhen = (t: number, spanDays: number) =>
   new Date(t).toLocaleString("en-US", spanDays > 2
@@ -22,7 +28,9 @@ const fmtWhen = (t: number, spanDays: number) =>
  * the chart so a finger never covers it, and says how much has changed since
  * that moment (the line after it fades back). Letting go (or the mouse leaving) goes back to now (11-16).
  */
-export default function PortfolioChart({ points, alt, height = 220, profitOnly, marks, checked }: {
+export default function PortfolioChart({ points, alt, altScale = 1, height = 220, profitOnly, marks, checked }: {
+  /** the what-if's money put in, as a multiple of the real (its profit is measured against that) */
+  altScale?: number;
   /** when the bot last looked at Kalshi, shown under the chart */
   checked?: string | null;
   points: PortfolioPoint[];
@@ -80,7 +88,7 @@ export default function PortfolioChart({ points, alt, height = 220, profitOnly, 
   const p = { t: ht, worth: at((q) => q.worth), putIn: at((q) => q.putIn, true) };
   const altNow = alt ? lerpAt(points.map((q, j) => ({ t: q.t, v: alt[j] })), ht, (q) => q.t, (q) => q.v) : null;
   const profit = p.worth - p.putIn;
-  const altProfit = altNow != null ? altNow - p.putIn : null;
+  const altProfit = altNow != null ? altNow - p.putIn * altScale : null;
   // While scrubbing: how much it's moved from that moment to now (the "what happened since" number)
   const last = points[points.length - 1];
   const sinceThen = hover != null ? (profitOnly ? (last.worth - last.putIn) - profit : last.worth - p.worth) : null;
@@ -106,6 +114,7 @@ export default function PortfolioChart({ points, alt, height = 220, profitOnly, 
         {sinceThen != null && (
           <span className="since-then">since then <strong className={sinceThen >= 0 ? "up" : "down"}>{sinceThen >= 0 ? "▲" : "▼"} {dollars(Math.abs(sinceThen))}</strong></span>
         )}
+        {checked && <span className="readout-checked" suppressHydrationWarning>Updated {updatedAgo(checked)}</span>}
         {altNow != null && altProfit != null && (
           <span><span className="swatch" style={{ background: "var(--series-2)" }} /> what if: <strong>{dollars(altNow)}</strong>{" "}
             <span className="muted">({altProfit >= 0 ? "up" : "down"} {dollars(Math.abs(altProfit))})</span></span>
@@ -174,7 +183,6 @@ export default function PortfolioChart({ points, alt, height = 220, profitOnly, 
         {alt && <span><span className="key" style={{ background: "var(--series-2)" }} />What if</span>}
         {alt && <span><span className="key band" />The difference they made</span>}
         <span><span className="key dashed" />{profitOnly ? "Break-even" : "Money put in"}</span>
-        {checked && <span className="legend-checked" suppressHydrationWarning>Checked {ago(checked)}</span>}
       </div>
     </div>
   );
