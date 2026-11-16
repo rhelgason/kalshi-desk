@@ -3,7 +3,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { currentUser } from "./session";
 
-// The dashboard is public; changing anything requires the manager: the admin password (ADMIN_PASSWORD in
+// The owner's books need a login (lib/book.ts requireViewer, since 11-15); changing anything requires the manager: the admin password (ADMIN_PASSWORD in
 // Vercel, a signed cookie remembers it for 30 days) or the owner's passkey login (lib/session.ts, 400 days).
 const COOKIE = "desk_admin";
 
@@ -13,7 +13,7 @@ function token(): string | null {
   return createHmac("sha256", pw).update("kalshi-desk-admin-v1").digest("hex");
 }
 
-async function passwordCookie(): Promise<boolean> {
+export async function passwordCookie(): Promise<boolean> {
   const expected = token();
   if (!expected) return false;
   const got = (await cookies()).get(COOKIE)?.value ?? "";

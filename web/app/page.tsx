@@ -15,7 +15,7 @@ import ResumeBanner from "@/components/ResumeBanner";
 import { OfficePause } from "@/components/OfficeAdmin";
 import { isAdmin } from "@/lib/admin";
 import { advise, betsPerDay, light } from "@/lib/advice";
-import { bookLabel, getOffice, getRealBook, viewedBook } from "@/lib/book";
+import { bookLabel, getOffice, getRealBook, viewedBook, requireViewer } from "@/lib/book";
 import {
   getAnalysis, getBets, getBonusPot, getHistory, getKillSwitch, getLive, getMoneyMoves, getNews, getPolicy, getRecentFills, getRoster, getSettlements, getSettlementsSince, isLive, isOffice, withRoster,
 } from "@/lib/db";
@@ -31,6 +31,7 @@ const RANGE_WORDS = { day: "Today", week: "This week", month: "This month", quar
 const RANGE_SCOPE = { day: "today", week: "this week", month: "this month", quarter: "last 3 months", season: "lifetime" };
 
 export default async function Home({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
+  await requireViewer();
   const params = await searchParams;
   const range = parseRange(params.range, "week");
   // Bets before the range arrive rolled up (getSettlementsSince); a minute early so the roll-up sits before the chart's start

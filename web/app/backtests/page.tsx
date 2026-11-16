@@ -2,10 +2,12 @@ import Link from "next/link";
 import Setup from "@/components/Setup";
 import { listBacktests } from "@/lib/db";
 import { money } from "@/lib/format";
+import { requireViewer } from "@/lib/book";
 
 export const dynamic = "force-dynamic";
 
 export default async function Backtests() {
+  await requireViewer();
   let runs;
   try {
     runs = await listBacktests();

@@ -1,7 +1,9 @@
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { cache } from "react";
+import { passwordCookie } from "./admin";
 import { getKillSwitch, getLive, home, isLongPause, isOffice, type Book } from "./db";
-import { currentUser, officeOf } from "./session";
+import { currentUser, officeOf, sessionLookup } from "./session";
 
 export type { Book };
 
@@ -54,6 +56,18 @@ export const viewedBook = cache(async (): Promise<Book> => {
   if (isOffice(picked) && user?.role === "owner" && (await sharedOffice(picked))) return picked;
   return defaultBook();
 });
+
+/**
+ * Pages with anyone's numbers need a login (11-15: the owner's books were open to anyone with the link, so a
+ * friend could see them). A visitor goes to sign in; a login the database can't check right now gets a "try
+ * again" page, never somebody else's books.
+ */
+export async function requireViewer(): Promise<void> {
+  const { user, failed } = await sessionLookup();
+  if (user || (await passwordCookie())) return;
+  if (failed) throw new Error("Couldn't check your login just now (the database is busy). Try again in a minute.");
+  redirect("/login");
+}
 
 export type OfficeInfo = { slug: string; name: string; status: string; note: string | null; share: boolean };
 

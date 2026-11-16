@@ -22,25 +22,43 @@ export type User = {
 
 const hash = (token: string) => createHash("sha256").update(token).digest("hex");
 
-/** Whoever this browser is logged in as (null: nobody, or the manager by password only). */
-export const currentUser = cache(async (): Promise<User | null> => {
+// Logins this server instance has checked lately. 11-15: with the database full, every lookup failed, so the owner
+// looked logged out and a friend fell back to the visitor's view (the owner's books). Now a busy database changes
+// neither: a login checked in the last 12 hours stands, and one that can't be checked is "unknown", never "nobody".
+const checked = new Map<string, { user: User; at: number }>();
+const TRUST_MS = 12 * 3_600_000;
+
+/** This browser's login: `failed` when it has one that the database couldn't check just now. */
+export const sessionLookup = cache(async (): Promise<{ user: User | null; failed: boolean }> => {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
-  if (!token || token.length > 100) return null;
+  if (!token || token.length > 100) return { user: null, failed: false };
+  const h = hash(token);
   try {
     const rows = await home()`
       SELECT u.id, u.name, u.role, u.office, u.prefs, u.share_overview, s.last_seen
-      FROM public.sessions s JOIN public.users u ON u.id = s.user_id WHERE s.token_hash = ${hash(token)}`;
-    if (!rows.length) return null;
+      FROM public.sessions s JOIN public.users u ON u.id = s.user_id WHERE s.token_hash = ${h}`;
+    if (!rows.length) {
+      checked.delete(h);
+      return { user: null, failed: false };
+    }
     const r = rows[0];
     if (Date.now() - new Date(r.last_seen).getTime() > 86_400_000) {
-      await home()`UPDATE public.sessions SET last_seen = now() WHERE token_hash = ${hash(token)}`;
+      await home()`UPDATE public.sessions SET last_seen = now() WHERE token_hash = ${h}`.catch(() => null);
     }
-    return { id: Number(r.id), name: r.name, role: r.role, office: r.office, prefs: r.prefs ?? {},
-             share_overview: !!r.share_overview };
-  } catch {
-    return null; // no tables yet, or the database is busy: show the page as for a visitor
+    const user: User = { id: Number(r.id), name: r.name, role: r.role, office: r.office, prefs: r.prefs ?? {},
+                         share_overview: !!r.share_overview };
+    checked.set(h, { user, at: Date.now() });
+    return { user, failed: false };
+  } catch (e) {
+    const known = checked.get(h);
+    if (known && Date.now() - known.at < TRUST_MS) return { user: known.user, failed: false };
+    console.error("login check failed:", e instanceof Error ? e.message : e);
+    return { user: null, failed: true };
   }
 });
+
+/** Whoever this browser is logged in as (null: nobody, the manager by password only, or not checkable now). */
+export const currentUser = cache(async (): Promise<User | null> => (await sessionLookup()).user);
 
 /** A friend's own book (their office's schema). */
 export const officeOf = (u: User | null): Book | null => (u?.office ? (`office_${u.office}` as Book) : null);
@@ -56,7 +74,10 @@ export async function startSession(userId: number, agent: string | null): Promis
 export async function endSession(): Promise<void> {
   const jar = await cookies();
   const token = jar.get(SESSION_COOKIE)?.value;
-  if (token) await home()`DELETE FROM public.sessions WHERE token_hash = ${hash(token)}`.catch(() => null);
+  if (token) {
+    checked.delete(hash(token));
+    await home()`DELETE FROM public.sessions WHERE token_hash = ${hash(token)}`.catch(() => null);
+  }
   jar.delete(SESSION_COOKIE);
 }
 

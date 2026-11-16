@@ -20,7 +20,7 @@ import { isAdmin } from "@/lib/admin";
 import { advise, betsPerDay, light } from "@/lib/advice";
 import { HOW_THEY_BET, quip } from "@/lib/voice";
 import { getAnalysis, getHistory, getLive, getNews, getPolicy, getRecentFills, getRoster, getSeasonStart, getSettlementStats, getTuningRuns, getCoinStats, getBets, getMoneyMoves, isOffice, withRoster } from "@/lib/db";
-import { viewedBook } from "@/lib/book";
+import { viewedBook, requireViewer } from "@/lib/book";
 import { cents, dollars, money, pct, tone } from "@/lib/format";
 import { parseRange, poolKeys, profitSeries } from "@/lib/portfolio";
 import { poolShare } from "@/lib/hr";
@@ -31,6 +31,7 @@ export default async function EmployeePage({ params, searchParams }: {
   params: Promise<{ key: string }>;
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
+  await requireViewer();
   const { key } = await params;
   const range = parseRange((await searchParams).range);
   let data;

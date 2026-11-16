@@ -2,7 +2,7 @@ import PolicyForm from "@/components/PolicyForm";
 import RealMoney from "@/components/RealMoney";
 import Setup from "@/components/Setup";
 import { isAdmin } from "@/lib/admin";
-import { viewedBook } from "@/lib/book";
+import { viewedBook, requireViewer } from "@/lib/book";
 import { getCoverage, getJobs, getKillSwitch, getLive, getPolicy, isOffice } from "@/lib/db";
 import { ago } from "@/lib/format";
 import { LEVELS, awardName, poolShare } from "@/lib/hr";
@@ -10,6 +10,7 @@ import { LEVELS, awardName, poolShare } from "@/lib/hr";
 export const dynamic = "force-dynamic";
 
 export default async function Handbook() {
+  await requireViewer();
   let data;
   try {
     const book = await viewedBook();

@@ -6,10 +6,12 @@ import Setup from "@/components/Setup";
 import { getBacktest } from "@/lib/db";
 import { cents, money, pct, tone } from "@/lib/format";
 import type { Series } from "@/lib/types";
+import { requireViewer } from "@/lib/book";
 
 export const dynamic = "force-dynamic";
 
 export default async function BacktestPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireViewer();
   const { id } = await params;
   let s;
   try {

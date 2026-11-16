@@ -226,9 +226,12 @@ async def run_cloud_tick(ledger: Optional[Ledger] = None, config_path: Optional[
     cfg = DeskConfig.load(config_path or str(Path(__file__).resolve().parent.parent / "desk.yaml"))
     for k, v in CLOUD_OVERRIDES.items():
         setattr(cfg, k, v)
+    own = ledger is None
     ledger = ledger or Ledger(cfg.db_path, cfg.schema)
 
     if not ledger.try_lease(LEASE, LEASE_SECONDS):
+        if own:
+            ledger.close()
         return {"ok": False, "skipped": "another run is in progress"}
 
     try:
@@ -281,6 +284,10 @@ async def run_cloud_tick(ledger: Optional[Ledger] = None, config_path: Optional[
         }
     finally:
         ledger.release_lease(LEASE)
+        if own:
+            # Give the connection back: a Vercel instance sits frozen between runs, and Supabase's pooler allows
+            # 15 connections for everyone (11-15: full, the website couldn't check logins)
+            ledger.close()
 
 
 async def run_all_books(config_path: Optional[str] = None) -> dict:
