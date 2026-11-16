@@ -11,15 +11,20 @@ const SHOWN = 8;
  * 24 hours heads it, bets still riding sit above the list (only when there are any), and the rest of the
  * recent bets fold away under the first eight.
  */
-export default function LatestBets({ fills, employees, positions, day }: {
+export default function LatestBets({ fills, employees, positions, day, held }: {
   fills: Fill[]; employees: Employee[]; positions: Position[];
   day: { n: number; won: number; pnl: number };
+  /** what the headline counts the open bets as worth (Kalshi's figure on real money), so the two always tie */
+  held?: number | null;
 }) {
   const who = Object.fromEntries(employees.map((e) => [e.key, e]));
   const now = Date.now();
   const riding = positions
     .map((p) => ({ ...p, mins: p.closes ? Math.max(0, Math.round((Date.parse(p.closes) - now) / 60_000)) : null }))
     .sort((a, b) => (a.mins ?? 1e9) - (b.mins ?? 1e9));
+  // The chart and the top figure count riding bets at what they're worth now: say so, with the same number
+  const cost = riding.reduce((s, p) => s + p.cost, 0);
+  const worthNow = held ?? riding.reduce((s, p) => s + (p.mark == null ? p.cost : p.yes * p.mark + p.no * (1 - p.mark)), 0);
   return (
     <section className="card latest">
       <div className="latest-head">
@@ -30,7 +35,10 @@ export default function LatestBets({ fills, employees, positions, day }: {
       </div>
       {riding.length > 0 && (
         <div className="riding" aria-label="Bets riding now">
-          <span className="riding-label">🎲 Riding now</span>
+          <span className="riding-label">
+            🎲 Riding now: {money(cost, false)} in, worth {money(worthNow, false)} at today&apos;s prices
+            (<strong className={worthNow >= cost ? "up" : "down"}>{dollars(worthNow - cost, true)}</strong>)
+          </span>
           {riding.map((p) => {
             const e = who[p.strategy];
             const side = p.yes > p.no ? "YES" : "NO";

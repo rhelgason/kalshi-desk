@@ -67,7 +67,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
   const outside = employees.filter((e) => !members.has(e.key) && e.control).map((e) => e.name);
   const pool = live.pool;
   // Live: the headline is the Kalshi account itself (the widget shows the same number, lib/portfolio headline)
-  const { worth, putIn, kalshi, books } = headline(live, isLive(book), season.since);
+  const { worth, putIn, kalshi, books, held } = headline(live, isLive(book), season.since);
   const seasonStart = season.since;
   const now = Math.max(Date.parse(live.updated_at), Date.now() - 60_000);
 
@@ -165,7 +165,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
         )}
       />
 
-      <LatestBets fills={fills.slice(0, 25)} employees={employees} day={lastDay}
+      <LatestBets fills={fills.slice(0, 25)} employees={employees} day={lastDay} held={held}
         positions={live.positions.filter((p) => members.has(p.strategy))} />
 
       <Records bets={bets.filter((b) => members.has(b.strategy))} employees={employees} tz={tz} />

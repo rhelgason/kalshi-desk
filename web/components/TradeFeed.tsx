@@ -29,7 +29,7 @@ export default function TradeFeed({ fills, employees }: { fills: Fill[]; employe
               </div>
             </div>
             <span className={`badge ${settled ? (won ? "up" : "down") : "muted"}`}>
-              {settled ? `${won ? "won" : "lost"} ${money(f.pnl)}` : "waiting"}
+              {settled ? `${won ? "won" : "lost"} ${money(f.pnl)}` : "riding"}
             </span>
           </li>
         );

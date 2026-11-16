@@ -177,5 +177,9 @@ export function headline(live: LiveStatus, real: boolean, seasonStart: number) {
   const own = live.pool?.equity ?? team.reduce((s, e) => s + (e.equity ?? 0), 0);
   const worth = kalshi != null && agree ? kalshi : own;
   const putIn = live.pool?.capital ?? team.reduce((s, e) => s + (e.starting_cash ?? 0), 0);
-  return { worth, putIn, profit: worth - putIn, kalshi, books };
+  // What the open bets in `worth` are valued at: Kalshi's figure when that's the one used, else ours from marks.
+  // Bets that have ended but aren't paid yet are still in Kalshi's `held`, and in `balance` minus `cash`: not riding
+  const held = kalshi != null && agree
+    ? Math.max(0, (books.held ?? 0) - (books.cash != null ? books.balance - books.cash : 0)) : null;
+  return { worth, putIn, profit: worth - putIn, kalshi, books, held };
 }
