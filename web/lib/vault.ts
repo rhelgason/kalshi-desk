@@ -30,16 +30,25 @@ export function lockKey(pem: string): string {
   return JSON.stringify({ v: 1, key: key.toString("base64"), iv: iv.toString("base64"), data: data.toString("base64") });
 }
 
-/** Undo copy-paste damage (like desk/kalshi/auth.py _tidy_pem): quotes, literal \n, one squashed line. */
+/**
+ * Undo copy-paste damage (like desk/kalshi/auth.py _tidy_pem): quotes, literal \n, squashed or indented lines,
+ * blank lines, text around the key, a key pasted without its BEGIN/END lines. The key's body is rebuilt from its
+ * letters alone, 64 to a line. (11-15: the first friend's first paste was refused as "not a private key".)
+ */
 export function tidyPem(text: string): string {
-  let t = text.trim().replace(/^['"]|['"]$/g, "").trim();
-  if (t.includes("\\n") && !t.includes("\n")) t = t.replace(/\\n/g, "\n");
-  const m = t.match(/^(-----BEGIN [A-Z ]+-----)\s*([\s\S]+?)\s*(-----END [A-Z ]+-----)$/);
-  if (m && !m[2].trim().includes("\n")) {
-    const body = m[2].replace(/\s+/g, "");
-    t = [m[1], ...(body.match(/.{1,64}/g) ?? []), m[3]].join("\n");
+  const t = text.replace(/\\n/g, "\n");
+  const m = t.match(/-----BEGIN ([A-Z ]+)-----([\s\S]*?)-----END \1-----/);
+  const body = (m ? m[2] : t.replace(/^\s*['"]|['"]\s*$/g, "")).replace(/[^A-Za-z0-9+/=]/g, "");
+  const wrap = (label: string) =>
+    [`-----BEGIN ${label}-----`, ...(body.match(/.{1,64}/g) ?? []), `-----END ${label}-----`].join("\n") + "\n";
+  if (m) return wrap(m[1]);
+  for (const label of ["RSA PRIVATE KEY", "PRIVATE KEY"]) {
+    try {
+      createPrivateKey(wrap(label));
+      return wrap(label);
+    } catch {}
   }
-  return t.replace(/\r\n/g, "\n") + "\n";
+  return t.trim() + "\n";
 }
 
 const HOSTS = { prod: "https://external-api.kalshi.com", demo: "https://external-api.demo.kalshi.co" } as const;
@@ -50,7 +59,7 @@ export async function kalshiBalance(keyId: string, pem: string, env: keyof typeo
   try {
     key = createPrivateKey(pem);
   } catch {
-    throw new Error("That file isn't a private key. Use the file Kalshi downloaded when you made the key.");
+    throw new Error("That doesn't look like a whole private key. Choose the file Kalshi downloaded when you made the key, or paste all of it, from -----BEGIN to -----END.");
   }
   const path = "/trade-api/v2/portfolio/balance";
   const ts = String(Date.now());
