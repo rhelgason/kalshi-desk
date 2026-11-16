@@ -12,7 +12,7 @@ const COIN_NAMES: Record<string, string> = { BTC: "Bitcoin", ETH: "Ether", SOL: 
  * their rank on the team by cents per $1 (the stat the award goes by), and their form: the last 10 results.
  */
 export default function PlayerCard({ e, bets, team, tz, badges, quote }: {
-  e: Employee; bets: Bet[]; team: { key: string; bets: Bet[] }[]; tz: string; badges: ReactNode; quote: string;
+  e: Employee; bets: Bet[]; team: { key: string; bets: Bet[] }[]; tz: string; badges: ReactNode; quote?: string;
 }) {
   const mine = bets;
   const n = mine.length;
@@ -54,7 +54,7 @@ export default function PlayerCard({ e, bets, team, tz, badges, quote }: {
           <div className="player-title">{e.title}</div>
           <h1 className="player-name">{e.name}</h1>
           <div className="row-btns player-badges">{badges}</div>
-          <div className="player-quote">“{quote}”</div>
+          {quote && <div className="player-quote">“{quote}”</div>}
           {form.length > 0 && (
             <div className="player-form" aria-label={`Last ${form.length} results`}>
               <span className="muted small">Form</span>

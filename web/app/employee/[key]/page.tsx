@@ -18,7 +18,7 @@ import TradeFeed from "@/components/TradeFeed";
 import PlayerCard from "@/components/PlayerCard";
 import { isAdmin } from "@/lib/admin";
 import { advise, betsPerDay, light } from "@/lib/advice";
-import { HOW_THEY_BET, quip } from "@/lib/voice";
+import { HOW_THEY_BET } from "@/lib/voice";
 import { getAnalysis, getHistory, getLive, getNews, getPolicy, getRecentFills, getRoster, getSeasonStart, getSettlementStats, getTuningRuns, getCoinStats, getBets, getMoneyMoves, isOffice, withRoster } from "@/lib/db";
 import { viewedBook, requireViewer } from "@/lib/book";
 import { cents, dollars, money, pct, tone } from "@/lib/format";
@@ -84,7 +84,6 @@ export default async function EmployeePage({ params, searchParams }: {
       <Link href="/" className="muted">← Home</Link>
       <PlayerCard e={e} bets={data.bets.filter((b) => b.strategy === key)} tz={data.live.pool?.settings?.timezone || "America/Vancouver"}
         team={poolKeys(data.live).map((k) => ({ key: k, bets: data.bets.filter((b) => b.strategy === k) }))}
-        quote={quip(e)}
         badges={<>
           <span className={`light ${status.key}`}>{status.icon} {status.label}</span>
           <LevelBadge level={e.level} title={e.level_title} />
