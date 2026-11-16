@@ -136,7 +136,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
         }
         under={(
           <>
-            {books && <KalshiCheck books={books} env={isOffice(book) ? live.env ?? "prod" : realBook?.env ?? "demo"} equity={pool?.equity ?? null} halted={!!kill?.halted} />}
+            {books && <KalshiCheck books={books} env={isOffice(book) ? live.env ?? "prod" : realBook?.env ?? "demo"} halted={!!kill?.halted} />}
             {isOffice(book) && <OfficePause halted={!!kill?.halted} mine={officeOf(user) === book} />}
             <div className="muted">
               {team.length} employees share one pool. An Associate&apos;s bet is {poolShare(1, pool?.settings.bet_pct)} of it

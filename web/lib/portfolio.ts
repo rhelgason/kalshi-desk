@@ -158,8 +158,10 @@ export const poolKeys = (live: { pool?: { members: string[] }; employees: { key:
 
 /**
  * The headline: what the book is worth and how much was put in. Shared by the website and the phone widget so
- * they never disagree. For real money it's Kalshi's own account (cash + what Kalshi says open bets are worth)
- * once this season has a check; otherwise the office pool's own figure.
+ * they never disagree. Open bets count at what they cost until they win or lose (11-16, owner: the number people
+ * look at first mustn't move while a bet is riding), so it changes only when a bet settles or money comes in or
+ * out: free cash plus what's riding, from our books, which the safety check keeps equal to Kalshi's account.
+ * What the riding bets are worth right now is shown beside them (LatestBets), from Kalshi's own figure.
  */
 export function headline(live: LiveStatus, real: boolean, seasonStart: number) {
   const members = new Set(poolKeys(live));
@@ -169,16 +171,12 @@ export function headline(live: LiveStatus, real: boolean, seasonStart: number) {
   const books = check && Date.parse(check.at) >= seasonStart ? check : null;
   // Kalshi's own two numbers: `balance` also counts payouts on their way, which Kalshi still values in `held`
   const kalshi = books ? (books.cash ?? books.balance) + (books.held ?? 0) : null;
-  // ...but only while Kalshi and our books agree. A bid can fill seconds after it goes up, and Kalshi counts it
-  // before our books do (up to one run, 2 min): Kalshi's figure then held a bet the open-bets list didn't show
-  // (11-15, a friend's first bet: -$0.03 on the chart, nothing open). Meanwhile our own figure, which the
-  // open bets come from, is used; the two agree to the cent once the fill is booked.
+  const pool = live.pool;
+  const worth = pool ? pool.cash + pool.in_play : team.reduce((s, e) => s + (e.equity ?? 0), 0);
+  const putIn = pool?.capital ?? team.reduce((s, e) => s + (e.starting_cash ?? 0), 0);
+  // What the riding bets are worth now, while Kalshi and our books agree (a bid filled seconds ago can be on
+  // Kalshi before it's in our list). Bets that ended but aren't paid yet are in `held` and in `balance` - `cash`.
   const agree = books && books.ok && Math.abs(books.drift ?? 0) < 0.02;
-  const own = live.pool?.equity ?? team.reduce((s, e) => s + (e.equity ?? 0), 0);
-  const worth = kalshi != null && agree ? kalshi : own;
-  const putIn = live.pool?.capital ?? team.reduce((s, e) => s + (e.starting_cash ?? 0), 0);
-  // What the open bets in `worth` are valued at: Kalshi's figure when that's the one used, else ours from marks.
-  // Bets that have ended but aren't paid yet are still in Kalshi's `held`, and in `balance` minus `cash`: not riding
   const held = kalshi != null && agree
     ? Math.max(0, (books.held ?? 0) - (books.cash != null ? books.balance - books.cash : 0)) : null;
   return { worth, putIn, profit: worth - putIn, kalshi, books, held };
