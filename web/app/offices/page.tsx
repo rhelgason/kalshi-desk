@@ -19,7 +19,7 @@ export default async function OfficesPage() {
     WHERE u.role = 'friend' ORDER BY u.created_at`.catch(() => [])) as unknown as Row[];
   const offices = await Promise.all(rows.map(async (r) => {
     const book = `office_${r.slug}` as Book;
-    if (!r.share || r.status !== "active") return { r, book, live: null };
+    if (r.status !== "active") return { r, book, live: null };
     try {
       const [live, policy, kill] = await Promise.all([getLive(book), getPolicy(book), getKillSwitch(book)]);
       const since = (await getSeasonStart(book, policy.season)) ?? 0;
@@ -29,7 +29,6 @@ export default async function OfficesPage() {
     }
   }));
   const status = (o: (typeof offices)[number]) => {
-    if (!o.r.share) return "private";
     if (o.r.status === "setup") return o.r.has_key ? "opening" : "joining (no Kalshi key yet)";
     if (o.r.status === "ready") return "opening (within 2 minutes)";
     if ("kill" in o && o.kill?.halted) return `⏸ ${o.kill.reason ?? "paused"}`;

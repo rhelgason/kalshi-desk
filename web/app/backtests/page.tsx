@@ -1,13 +1,15 @@
+import { redirect } from "next/navigation";
+import { isAdmin } from "@/lib/admin";
 import Link from "next/link";
 import Setup from "@/components/Setup";
 import { listBacktests } from "@/lib/db";
 import { money } from "@/lib/format";
-import { requireViewer } from "@/lib/book";
 
 export const dynamic = "force-dynamic";
 
 export default async function Backtests() {
-  await requireViewer();
+  // The owner's research: friends don't see how the desk is tested (11-16)
+  if (!(await isAdmin())) redirect("/");
   let runs;
   try {
     runs = await listBacktests();

@@ -206,7 +206,7 @@ export async function createInvite(name: string, forUser?: number): Promise<Resu
 export async function viewOffice(book: Book | null) {
   if (!(await isAdmin())) return;
   const jar = await cookies();
-  if (book && isOffice(book) && (await getOffice(book))?.share) {
+  if (book && isOffice(book) && (await getOffice(book))) {
     jar.set(BOOK_COOKIE, book, { path: "/", maxAge: 86_400, sameSite: "lax", httpOnly: true, secure: true });
   } else {
     jar.delete(BOOK_COOKIE);

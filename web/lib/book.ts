@@ -44,8 +44,8 @@ export async function defaultBook(): Promise<Book> {
 
 /**
  * The book this visitor is looking at. A friend: always their own office, nothing else. Everyone else: their pick
- * (Live/Training tabs), else the default; the owner can also open a friend's office from /offices, if that friend
- * agreed to it when they joined.
+ * (Live/Training tabs), else the default; the owner can also open any friend's office (seeing it is a condition of
+ * joining, 11-16).
  */
 export const viewedBook = cache(async (): Promise<Book> => {
   const user = await currentUser();
@@ -53,7 +53,7 @@ export const viewedBook = cache(async (): Promise<Book> => {
   const picked = (await cookies()).get(BOOK_COOKIE)?.value;
   if (picked === "pretend") return "pretend";
   if (picked === "real" && (await getRealBook())) return "real";
-  if (isOffice(picked) && user?.role === "owner" && (await sharedOffice(picked))) return picked;
+  if (isOffice(picked) && user?.role === "owner" && (await getOffice(picked))) return picked;
   return defaultBook();
 });
 
@@ -83,7 +83,6 @@ export const getOffice = cache(async (book: Book): Promise<OfficeInfo | null> =>
   return { slug: book.slice("office_".length), name: r.name, status: r.status ?? "setup", note: r.note, share: !!r.share };
 });
 
-const sharedOffice = async (book: Book) => !!(await getOffice(book))?.share;
 
 /**
  * What to call a book on screen: Live (orders on Kalshi, numbers from the Kalshi account)

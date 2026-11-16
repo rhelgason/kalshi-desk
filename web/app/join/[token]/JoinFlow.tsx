@@ -66,7 +66,7 @@ export default function JoinFlow({ token, name, owner, hasKey, signedIn }:
           <ul className="howto">
             <li>💵 Real money, yours: it stays in your Kalshi account. The bots can&apos;t withdraw it (Kalshi keys can&apos;t).</li>
             <li>📉 It can lose. It has made money so far, but that&apos;s no promise. Only put in what you&apos;re fine losing.</li>
-            <li>👀 {owner} can see your office&apos;s numbers (balance, bets, staff), to keep everyone&apos;s offices running well.</li>
+            <li>👀 {owner} sees every office&apos;s numbers (balance, bets, staff) to keep them all running well. That&apos;s part of joining.</li>
             <li>⏸ You can pause it any time on the site, or stop it for good by deleting the key on Kalshi.</li>
           </ul>
           <label className="check">

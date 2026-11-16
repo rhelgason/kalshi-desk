@@ -1,17 +1,18 @@
+import { isAdmin } from "@/lib/admin";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import CalibrationChart from "@/components/CalibrationChart";
 import EquityChart from "@/components/EquityChart";
 import Setup from "@/components/Setup";
 import { getBacktest } from "@/lib/db";
 import { cents, money, pct, tone } from "@/lib/format";
 import type { Series } from "@/lib/types";
-import { requireViewer } from "@/lib/book";
 
 export const dynamic = "force-dynamic";
 
 export default async function BacktestPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireViewer();
+  // The owner's research: friends don't see how the desk is tested (11-16)
+  if (!(await isAdmin())) redirect("/");
   const { id } = await params;
   let s;
   try {
