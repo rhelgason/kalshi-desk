@@ -1,35 +1,36 @@
-import AdviceAction from "@/components/AdviceAction";
 import AutoRefresh from "@/components/AutoRefresh";
-import Avatar from "@/components/Avatar";
 import KalshiCheck from "@/components/KalshiCheck";
-import NewsFeed from "@/components/NewsFeed";
-import MoneyHero from "@/components/MoneyHero";
-import RangeTabs from "@/components/RangeTabs";
-import Setup from "@/components/Setup";
-import Spotlight from "@/components/Spotlight";
-import StatusPill from "@/components/StatusPill";
-import TeamList from "@/components/TeamList";
 import LatestBets from "@/components/LatestBets";
-import Records from "@/components/Records";
+import OfficeHero, { type HeroStat } from "@/components/OfficeHero";
+import RangeTabs from "@/components/RangeTabs";
 import ResumeBanner from "@/components/ResumeBanner";
+import RidingCard from "@/components/RidingCard";
+import Setup from "@/components/Setup";
+import StatusPill from "@/components/StatusPill";
+import TeamStrip from "@/components/TeamStrip";
 import { OfficePause } from "@/components/OfficeAdmin";
 import { isAdmin } from "@/lib/admin";
-import { advise, betsPerDay, light } from "@/lib/advice";
+import { advise, betsPerDay } from "@/lib/advice";
 import { bookLabel, getOffice, getRealBook, viewedBook, requireViewer } from "@/lib/book";
 import {
-  getAnalysis, getBets, getBonusPot, getHistory, getKillSwitch, getLive, getMoneyMoves, getNews, getPolicy, getRecentFills, getRoster, getSettlements, getSettlementsSince, isLive, isOffice, withRoster,
+  getAnalysis, getBets, getHistory, getKillSwitch, getLive, getMoneyMoves, getPolicy, getRecentFills, getRoster,
+  getSettlements, getSettlementsSince, isLive, isOffice, withRoster,
 } from "@/lib/db";
 import { currentUser, officeOf } from "@/lib/session";
-import { dollars } from "@/lib/format";
-import { headline, only, parseRange, poolKeys, profitSeries, RANGES, settledSeries } from "@/lib/portfolio";
-import { poolShare } from "@/lib/hr";
+import { headline, only, parseRange, poolKeys, RANGES, settledSeries } from "@/lib/portfolio";
 
 export const dynamic = "force-dynamic";
 
 const RANGE_WORDS = { day: "Today", week: "This week", month: "This month", quarter: "Last 3 months", season: "Since the start" };
-// The same ranges for the stat cards ("Bets won (this week)"); a book's season is its whole life
-const RANGE_SCOPE = { day: "today", week: "this week", month: "this month", quarter: "last 3 months", season: "lifetime" };
 
+/** The day (in the office's time zone) a moment falls on, as YYYY-MM-DD. */
+const dayOf = (t: number, tz: string) => new Date(t).toLocaleDateString("en-CA", { timeZone: tz });
+
+/**
+ * An office (11-16): the owner's own on opening the app, a friend's only one. Top to bottom: what it's worth and the
+ * chart, the bets riding now, the latest bets, and the team in one row. The rest of the old page (award, records,
+ * needs-attention, news) is on /team.
+ */
 export default async function Home({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   await requireViewer();
   const params = await searchParams;
@@ -37,89 +38,67 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
   // Bets before the range arrive rolled up (getSettlementsSince); a minute early so the roll-up sits before the chart's start
   const days = RANGES[range].days;
   const sinceIso = days == null ? null : new Date(Date.now() - days * 86_400_000 - 60_000).toISOString();
-  let data;
   const book = await viewedBook();
+  let data;
   try {
     const realBook = await getRealBook();
     const policy = await getPolicy(book);
-    const [live, fills, roster, news, analysis, history, season, admin, settled, pot, bets, kill, marks] = await Promise.all([
-      getLive(book), getRecentFills(book, policy.season, 25), getRoster(book), getNews(book, 40),
-      getAnalysis(book), getHistory(book, policy.season, range),
-      range === "season" ? null : getHistory(book, policy.season, "season"), isAdmin(), sinceIso ? getSettlementsSince(book, policy.season, sinceIso) : getSettlements(book, policy.season),
-      getBonusPot(book), getBets(book, policy.season),
+    const [live, fills, roster, history, season, admin, settled, bets, kill, marks, office, user] = await Promise.all([
+      getLive(book), getRecentFills(book, policy.season, 100), getRoster(book), getHistory(book, policy.season, range),
+      range === "season" ? null : getHistory(book, policy.season, "season"), isAdmin(),
+      sinceIso ? getSettlementsSince(book, policy.season, sinceIso) : getSettlements(book, policy.season),
+      getBets(book, policy.season),
       // A friend's office has its own pause; the owner's real book's pause shows on both of the owner's views
       isOffice(book) ? getKillSwitch(book) : realBook ? getKillSwitch("real") : null, getMoneyMoves(book, policy.season),
+      getOffice(book), currentUser(),
     ]);
-    data = { realBook, live, fills, roster, news, policy, analysis, history, season: season ?? history, settled, pot, bets, kill, marks,
-             admin: admin && !isOffice(book), office: await getOffice(book), user: await currentUser() };
+    // The manager's to-do count for the team row (their own books only)
+    const analysis = admin && !isOffice(book) ? await getAnalysis(book) : null;
+    data = { realBook, live, fills, roster, policy, history, season: season ?? history, admin: admin && !isOffice(book),
+             settled, bets, kill, marks, office, user, analysis };
   } catch (e) {
     if (isOffice(book)) return <OfficeSoon />;
     return <Setup error={String(e)} />;
   }
-  const { realBook, live, fills, roster, news, policy, analysis, history, season, admin, settled, pot, bets, kill, marks, office, user } = data;
-  const label = bookLabel(book, realBook, office);
+  const { realBook, live, fills, roster, policy, history, season, admin, settled, bets, kill, marks, office, user, analysis } = data;
   if (!live) return isOffice(book) ? <OfficeSoon /> : <Setup error="The bot hasn't published a status yet. Is it running?" />;
 
+  const label = bookLabel(book, realBook, office);
   const employees = withRoster(live.employees, roster);
   const tz = live.pool?.settings?.timezone || "America/Vancouver";
-  // "Your money" is the office pool: the control group's paper money isn't part of it
   const members = new Set(poolKeys(live));
-  const team = employees.filter((e) => members.has(e.key));
-  const outside = employees.filter((e) => !members.has(e.key) && e.control).map((e) => e.name);
-  const pool = live.pool;
-  // Live: the headline is the Kalshi account itself (the widget shows the same number, lib/portfolio headline)
-  const { worth, putIn, kalshi, books, held } = headline(live, isLive(book), season.since);
-  const seasonStart = season.since;
+  const team = employees.filter((e) => members.has(e.key) && e.status !== "fired");
+  const { worth, putIn, books, held } = headline(live, isLive(book), season.since);
   const now = Math.max(Date.parse(live.updated_at), Date.now() - 60_000);
-
   const mine = settled.filter((s) => members.has(s.strategy));
-  const profit = worth - putIn;
-  // Finished bets, then the headline's own number for now: bets still riding count at what they cost until the
-  // last point, so the line doesn't wobble with them but always ends where the headline says
-  const points = settledSeries(only(history, members), mine, Math.max(history.since, seasonStart), now, worth);
-  const first = points[0];
+  // Finished bets, ending on the headline's own number: open bets count at cost until they're decided
+  const points = settledSeries(only(history, members), mine, Math.max(history.since, season.since), now, worth);
 
-  // Each employee's running profit from their settled bets since `since`
-  const settledRuns = (since: number) => {
-    const out: Record<string, { t: number; v: number }[]> = {};
-    const sums: Record<string, number> = {};
-    for (const s of settled) {
-      sums[s.strategy] = (sums[s.strategy] ?? 0) + s.pnl;
-      if (s.t >= since) (out[s.strategy] ??= [{ t: since, v: sums[s.strategy] - s.pnl }]).push({ t: s.t, v: sums[s.strategy] });
-    }
-    // Nothing settled since `since`: flat at what they'd made before it
-    for (const [k, v] of Object.entries(sums)) out[k] ??= [{ t: since, v }];
-    return { out, sums };
-  };
-  const trends = profitSeries(season);
-  // The chart and its what-if follow finished bets (see points above)
-  const rangeProfits = settledRuns(first?.t ?? seasonStart).out;
-  const settledTotals = settledRuns(0).sums;
-
-  const rows = employees
-    .map((e) => ({
-      e, light: light(e, analysis.evidence[e.key]), trend: trends[e.key] ?? [],
-      advice: advise(e, analysis.evidence[e.key], analysis.realism[e.key], policy,
-        betsPerDay(analysis.evidence[e.key]?.bets ?? 0, seasonStart)),
-    }))
-    .sort((a, b) => {
-      const away = (r: typeof a) => (r.light.key === "benched" || r.light.key === "fired" ? 1 : 0);
-      return away(a) - away(b) || (b.e.pnl ?? 0) - (a.e.pnl ?? 0);
-    });
-  const todo = rows.filter((r) => r.advice.tone === "act");
-  // Yardsticks are supposed to lose, so they don't count as "carrying" or "dragging"
-  const working = rows.filter((r) => r.light.key !== "benched" && r.light.key !== "fired" && !r.e.control);
-  const best = working[0];
-  const worst = working[working.length - 1];
-  // This season's award only: news is newest first, so stop at the season's start
-  const seasonStarted = news.findIndex((n) => n.kind === "season");
-  const award = (seasonStarted < 0 ? news : news.slice(0, seasonStarted)).find((n) => n.kind === "award") ?? null;
-  const since = new Date(seasonStart).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  const end = points[points.length - 1].t;
-  // The last 24 hours of the pool's finished bets, for the latest-bets heading
+  // The three numbers: finished bets today and in the last 7 days, and the return since the start
+  const pool = bets.filter((b) => members.has(b.strategy));
+  const today = dayOf(Date.now(), tz);
+  const weekAgo = Date.now() - 7 * 86_400_000;
+  const sum = (xs: typeof pool) => xs.reduce((s, b) => s + b.pnl, 0);
+  const todays = pool.filter((b) => dayOf(b.t, tz) === today);
+  const weeks = pool.filter((b) => b.t >= weekAgo);
+  const won = (xs: typeof pool) => xs.filter((b) => b.pnl > 0).length;
+  const stats: HeroStat[] = [
+    { label: "Today", value: sum(todays), note: todays.length ? `${won(todays)} of ${todays.length} won` : "nothing finished yet" },
+    { label: "Last 7 days", value: sum(weeks), note: weeks.length ? `${won(weeks)} of ${weeks.length} won` : "nothing finished yet" },
+    { label: "Since the start", value: (worth - putIn) / (putIn || 1), percent: true, note: `${pool.length} bets` },
+  ];
+  const profits: Record<string, number> = {};
+  for (const b of pool) profits[b.strategy] = (profits[b.strategy] ?? 0) + b.pnl;
   const dayAgo = Date.now() - 86_400_000;
-  const recent = bets.filter((b) => members.has(b.strategy) && b.t >= dayAgo);
-  const lastDay = { n: recent.length, won: recent.filter((b) => b.pnl > 0).length, pnl: recent.reduce((s, b) => s + b.pnl, 0) };
+  const recent = pool.filter((b) => b.t >= dayAgo);
+  const lastDay = { n: recent.length, won: won(recent), pnl: sum(recent) };
+  const attention = analysis
+    ? team.filter((e) => advise(e, analysis.evidence[e.key], analysis.realism[e.key], policy,
+        betsPerDay(analysis.evidence[e.key]?.bets ?? 0, season.since)).tone === "act").length
+    : 0;
+  const since = new Date(season.since).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const name = isOffice(book) ? (officeOf(user) === book ? "Your office" : `${office?.name ?? "Friend"}'s office`)
+    : book === "pretend" ? "Training" : "My office";
 
   return (
     <div className="stack">
@@ -127,85 +106,25 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
       {/* A paused real book shows on both views (not a long, deliberate pause), with Resume right here */}
       {kill?.halted && !kill.long && !isOffice(book) && <ResumeBanner kill={kill} admin={admin} />}
 
-      <MoneyHero
-        top={
-          <div className="row-btns" style={{ justifyContent: "space-between" }}>
-            <span className="label">{kalshi != null ? "On Kalshi" : "Your money"}</span>
-            <span className={`badge book-${label.name.toLowerCase()}`} title={label.title}>{label.badge}</span>
-          </div>
-        }
+      <OfficeHero
+        label={name}
+        badge={book === "pretend" ? <span className="badge" title={label.title}>Pretend money</span> : null}
+        worth={worth} putIn={putIn} since={since} stats={stats}
+        tabs={<RangeTabs value={range} path="/" />}
+        points={points} marks={marks} period={RANGE_WORDS[range]}
         under={(
           <>
             {books && <KalshiCheck books={books} env={isOffice(book) ? live.env ?? "prod" : realBook?.env ?? "demo"} halted={!!kill?.halted} />}
             {isOffice(book) && <OfficePause halted={!!kill?.halted} mine={officeOf(user) === book} />}
-            <div className="muted">
-              {team.length} employees share one pool. An Associate&apos;s bet is {poolShare(1, pool?.settings.bet_pct)} of it
-              {pool ? <> ({dollars(pool.bet)} right now)</> : null}.
-            </div>
           </>
-        )}
-        tabs={<RangeTabs value={range} path="/" />}
-        points={points} marks={marks} period={RANGE_WORDS[range]} scope={RANGE_SCOPE[range]} showChange={range !== "season"}
-        team={rows.filter(({ e }) => members.has(e.key)).map(({ e, light: l }) => ({
-          key: e.key, name: e.name, emoji: e.emoji, light: l.key, bets: analysis.evidence[e.key]?.bets ?? 0,
-          profit: [...(rangeProfits[e.key] ?? []), { t: end, v: settledTotals[e.key] ?? 0 }],
-          season: e.pnl ?? 0,
-        }))}
-        outside={outside}
-        settled={mine} tz={tz}
-        halted={isLive(book) && live.trading?.halted ? live.trading.reason || "Stopped by the manager" : null}
-        positions={live.positions.filter((p) => members.has(p.strategy))}
-        view={{ pool: pool ?? null, worth, putIn, profit, since }}
-        footer={best && worst && (
-          <p className="summary">
-            {(best.e.pnl ?? 0) > 0
-              ? <><strong>{best.e.name}</strong> is carrying the team ({dollars(best.e.pnl ?? 0, true)})</>
-              : <>Nobody&apos;s making money yet</>}
-            {worst !== best && (worst.e.pnl ?? 0) < 0 && <>, and <strong>{worst.e.name}</strong> is doing worst ({dollars(worst.e.pnl ?? 0, true)})</>}.
-          </p>
         )}
       />
 
-      <LatestBets fills={fills.slice(0, 25)} employees={employees} day={lastDay} held={held}
-        positions={live.positions.filter((p) => members.has(p.strategy))} />
+      <RidingCard positions={live.positions.filter((p) => members.has(p.strategy))} employees={employees} held={held} />
 
-      <Records bets={bets.filter((b) => members.has(b.strategy))} employees={employees} tz={tz} />
+      <LatestBets fills={fills.filter((f) => members.has(f.strategy))} employees={employees} day={lastDay} />
 
-      {/* Friends are hands-off: the owner's playbook runs their office, so nothing here needs them */}
-      {!isOffice(book) && <section className="card">
-        <h2>Needs your attention</h2>
-        {todo.length ? (
-          <ul className="todo">
-            {todo.map(({ e, advice }) => (
-              <li key={e.key}>
-                <Avatar k={e.key} emoji={e.emoji} size={36} />
-                <div className="what">
-                  <strong>{advice.headline}</strong>
-                  <div className="muted">{advice.why}</div>
-                  <div className="row-btns" style={{ marginTop: 6 }}>
-                    {admin ? <AdviceAction k={e.key} name={e.name} advice={advice} /> : <span className="muted small">The manager decides.</span>}
-                    <a href={`/employee/${e.key}`} className="small">See {e.name} →</a>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="all-good">✅ Nothing needs you. Go outside.</p>
-        )}
-      </section>}
-
-      <section className="card">
-        <h2>Your team</h2>
-        <Spotlight award={award} employees={employees} policy={policy} pot={pot} startsAt={isLive(book) ? 500 : 0} pool={live.pool?.equity ?? 0} />
-        <TeamList rows={rows}
-          star={award?.strategy ?? undefined} starTitle={award?.detail.title} />
-      </section>
-
-      <details className="card fold">
-        <summary><h2>Office news</h2></summary>
-        <NewsFeed items={news.filter((n) => n.kind !== "review").slice(0, 25)} employees={employees} />
-      </details>
+      <TeamStrip team={team} profits={profits} attention={attention} />
 
       <div className="row-btns" style={{ justifyContent: "center" }}>
         <StatusPill updatedAt={live.updated_at} />
@@ -219,8 +138,8 @@ function OfficeSoon() {
   return (
     <div className="card narrow stack">
       <AutoRefresh seconds={30} />
-      <h2>Your office is opening 🏗️</h2>
-      <p>The staff are moving in: it takes a couple of minutes after you connect Kalshi. This page refreshes itself.</p>
+      <h2>Your office is opening</h2>
+      <p>It takes a couple of minutes after you connect Kalshi. This page refreshes itself.</p>
       <p className="sub">
         Haven&apos;t connected your Kalshi key yet? Use the link from your invite again. Put money in on Kalshi whenever
         you like: the office notices within about 10 minutes.

@@ -464,3 +464,40 @@ textarea.pem { width: 100%; min-height: 90px; font-family: ui-monospace, monospa
 .office-table { width: 100%; border-collapse: collapse; }
 .office-table td, .office-table th { padding: 8px 6px; text-align: left; border-bottom: 1px solid var(--border, #8883); vertical-align: top; }
 .office-table th { font-size: 12px; color: var(--text-secondary); font-weight: 500; }
+
+/* ---- The redesign's pieces (11-16): tokens only, so every look draws them ---------------------------------- */
+.card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.card-head h2 { margin: 0; }
+.hero-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.office-hero .label { color: var(--text-secondary); font-size: 13px; font-weight: 600; }
+.hero-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--grid);
+  border-radius: 10px; overflow: hidden; margin: 16px 0 14px; }
+.hero-stat { background: var(--surface-2); padding: 10px 12px; min-width: 0; }
+.hero-stat-label { color: var(--text-muted); font-size: 12px; }
+.hero-stat-value { font-size: 18px; font-weight: 650; font-variant-numeric: tabular-nums; margin-top: 2px; white-space: nowrap; }
+.hero-stat-note { color: var(--text-muted); font-size: 11.5px; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 420px) { .hero-stat { padding: 8px 9px; } .hero-stat-value { font-size: 15.5px; } }
+.hero-chart-head { margin-bottom: 6px; }
+.hero-under { margin-top: 10px; border-top: 1px solid var(--grid); padding-top: 10px; }
+.hero-under p { margin: 0 0 6px; }
+
+.bet-rows { list-style: none; margin: 0; padding: 0; }
+.bet-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--grid); }
+.bet-row:last-child { border-bottom: 0; }
+.bet-what { flex: 1; min-width: 0; }
+.bet-side { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.more-row { display: flex; justify-content: center; gap: 8px; margin-top: 10px; }
+.btn.ghost { background: transparent; border-color: transparent; color: var(--text-secondary); }
+
+.strip { list-style: none; margin: 0; padding: 2px 0 4px; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.strip::-webkit-scrollbar { display: none; }
+.strip-person { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 76px; padding: 8px 4px; border-radius: 10px;
+  text-align: center; }
+.strip-person:hover { background: var(--surface-2); text-decoration: none; }
+.strip-name { font-size: 12.5px; font-weight: 600; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.strip-level { font-size: 11px; color: var(--text-muted); }
+.strip-pnl { font-size: 12px; font-variant-numeric: tabular-nums; }
+
+.viewing-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: -8px 0 16px;
+  padding: 10px 14px; border-radius: 10px; background: var(--wash); border: 1px solid var(--border); }
