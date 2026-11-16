@@ -42,6 +42,18 @@ from desk.strategies.base import Snapshot, Strategy, TradeIntent
 logger = logging.getLogger(__name__)
 
 
+
+RECHECK_SECONDS = 4.0  # a second look at Kalshi when a bid of ours filled between our checks
+
+
+def _mark(m) -> Optional[float]:
+    """What an open bet is worth now: the market's last trade, as Kalshi values it, else the middle of the book.
+    11-16: the middle differed from Kalshi's figure, so the site jumped by cents whenever it switched between
+    them, and a market closed but not yet paid (book 0-100c) was worth 50c to us and 98c to Kalshi."""
+    if m.last_price:
+        return m.last_price
+    return m.mid
+
 def _now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -702,10 +714,9 @@ class Desk:
 
     def update_marks(self, snap: Snapshot) -> None:
         for t, m in snap.markets.items():
-            if m.mid is not None:
-                self.marks[t] = m.mid
-            elif m.last_price:
-                self.marks[t] = m.last_price
+            mark = _mark(m)
+            if mark is not None:
+                self.marks[t] = mark
 
     async def settle_check(self) -> dict[str, dict[str, float]]:
         held = sorted({t for a in self.accounts.values() for t in a.open_tickers})
@@ -725,8 +736,8 @@ class Desk:
                 elif m.settlement_value is not None and m.status in ("settled", "finalized"):
                     value = m.settlement_value
                 else:
-                    if m.mid is not None:
-                        self.marks[m.ticker] = m.mid
+                    if _mark(m) is not None:
+                        self.marks[m.ticker] = _mark(m)
                     continue
                 pnl = self.broker.settle(m.ticker, value)
                 if pnl:
@@ -948,6 +959,20 @@ class Desk:
         except KalshiAPIError as e:
             logger.warning("Couldn't check our books against Kalshi: %s", e)
             return
+        if (r.mismatches or abs(r.drift) >= 0.01) and any(o.strategy in self.pool.members for o in self.broker.resting):
+            # A bid taken seconds after it went up: Kalshi's cash moves before its order says filled (11-15/16, ~15
+            # times a day per office), and the site showed the gap until the next run. Look again in a moment.
+            await asyncio.sleep(RECHECK_SECONDS)
+            for f in await self.broker.poll(_now()):
+                self.journal.count(f.strategy, "maker fills")
+                logger.info("%s REAL MAKER FILL %s %gx %s @ %.3f", self.personas.get(f.strategy, f.strategy),
+                            f.side.upper(), f.count, f.ticker, f.avg_price)
+            try:
+                r = await reconcile(self.client, self.accounts, self.pool.members, self.broker.resting,
+                                    baseline=books.get("baseline"), settling=self.recently_settled())
+            except KalshiAPIError as e:
+                logger.warning("Couldn't check our books against Kalshi: %s", e)
+                return
         if r.mismatches or abs(r.drift) >= 0.01:
             # Any difference: first book whatever Kalshi's own fills list says we missed (2026-11-09: a DOGE
             # fill never reached our books and they were $0.84 off for two days), settle it if its market is
@@ -976,7 +1001,10 @@ class Desk:
         strikes = max([*seen.values(), books.get("strikes", 0) + 1 if drifting else 0])
         books.update(baseline=r.baseline if books.get("baseline") is None else books["baseline"],
                      strikes=strikes, seen=seen, last={**r.to_dict(), "at": _now().isoformat()})
-        self.journal.info["books"] = {"balance": r.balance, "drift": r.drift, "mismatches": len(r.mismatches)}
+        # Both sides of the site's headline (web lib/portfolio.ts): Kalshi's cash + open bets, and our own figure
+        self.journal.info["books"] = {"balance": r.balance, "drift": r.drift, "mismatches": len(r.mismatches),
+                                      "cash": r.cash, "held": r.held,
+                                      "ours": round(self.pool.total_equity(self.accounts, self.marks), 2)}
         if r.mismatches or drifting:
             logger.warning("Our books differ from Kalshi (check %d of %d): drift $%.2f, positions %s",
                            strikes, MISMATCH_CHECKS, r.drift, r.mismatches)
