@@ -341,7 +341,8 @@ button.nav-btn { font-family: var(--pixel); line-height: inherit; }
 /* Employee of the Week heads the team card; their row wears the trophy */
 .card > .spotlight { padding: 10px 12px; margin: 0 0 8px; background: var(--surface-2); border-radius: 4px; }
 .lvl-star { border-color: var(--series-2); color: var(--series-2); }
-.team li.star { background: linear-gradient(90deg, color-mix(in srgb, var(--series-2) 10%, transparent), transparent 60%); }
+.team li.star > a { background: linear-gradient(90deg, color-mix(in srgb, var(--series-2) 14%, transparent), transparent 60%); }
+.team li.star > a:hover { background: linear-gradient(90deg, color-mix(in srgb, var(--series-2) 20%, transparent), var(--wash) 60%); }
 
 /* Employee chart: pick a teammate to compare */
 .compare-pick { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
@@ -698,16 +699,16 @@ input[role="switch"]:disabled { opacity: 0.5; cursor: default; }
 .stat-cells.attached { margin: 16px calc(-1 * var(--card-pad)) calc(-1 * var(--card-pad)); border: 0; border-top: 1px solid var(--grid);
   border-radius: 0; }
 .stat-cells.attached .stat-cell { padding: 14px var(--card-pad); }
-.skill-sure { font-size: 14px; color: var(--text-secondary); margin-top: -2px; }
-.skill-sure strong { font-size: 26px; font-weight: 750; color: var(--text-primary); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.skill-pct { font-weight: 600; color: var(--text-secondary); }
 .skill-gauge .skill-verdict { font-size: 15px; }
 
 /* Latest results as dots: they share the line evenly, round at any width */
 .form-strip { margin-top: 14px; }
 .form-strip-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px; }
 .form-strip-head .stat-label { margin: 0; }
-.form-dots { display: flex; gap: 3px; }
-.form-dot { flex: 1; max-width: 16px; aspect-ratio: 1; border-radius: 50%; }
+.form-dots { display: flex; justify-content: space-between; }
+.form-dot { flex: none; width: 12px; height: 12px; border-radius: 50%; }
+@media (max-width: 600px) { .form-dot { width: 9px; height: 9px; } }
 .form-dot.w { background: var(--up); }
 .form-dot.l { background: var(--down); box-shadow: 0 0 0 2px color-mix(in srgb, var(--down) 30%, transparent); }
 .phone-only { display: none; }

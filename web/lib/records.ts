@@ -27,7 +27,6 @@ export function streaks(bets: Bet[]) {
 }
 
 const dayKey = (t: number, tz: string) => new Date(t).toLocaleDateString("en-CA", { timeZone: tz }); // YYYY-MM-DD
-const hourOf = (t: number, tz: string) => Number(new Date(t).toLocaleString("en-US", { timeZone: tz, hour: "numeric", hourCycle: "h23" }));
 
 export type Day = { day: string; pnl: number; n: number; won: number };
 
@@ -62,22 +61,6 @@ export function greenRun(all: Day[], tz: string, now = Date.now()) {
   for (; i >= 0 && list[i].pnl > 0; i--) run++;
   return run;
 }
-
-/** The hour of the day (desk time) that has made the most, with enough bets to mean something. */
-export function bestHour(bets: Bet[], tz: string, minBets = 8) {
-  const h = [...Array(24)].map(() => ({ pnl: 0, n: 0 }));
-  for (const b of bets) { const x = h[hourOf(b.t, tz)]; x.pnl += b.pnl; x.n++; }
-  const ok = h.map((x, hour) => ({ hour, ...x })).filter((x) => x.n >= minBets);
-  if (!ok.length) return null;
-  const best = ok.reduce((a, b) => (b.pnl > a.pnl ? b : a));
-  const worst = ok.reduce((a, b) => (b.pnl < a.pnl ? b : a));
-  return { best, worst, hours: h };
-}
-
-export const hourLabel = (h: number) => {
-  const f = (x: number) => `${x % 12 || 12}${x < 12 ? "am" : "pm"}`;
-  return `${f(h)}–${f((h + 1) % 24)}`;
-};
 
 export const biggest = (bets: Bet[]) => ({
   win: bets.reduce<Bet | null>((a, b) => (b.pnl > 0 && (!a || b.pnl > a.pnl) ? b : a), null),

@@ -23,7 +23,7 @@ export default function SkillGauge({ e }: { e?: Evidence }) {
   const losing = e.verdict_key === "losing";
   return (
     <div className="skill-gauge">
-      <svg viewBox="0 0 180 104" role="img" aria-label={`${Math.round(c * 100)}% sure it's skill, not luck`}>
+      <svg viewBox="0 0 180 112" role="img" aria-label={`${Math.round(c * 100)}% sure it's skill, not luck`}>
         <defs>
           <linearGradient id="skill-arc" x1="0" x2="1" y1="0" y2="0">
             <stop offset="0" stopColor="#9ca3af" />
@@ -34,10 +34,10 @@ export default function SkillGauge({ e }: { e?: Evidence }) {
         <path d={arc(0, 1)} stroke="url(#skill-arc)" strokeWidth={14} fill="none" strokeLinecap="round" />
         <line x1={cx} y1={cy} x2={nx} y2={ny} stroke="var(--text-primary)" strokeWidth={3} strokeLinecap="round" />
         <circle cx={cx} cy={cy} r={6} fill="var(--text-primary)" />
-        <text x={cx - r} y={cy + 16} textAnchor="middle" fontSize={10} fill="var(--text-muted)">luck</text>
-        <text x={cx + r} y={cy + 16} textAnchor="middle" fontSize={10} fill="var(--text-muted)">skill</text>
+        <text x={cx - r} y={cy + 24} textAnchor="middle" fontSize={10} fill="var(--text-muted)">luck</text>
+        <text x={cx + r} y={cy + 24} textAnchor="middle" fontSize={10} fill="var(--text-muted)">skill</text>
       </svg>
-      <div className={`skill-verdict ${losing ? "down" : c >= 0.8 ? "up" : ""}`}>{say(c, losing)}</div>
+      <div className={`skill-verdict ${losing ? "down" : c >= 0.8 ? "up" : ""}`}>{say(c, losing)} <span className="skill-pct">· {Math.round(c * 100)}% sure</span></div>
       <div className="muted small">assessed across {e.bets.toLocaleString()} bets</div>
     </div>
   );

@@ -12,7 +12,6 @@ import StatusPill from "@/components/StatusPill";
 import Spotlight from "@/components/Spotlight";
 import TeamList from "@/components/TeamList";
 import NewsFeed from "@/components/NewsFeed";
-import Records from "@/components/Records";
 import Card from "@/components/ui/Card";
 import { OfficePause } from "@/components/OfficeAdmin";
 import { isAdmin } from "@/lib/admin";
@@ -144,7 +143,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
                           bets={pool.map((b) => [b.t, b.strategy, Math.round(b.pnl * 100) / 100] as WhatIfBet)}
                           putIn={putIn} betPct={policy.pool.bet_pct} period={RANGE_WORDS[range]} />}
         facts={<HeroFacts period={RANGE_WORDS[range]} change={rangeChange} inRange={pool.filter((b) => b.t >= chartStart)}
-                          all={pool} employees={employees} tz={tz} since={season.since} />}
+                          all={pool} employees={employees} tz={tz} since={season.since} days={days} />}
         under={isOffice(book) ? <OfficePause halted={!!kill?.halted} mine={officeOf(user) === book} /> : null}
       />
 
@@ -159,7 +158,6 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
       <LatestBets fills={fills.filter((f) => members.has(f.strategy) && f.yes_value != null)} employees={employees} day={lastDay} />
 
       {/* The day strip is already in the top card */}
-      <Records bets={pool} employees={employees} tz={tz} strip={0} />
 
       <details className="card fold">
         <summary><h2>Office News</h2></summary>
