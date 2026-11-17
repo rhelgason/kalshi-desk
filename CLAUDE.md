@@ -147,4 +147,7 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
 - Bets are in 0.01-contract steps; the minimum bet is $0.25.
 - Don't switch a pool member off in `desk.real.yaml` mid-season: their money drops from our books, Kalshi
   still has it, and the safety check halts trading. Real-book roster changes go with a new season.
+- A weather day can sit unsettled for days on Kalshi's side (NY Nov 13, 2026: "closed", no result, Kalshi's deadline
+  Nov 20, while every other city and day paid next morning ~7 am PT). Not a bug: settle_check asks Kalshi about every
+  held ticker each run, listed or not, and books it the moment a result appears; Riding Now shows them as "settling".
 - `seed-season` refuses a live book: the real book's history is Kalshi's.
