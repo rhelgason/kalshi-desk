@@ -48,9 +48,23 @@ def test_window_cap_counts_everyone_in_the_same_window():
     t = "KXBTC15M-26OCT151200-00"
     accounts["e0"].apply_fill(t, Side.YES, 20, 0.5, 0)  # $10 held
     resting = [RestingOrder("o", "e1", t, "no", 0.4, 25, "", "")]  # $10 waiting
-    assert event_of(t) == "KXBTC15M-26OCT151200"
+    assert event_of(t) == "close 26OCT151200"
     assert pool.window_room(event_of(t), accounts, resting) == pytest.approx(30 - 20)
-    assert pool.window_room("KXBTC15M-26OCT151215", accounts, resting) == pytest.approx(30)
+    assert pool.window_room(event_of("KXBTC15M-26OCT151215-15"), accounts, resting) == pytest.approx(30)
+
+
+def test_every_coin_and_hourly_ladder_closing_together_shares_one_window():
+    # 11-17: XRP, ZEC and two of Hazel's hourly bets all lost at 11:00 ET, each under its own cap
+    pool, accounts = office()
+    accounts["e0"].apply_fill("KXXRP15M-26NOV171100-00", Side.YES, 20, 0.5, 0)        # $10
+    accounts["e1"].apply_fill("KXBTCD-26NOV1711-T64099.99", Side.YES, 20, 0.5, 0)     # $10
+    resting = [RestingOrder("o", "e1", "KXZEC15M-26NOV171100-00", "no", 0.5, 10, "", "")]  # $5
+    window = event_of("KXETH15M-26NOV171100-00")
+    assert window == event_of("KXBTCD-26NOV1711-T64299.99") == "close 26NOV171100"
+    assert pool.window_room(window, accounts, resting) == pytest.approx(30 - 25)
+    assert event_of("KXBTCD-26NOV1712-T64099.99") != window  # the next hour is its own
+    assert event_of("KXHIGHNY-26NOV17-B54.5") == "KXHIGHNY-26NOV17"  # weather keeps its own
+    assert event_of("KXBTC15M-26NOV010100EST-00") == event_of("KXBTCD-26NOV0101EST-T60000") != event_of("KXBTC15M-26NOV010100-00")
 
 
 def test_daily_stop_after_losing_a_tenth_since_midnight():

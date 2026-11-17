@@ -147,6 +147,10 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
 - Bets are in 0.01-contract steps; the minimum bet is $0.25.
 - Don't switch a pool member off in `desk.real.yaml` mid-season: their money drops from our books, Kalshi
   still has it, and the safety check halts trading. Real-book roster changes go with a new season.
+- **11-17: the window cap is shared by closing moment** (desk/paper/pool.py event_of): every 15-minute coin window
+  and hourly ladder that closes at the same time counts against one 16% cap ("close 26NOV171100"). It was per coin,
+  and an 8 AM PT dip took $198 (20%) in one instant and tripped the real book's 20% hard stop. Season replay: -3%
+  profit, worst moment halved. Same day: a fresh-process bug had capped real orders at $40 since 11-14 (runner check_guard).
 - A weather day can sit unsettled for days on Kalshi's side (NY Nov 13, 2026: "closed", no result, Kalshi's deadline
   Nov 20, while every other city and day paid next morning ~7 am PT). Not a bug: settle_check asks Kalshi about every
   held ticker each run, listed or not, and books it the moment a result appears; Riding Now shows them as "settling".

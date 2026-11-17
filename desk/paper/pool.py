@@ -9,8 +9,8 @@ Bet sizes follow the pool, not a fixed dollar amount:
 so when the pool grows every bet grows with it, and when it shrinks they shrink.
 Three guardrails keep one bad day from sinking the office:
 
-  window cap   all employees together hold at most `window_cap` of the pool in
-               any one market window (bets in the same 15 minutes win or lose together)
+  window cap   all employees together hold at most `window_cap` of the pool on
+               any one closing moment (every coin and hourly ladder closing then: they win or lose together)
   daily stop   once the pool is down `daily_stop` since midnight, nobody starts a
                new bet until tomorrow (open bets still settle)
   slump brake  while the pool is more than `brake_drawdown` below its high, every
@@ -26,6 +26,7 @@ if there was no edge at all; at 2%+ a bad stretch could halve the pool.
 
 from __future__ import annotations
 
+import re
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from typing import Iterable, Optional
@@ -34,8 +35,28 @@ from zoneinfo import ZoneInfo
 from desk.paper.account import PaperAccount
 
 
+# KXXRP15M-26NOV171100-00 closes 11:00 ET; KXBTCD-26NOV1711-T64099.99 too. The hour the clocks go back is
+# repeated, and Kalshi marks the second one: KXBTC15M-26NOV010130EST-30
+_COIN_WINDOW = re.compile(r"^KX[A-Z]+15M-(\d\d[A-Z]{3}\d{6})([A-Z]{3})?(?:-|$)")
+_HOURLY = re.compile(r"^KX[A-Z]+D-(\d\d[A-Z]{3}\d{4})([A-Z]{3})?(?:-|$)")
+
+
 def event_of(ticker: str) -> str:
-    """KXBTC15M-26OCT140930-30 -> KXBTC15M-26OCT140930 (one window)."""
+    """
+    The window a bet counts against for the window cap: everything that's decided at the same moment.
+
+    11-17: this was one coin's window (KXXRP15M-26NOV171100), so eight coins and bitcoin's hourly ladder all closing
+    at 11:00 ET each had their own cap, and one fast dip took $198 (20% of the real pool) in a single instant. Coins
+    move together, so every 15-minute coin window and hourly ladder closing at the same time now share one:
+    KXXRP15M-26NOV171100-00 and KXBTCD-26NOV1711-T64099.99 -> "close 26NOV171100". Anything else (weather, games)
+    keeps its own event.
+    """
+    m = _COIN_WINDOW.match(ticker)
+    if m:
+        return f"close {m.group(1)}{m.group(2) or ''}"
+    m = _HOURLY.match(ticker)
+    if m:
+        return f"close {m.group(1)}00{m.group(2) or ''}"
     return ticker.rsplit("-", 1)[0] if ticker.count("-") >= 2 else ticker
 
 
