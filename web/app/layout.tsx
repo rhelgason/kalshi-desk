@@ -1,4 +1,5 @@
 import Tour from "@/components/Tour";
+import { previewFresh } from "@/lib/fresh";
 import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, Inter, Press_Start_2P } from "next/font/google";
 import Link from "next/link";
@@ -45,6 +46,8 @@ export async function generateViewport(): Promise<Viewport> {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const [admin, real, book, { theme: look, mode }, user] = await Promise.all([isAdmin(), getRealBook(), viewedBook(), readLook(), currentUser()]);
   const office = await getOffice(book);
+  // The manager previewing the new-user tour sees a friend's header (lib/fresh.ts)
+  const fresh = (await previewFresh(admin)) != null;
   // The manager looking at a friend's office: the header takes them back to their own view
   const inOffice = admin && isOffice(book);
   return (
@@ -60,7 +63,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <span className="brand-name">Kalshi <em>Desk</em></span>
             </HeaderLink>
             <nav className="nav">
-              {(user || admin) && <NavButtons book={book} hasLive={!!real} manager={admin} inOffice={inOffice} />}
+              {(user || admin) && <NavButtons book={book} hasLive={!!real} manager={admin && !fresh} inOffice={inOffice} />}
               {/* The same two places for everyone signed in (11-17): their own settings (account, sign-out, look) and the
                   office's rules. Invites live on the cockpit now */}
               <Menu label={user ? user.name : admin ? "Manager" : "Menu"}>

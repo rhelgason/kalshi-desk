@@ -114,7 +114,8 @@ export default function JoinFlow({ token, name, owner, hasKey, signedIn, preview
   const tour = () => start(async () => {
     if (preview) {
       try { localStorage.setItem("nux-preview", "0"); } catch {}
-      document.cookie = "nux_fresh=1; path=/; max-age=7200; samesite=lax";  // the home page shows a day-one office
+      // the app shows a new friend's day one, with this pretend balance (lib/fresh.ts)
+      document.cookie = `nux_fresh=${balance ?? pretendBalance}; path=/; max-age=7200; samesite=lax`;
     }
     else await savePrefs({ nux: "0" });
     router.push("/");

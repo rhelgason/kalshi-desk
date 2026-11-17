@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { emptyLive, previewFresh } from "@/lib/fresh";
 import { notFound } from "next/navigation";
 import AdminPanel from "@/components/AdminPanel";
 import AutoRefresh from "@/components/AutoRefresh";
@@ -54,6 +55,12 @@ export default async function EmployeePage({ params, searchParams }: {
       movable = !!real && !real.employees.some((x) => x.key === key) && !realPolicy.hired?.includes(key);
     }
     data = { live, seasonStart, fills, evidence: analysis.evidence, roster, policy, admin: admin && !isOffice(book), stats, bets, recentAll, totals, movable };
+    // The manager previewing the new-user tour: the employee as a new friend's office has them, before any bets
+    const fresh = await previewFresh(admin);
+    if (fresh != null) {
+      data = { ...data, live: live && emptyLive(live, fresh), fills: [], evidence: {}, admin: false, movable: false, bets: [],
+               recentAll: [], totals: {}, stats: { wins: 0, losses: 0, won: 0, lost: 0, days: [] }, seasonStart: Date.now() - 60_000 };
+    }
   } catch (e) {
     return <Setup error={String(e)} />;
   }

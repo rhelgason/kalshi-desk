@@ -14,13 +14,15 @@ import { savePrefs } from "@/app/account";
  * before them (the open menu, the employee they tapped) go `back` to it instead.
  */
 type Step = {
-  at: RegExp; go?: string; back?: number; target?: string; title: string;
+  at: RegExp; go?: string; back?: number; target?: string; title?: string;
   /** the words; a function reads the lit element (the estimate on "Is it working?") */
-  body: string | ((el: Element | null) => string);
+  body?: React.ReactNode | ((el: Element | null) => React.ReactNode);
   /** tapping the lit thing is the step; `end`: that tap also finishes the tour (the theme picker) */
   click?: boolean; end?: boolean; wait?: string;
   /** an item in the open menu: if it isn't showing, the menu was closed, so go `back` at once */
   quick?: boolean;
+  /** just a tap on the lit thing, no words: no card, and not counted in "3 of 8" */
+  silent?: boolean;
 };
 
 const money = (n: string | undefined) => `$${Number(n ?? 0).toLocaleString("en-US")}`;
@@ -29,32 +31,37 @@ const STEPS: Step[] = [
   { at: /^\/$/, go: "/", target: ".money-hero", title: "This is your dashboard",
     body: "A quick look at how your office is performing. The number only moves when a bet settles, and the chart shows the story so far.",
     wait: "Your office is opening: it takes a couple of minutes after connecting Kalshi. This page refreshes itself, and the tour carries on when it's ready." },
-  { at: /^\/$/, go: "/", target: ".race", title: "Bets riding now",
-    body: "Bets your staff have open right now, waiting to settle (most settle within 15 minutes). It stays empty until your money is in and the first bets go on." },
   { at: /^\/$/, go: "/", target: ".team li a", click: true, title: "Meet your staff",
     body: "Each employee is a bot with one job, like bitcoin's 15-minute markets. Tap one to see their page." },
-  { at: /^\/employee\//, back: 2, target: ".employee-chart", title: "An employee's page",
-    body: "How they've done, the bets they have riding, and their level: Intern, Associate, Senior, VP. Every week the office reviews itself: good employees get promoted to bigger bets, and weak ones get benched. You don't have to do anything." },
-  { at: /./, target: '.nav a[href="/cockpit"]', click: true, title: "The cockpit", body: "Next, tap Cockpit." },
+  { at: /^\/employee\//, back: 1, target: ".card.player", title: "An employee's page",
+    body: "Who they are, how they bet, and their level: Intern, Associate, Senior, VP. Every week the office reviews itself: good employees get promoted to bigger bets, and weak ones get benched. You don't have to do anything." },
+  { at: /./, target: '.nav a[href="/cockpit"]', click: true, silent: true },
   { at: /^\/cockpit/, go: "/cockpit", target: ".cockpit-main", title: "Every office together",
     body: "Every office's return on one chart, as a %. Yours joins it once your staff start betting." },
   { at: /^\/cockpit/, go: "/cockpit", target: ".is-working", title: "Is it working?",
     body: (el) => {
       const d = (el?.querySelector(".working-estimate") as HTMLElement | null)?.dataset ?? {};
-      const est = d.has
-        ? `With your ${money(d.base)} deposited, our estimate puts you at about ${money(d.later)} in 6 months.`
-        : `If you put $100 in today, our estimate puts you at about ${money(d.later)} in 6 months.`;
-      return `The honest answer: every office's bets added up, how often they win, and the odds it's skill rather than luck. ${est} That's a rough guess at half the pace so far, not a promise.`;
+      return (
+        <>
+          The honest answer: every office&apos;s bets added up, how often they win, and the odds it&apos;s skill rather
+          than luck. {d.has
+            ? <>With your {money(d.base)} deposited, our estimate puts you at about <strong>{money(d.later)}</strong> in 6 months.</>
+            : <>If you put $100 in today, our estimate puts you at about <strong>{money(d.later)}</strong> in 6 months.</>}{" "}
+          That&apos;s a rough guess based on our gathered data so far, <strong>not a promise</strong>.
+        </>
+      );
     } },
-  { at: /./, target: ".menu > summary", click: true, title: "The menu", body: "Settings and Office Rules live in the menu. Tap it to open it." },
-  { at: /./, back: 7, quick: true, target: '.menu-list a[href="/rules"]', click: true, title: "Office Rules", body: "Tap Office Rules." },
+  { at: /./, target: ".menu > summary", click: true, silent: true },
+  { at: /./, back: 6, quick: true, target: '.menu-list a[href="/rules"]', click: true, silent: true },
   { at: /^\/rules/, go: "/rules", target: '[data-tour="pause"]', title: "Pausing",
-    body: "Pause my betting stops your office's new bets until you resume (bets already on finish as usual), and Stop all trading is the manager's switch that pauses every office at once." },
-  { at: /./, target: ".menu > summary", click: true, title: "Last stop", body: "Open the menu again." },
-  { at: /./, back: 10, quick: true, target: '.menu-list a[href="/settings"]', click: true, title: "Settings", body: "Tap Settings." },
+    body: "\u201cPause my betting\u201d stops your office\u2019s new bets until you resume. Bets already on finish as usual." },
+  { at: /./, target: ".menu > summary", click: true, silent: true },
+  { at: /./, back: 9, quick: true, target: '.menu-list a[href="/settings"]', click: true, silent: true },
   { at: /^\/settings/, go: "/settings", target: ".theme-tiles", click: true, end: true, title: "Pick a look",
-    body: "Pick a style you like, and try a few. Tap My Office whenever you want to go back to your dashboard." },
+    body: "Pick a style you like, and try a few. Tap \u201cMy Office\u201d whenever you want to go back to your dashboard." },
 ];
+/** The steps with words, for "3 of 8" */
+const COUNTED = STEPS.filter((x) => !x.silent).length;
 
 const PREVIEW = "nux-preview";
 const PAD = 6;
@@ -133,7 +140,7 @@ export default function Tour({ start }: { start: number | null }) {
       } else {
         setBox(null);
         const waited = performance.now() - since;
-        if (waited > 1200) {
+        if (waited > (s.quick ? 1200 : 5000)) {
           // a slow page gets time to load before going back a step; a closed menu doesn't
           if (s.back != null && (s.quick || waited > 10_000)) { moveTo(s.back); return; }
           setMissing(true);
@@ -184,7 +191,7 @@ export default function Tour({ start }: { start: number | null }) {
   const covered = !s.click || !hole;
 
   return (
-    <div className="tour" role="dialog" aria-modal="true" aria-label={s.title}>
+    <div className="tour" role="dialog" aria-modal="true" aria-label={s.title ?? "Tour"}>
       {hole ? (
         <>
           <div className="tour-dim" style={{ top: 0, left: 0, right: 0, height: Math.max(0, hole.top) }} />
@@ -197,18 +204,20 @@ export default function Tour({ start }: { start: number | null }) {
       ) : (
         <div className="tour-dim" style={{ inset: 0 }} />
       )}
-      <div className="tour-card" ref={cardRef} style={card}>
+      {/* The words wait for the lit thing (a page still loading), unless it never comes; a plain tap has none */}
+      {(!s.silent || missing) && (hole || missing || !s.target) && <div className="tour-card" ref={cardRef} style={card}>
         <div className="tour-top">
-          <span className="muted small">Tour · {step + 1} of {STEPS.length}</span>
+          <span className="muted small">Tour · {STEPS.slice(0, step + 1).filter((x) => !x.silent).length} of {COUNTED}</span>
           {preview && <button type="button" className="link-btn small" onClick={finish}>End preview</button>}
         </div>
-        <h3>{s.title}</h3>
+        {s.title && <h3>{s.title}</h3>}
         <p>{missing && s.wait ? s.wait
-          : typeof s.body === "function" ? s.body(typeof document === "undefined" || !s.target ? null : document.querySelector(s.target)) : s.body}</p>
+          : typeof s.body === "function" ? s.body(typeof document === "undefined" || !s.target ? null : document.querySelector(s.target))
+          : s.body ?? "One moment…"}</p>
         {showNext && !(missing && s.wait) ? (
           <button type="button" className="btn primary" onClick={() => moveTo(step + 1)}>Next</button>
         ) : null}
-      </div>
+      </div>}
     </div>
   );
 }

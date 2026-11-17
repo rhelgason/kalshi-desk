@@ -4,6 +4,7 @@ import RealMoney from "@/components/RealMoney";
 import Setup from "@/components/Setup";
 import SystemAlert from "@/components/SystemAlert";
 import { isAdmin } from "@/lib/admin";
+import { previewFresh } from "@/lib/fresh";
 import { viewedBook, requireViewer } from "@/lib/book";
 import { getKillSwitch, getLive, getPolicy, isOffice } from "@/lib/db";
 import { LEVELS, awardName, poolShare } from "@/lib/hr";
@@ -30,7 +31,14 @@ export default async function RulesPage() {
     const office = isOffice(book);
     // Your own pause: the manager on their real book (or Training, which shows it), a friend on their own office
     const mine = office ? officeOf(user) === book : admin;
-    data = { book, policy, admin: admin && !office, office, mine, trading: live?.trading ?? { mode: "paper" as const }, killSwitch };
+    const trading = live?.trading ?? { mode: "paper" as const };
+    data = { book, policy, admin: admin && !office, office, mine, trading, killSwitch };
+    // The manager previewing the new-user tour: a new friend's Office Rules, with their pretend balance
+    const fresh = await previewFresh(admin);
+    if (fresh != null) {
+      data = { ...data, admin: false, office: true, mine: true, killSwitch: { halted: false },
+               trading: { ...trading, books: trading.books && { ...trading.books, ok: true, balance: fresh, drift: 0, mismatches: {} } } };
+    }
   } catch (e) {
     return <Setup error={String(e)} />;
   }

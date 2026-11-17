@@ -165,8 +165,10 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
   spotlights one thing per step, saving the step in prefs.nux until "done". Existing users have no nux. The manager's
   👀 Preview as a new friend (cockpit, Invite card) runs it all on pretend data (a made-up key, a $0/$50 pretend balance; /welcome?preview=1, localStorage), and
   its tour shows the manager's home as a day-one office (cookie nux_fresh, lib/fresh.ts). The tour ends when they tap a
-  theme. "Is it working?" on the cockpit shows a 6-month estimate (every office's profit per $ per day, at half pace,
-  no compounding) for the viewer's money or $100; the tour quotes it.
+  theme. The tour quotes a 6-month estimate computed on the cockpit (a hidden .working-estimate on "Is it working?":
+  every office's profit per $ per day so far, full pace, no compounding) for the viewer's money (their office, or
+  prefs.kalshi_balance before it opens) or $100. **Update it when the prediction model (ebb, flow, taper) is built.**
+  The preview cookie holds the pretend balance and gives the manager a friend's header, cockpit, rules and empty pages.
   Tour targets are CSS selectors (.money-hero, .team li a, .employee-chart, .cockpit-main, .menu > summary, menu links,
   [data-tour=pause], .theme-tiles): renaming those classes breaks the tour.
 - A weather day can sit unsettled for days on Kalshi's side (NY Nov 13, 2026: "closed", no result, Kalshi's deadline

@@ -75,8 +75,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
   }
   // The manager previewing the new-user tour: their office as a friend's looks on day one (lib/fresh.ts)
   const fresh = await previewFresh(data.admin);
-  if (fresh) Object.assign(data, { live: data.live && emptyLive(data.live), fills: [], rows: [], bets: [], marks: [],
-                                   money: emptyHistory(data.money, Date.now() - 60_000), kill: null });
+  if (fresh != null) Object.assign(data, { live: data.live && emptyLive(data.live, fresh), fills: [], rows: [], bets: [], marks: [],
+                                   money: emptyHistory(data.money, Date.now() - 60_000, fresh, data.live ? poolKeys(data.live)[0] : undefined), kill: null });
   const { realBook, live, fills, roster, policy, money, admin, rows: dayRows, bets, firstDay, kill, marks, office, user, tz } = data;
   // Asked for once the top card's numbers are in, so they don't queue ahead of them (two database connections)
   const later = Promise.all([getAnalysis(book), getNews(book, 40), getBonusPot(book)]);

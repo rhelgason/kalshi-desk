@@ -174,6 +174,8 @@ export async function connectKalshi(keyId: string, pemText: string): Promise<Res
       status = CASE WHEN status = 'setup' THEN 'ready' ELSE status END WHERE slug = ${user.office}`;
     // The new-user experience moves on to its (optional) money step, then the guided tour (components/Tour.tsx)
     await home()`UPDATE public.users SET prefs = prefs || '{"nux":"money"}'::jsonb WHERE id = ${user.id} AND prefs->>'nux' = 'setup'`;
+    // What Kalshi said, for the tour's estimate until the office opens with it (a couple of minutes)
+    await home()`UPDATE public.users SET prefs = prefs || ${JSON.stringify({ kalshi_balance: balance })}::jsonb WHERE id = ${user.id}`;
     return { ok: true, balance };
   } catch (e) {
     return fail(e);
