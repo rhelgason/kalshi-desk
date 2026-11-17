@@ -73,3 +73,22 @@ def test_futures_are_repeatable_and_ordered(fc):
 
 def test_quantile():
     assert _q([1, 2, 3, 4, 5], 0.5) == 3 and _q([], 0.5) == 0 and math.isclose(_q([0, 10], 0.25), 2.5)
+
+
+def test_training_bets_count_half():
+    lib = tiny_library()
+    rec = {"maker_sol": {"bets": 300, "spent": 3000, "pnl": 0}}
+    alone = build_staff(lib, ["maker_sol"], {}, rec)[0]
+    paper = build_staff(lib, ["maker_sol"], {}, rec, {"maker_sol": {"bets": 600, "spent": 6000, "pnl": 300}})[0]
+    # tape +2c x300, real 0c x300, paper +5c x600 at half weight (=300): (6 + 0 + 15) / 900 = 2.33c
+    assert alone.edge == pytest.approx(0.01) and paper.edge == pytest.approx(0.0233, abs=1e-4)
+    assert paper.edge_sd < alone.edge_sd and paper.paper_bets == 600
+
+
+def test_prediction_log_keeps_one_line_a_day():
+    from desk.forecast import prediction_log
+    fan = [{"day": d, "p10": 1, "p25": 2, "p50": 3, "p75": 4, "p90": 5} for d in range(0, 31)]
+    a = prediction_log(None, {"at": "2026-11-17T11:20:00", "start": 750, "fan": fan})
+    b = prediction_log({"log": a}, {"at": "2026-11-17T12:00:00", "start": 760, "fan": fan})
+    c = prediction_log({"log": b}, {"at": "2026-11-18T11:20:00", "start": 800, "fan": fan})
+    assert len(b) == 1 and b[0]["start"] == 760 and len(c) == 2 and c[1]["d30"] == [1, 3, 5]

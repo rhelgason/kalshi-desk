@@ -46,6 +46,7 @@ LIBRARY = Path(__file__).with_name("forecast_library.json.gz")
 COIN_OF = {"maker_btc": "BTC", "maker_eth": "ETH", "maker_sol": "SOL", "maker_xrp": "XRP", "maker_doge": "DOGE",
            "maker_bnb": "BNB", "maker_near": "NEAR", "maker_zec": "ZEC", "maker_hype": "HYPE"}
 PRIOR_BETS = 300  # how many real bets the tape's number counts for when the two are blended
+PAPER_WEIGHT = 0.5  # a Training bet (paper, filled from Kalshi's real trades) counts as half a real one
 BET_SD = 0.20  # one bet's profit per $1 varies by about this much (a 96c favourite: +4c or -100c)
 # ...and however many bets we have, the market itself can change (more makers, calmer coins): at least this much
 # doubt about any edge, shared by all employees (they all lean on the same dips)
@@ -81,6 +82,8 @@ class Staff:
     rate: float = 0.0  # synthetic: bets a day
     real_bets: int = 0
     real_edge: Optional[float] = None
+    paper_bets: int = 0
+    paper_edge: Optional[float] = None
 
 
 @dataclass
@@ -234,6 +237,7 @@ class Forecaster:
         policy = book.policy or {}
         promote, demote = float(policy.get("promote_roi", 0.02)), float(policy.get("demote_roi", -0.03))
         min_bets = int(policy.get("min_settled", 20))
+        confident = float(policy.get("promote_min_confidence", 0.8))
         ends: list[list[float]] = []
         levels: dict[str, list[list[int]]] = {s.key: [] for s in book.staff}
         worst_days: list[float] = []
@@ -244,6 +248,7 @@ class Forecaster:
             staff = [Staff(**{**s.__dict__}) for s in book.staff]
             eq, st, line, week, worst = start, {"peak": start}, [start], {}, 0.0
             lv = {s.key: [s.level] for s in staff}
+            season: dict[str, list] = {}
             # Every family office runs the same rules on the same markets, so they grow at about the same pace:
             # the others' share of each family bid stays what it is today
             ratio = book.others / start if start > 0 else 0.0
@@ -255,9 +260,14 @@ class Forecaster:
                 if reviews and d % 7 == 0:
                     for s in staff:
                         bets, spent, pnl = week.get(s.key, (0, 0.0, 0.0))
+                        c = season.setdefault(s.key, [0, 0.0, 0.0])
+                        c[0] += bets; c[1] += spent; c[2] += pnl
                         if bets >= min_bets and spent > 0:
                             roi = pnl / spent
-                            if roi >= promote and s.level < len(LEVELS) - 1:
+                            # the office's skill-or-luck check on the season so far (hr: promote_min_confidence)
+                            z = (c[2] / c[1]) / (BET_SD / math.sqrt(c[0])) if c[1] > 0 and c[0] else 0.0
+                            sure = 0.5 * (1 + math.erf(z / math.sqrt(2))) if c[0] >= 30 else 0.5
+                            if roi >= promote and s.level < len(LEVELS) - 1 and sure >= confident:
                                 s.level += 1
                             elif roi <= demote and s.level > 0 and edges[s.key] <= 0:
                                 s.level -= 1  # a bad week with an edge that's really there is "kept", as the office does
@@ -323,6 +333,28 @@ class Forecaster:
         finally:
             lib.all_days = real
 
+    # -- a new friend's office -----------------------------------------------------------------------------------
+    def newcomer(self, owner: Book, family: float, starts: tuple = (50, 100, 250, 500, 1000, 2500, 5000), n: int = 50) -> list:
+        """What a new office would do from each starting amount: the owner's staff at the owner's levels (friends
+        join that way), the whole family's money bidding beside it."""
+        import copy
+        out = []
+        for amount in starts:
+            b = copy.deepcopy(owner)
+            b.equity, b.others, b.history = float(amount), family, []
+            lines = self.paths(b, n=n, seed=21)["lines"]
+            row = {"start": amount}
+            for d in (30, len(lines[0]) - 1):
+                col = sorted(l[d] for l in lines)
+                row[f"d{d}"] = {"p10": round(_q(col, 0.1), 2), "p50": round(_q(col, 0.5), 2), "p90": round(_q(col, 0.9), 2)}
+            out.append(row)
+        # Fewer futures per amount, so a little noise: more money never shows a smaller result
+        for k in [k for k in out[0] if k.startswith("d")]:
+            for q in ("p10", "p50", "p90"):
+                for i in range(1, len(out)):
+                    out[i][k][q] = max(out[i][k][q], out[i - 1][k][q])
+        return out
+
     # -- everything the cockpit shows ---------------------------------------------------------------------------
     def run(self, book: Book, n: int = 200, deposits: tuple = (0, 250, 500, 1000, 2500, 5000)) -> dict:
         res = self.paths(book, n=n)
@@ -362,6 +394,7 @@ class Forecaster:
                 "edge": round(s.edge, 4), "edge_sd": round(s.edge_sd, 4),
                 "tape_edge": None if s.tape_edge is None else round(s.tape_edge, 4),
                 "real_edge": None if s.real_edge is None else round(s.real_edge, 4), "real_bets": s.real_bets,
+                "paper_edge": None if s.paper_edge is None else round(s.paper_edge, 4), "paper_bets": s.paper_bets,
                 "now": now["staff"].get(s.key, {}), "at_peak": best["staff"].get(s.key, {}),
                 "assumed": s.key in SYNTHETIC,
             })
@@ -407,8 +440,12 @@ def real_record(ledgers: list, days: int = 30) -> dict[str, dict]:
     return out
 
 
-def build_staff(lib: Library, members: list[str], levels: dict[str, int], record: dict[str, dict]) -> list[Staff]:
+def build_staff(lib: Library, members: list[str], levels: dict[str, int], record: dict[str, dict],
+                paper: Optional[dict[str, dict]] = None) -> list[Staff]:
+    """Edges: the tape's (or the assumed prior), Training's recent paper bets at half weight, and real bets, blended
+    by how many of each there are."""
     out = []
+    paper = paper or {}
     for k in members:
         r = record.get(k) or {}
         n, spent = int(r.get("bets", 0)), float(r.get("spent", 0))
@@ -425,8 +462,12 @@ def build_staff(lib: Library, members: list[str], levels: dict[str, int], record
             prior, keep = SYNTHETIC[k]["prior_edge"], 1.0
         else:
             continue  # no model for them (yet)
-        edge = (n * real + PRIOR_BETS * prior) / (n + PRIOR_BETS) if real is not None else prior
-        sd = math.hypot(BET_SD / math.sqrt(n + PRIOR_BETS), REGIME_SD)
+        pp = paper.get(k) or {}
+        pn = PAPER_WEIGHT * int(pp.get("bets", 0)) if float(pp.get("spent", 0)) > 0 else 0.0
+        pe = float(pp["pnl"]) / float(pp["spent"]) if pn else 0.0
+        weight = PRIOR_BETS + pn + (n if real is not None else 0)
+        edge = (PRIOR_BETS * prior + pn * pe + (n * real if real is not None else 0)) / weight
+        sd = math.hypot(BET_SD / math.sqrt(weight), REGIME_SD)
         rate = 0.0
         if k in SYNTHETIC:
             live_rate = r.get("home_bets", 0) / r["home_days"] if r.get("home_days") else None
@@ -434,11 +475,11 @@ def build_staff(lib: Library, members: list[str], levels: dict[str, int], record
             rate = w * live_rate + (1 - w) * SYNTHETIC[k]["prior_rate"] if live_rate else SYNTHETIC[k]["prior_rate"]
         out.append(Staff(key=k, level=int(levels.get(k, 1)), edge=edge, edge_sd=sd,
                          tape_edge=lib.tape_edge.get(coin) if coin else None, keep=keep, rate=rate,
-                         real_bets=n, real_edge=real))
+                         real_bets=n, real_edge=real, paper_bets=int(pp.get("bets", 0)), paper_edge=pe if pn else None))
     return out
 
 
-def book_from(ledger, family: list, lib: Library, name: str) -> Optional[Book]:
+def book_from(ledger, family: list, lib: Library, name: str, paper: Optional[dict] = None) -> Optional[Book]:
     """One office's starting point: its pool now (status `live`), rules, levels, and the family's record."""
     from desk import hr
 
@@ -458,7 +499,7 @@ def book_from(ledger, family: list, lib: Library, name: str) -> Optional[Book]:
         p = (f.get_status("live") or {}).get("pool") or {}
         others += float(p.get("equity") or 0)
     return Book(name=name, equity=float(pool["equity"]), settings=settings,
-                staff=build_staff(lib, members, levels, record), others=others, policy=policy,
+                staff=build_staff(lib, members, levels, record, paper), others=others, policy=policy,
                 tested=tested_bid([ledger] + [f for f in family if f is not ledger]),
                 history=season_days(ledger, int(policy.get("season", 1)), settings.get("timezone") or "America/Vancouver"))
 
@@ -507,20 +548,40 @@ def family_schemas(url: str) -> list[str]:
 
 
 def run_family(url: str, schemas: list[str], n: int = 200) -> dict[str, dict]:
-    """Forecast every family book and save each as its status row `_forecast`."""
+    """Forecast every family book and save each as its status row `_forecast`. The owner's also carries the newcomer
+    table (what a new friend's office would do from each starting amount: the tour quotes it) and a log of past
+    predictions, to grade the model on later."""
     from desk.paper.ledger import Ledger
 
     ledgers = [Ledger(url, s, shared=True) for s in schemas]
+    paper = real_record([Ledger(url, "public", shared=True)])  # Training's paper bets: recent, from the real tape
     fc = Forecaster.load()
     done = {}
     for led, s in zip(ledgers, schemas):
-        book = book_from(led, ledgers, fc.lib, s)
+        book = book_from(led, ledgers, fc.lib, s, paper)
         if book is None:
             continue
         out = fc.run(book, n=n)
+        if s == schemas[0]:
+            family = book.equity + book.others
+            out["newcomer"] = fc.newcomer(book, family)
+        out["log"] = prediction_log(led.get_status("_forecast"), out)
         led.set_status("_forecast", out)
         done[s] = out
     return done
+
+
+def prediction_log(before: Optional[dict], now: dict, keep: int = 120) -> list:
+    """One line a day: the start and the 7- and 30-day predictions, so later days can say how they turned out."""
+    log = list((before or {}).get("log") or [])
+    day = now["at"][:10]
+    pick = {f["day"]: f for f in now["fan"]}
+    row = {"day": day, "start": now["start"]}
+    for d in (7, 30):
+        f = pick.get(d) or min(now["fan"], key=lambda x: abs(x["day"] - d))
+        row[f"d{d}"] = [round(f["p10"], 2), round(f["p50"], 2), round(f["p90"], 2)]
+    log = [r for r in log if r.get("day") != day] + [row]
+    return log[-keep:]
 
 
 # -- small helpers ------------------------------------------------------------------------------------------------
