@@ -1028,7 +1028,7 @@ class Desk:
             for o in await self.broker.cancel_everything():
                 self._bid_ended(o, "bid pulled: trading halted")
         else:
-            self.guard.check_loss(self.pool.equity, self.pool.state.day_open)
+            self.guard.check_loss(self.pool.equity, self.pool.state.day_open, self.pool.state.day)
             if self.guard.halted:
                 for o in await self.broker.cancel_everything():
                     self._bid_ended(o, "bid pulled: trading halted")

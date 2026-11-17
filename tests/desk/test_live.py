@@ -379,6 +379,28 @@ async def test_the_loss_limit_can_be_a_share_of_the_pool(live, monkeypatch):
     assert desk.guard.halted and "20% of the pool, $60.00" in desk.guard.state["reason"]
 
 
+async def test_the_daily_loss_halt_lifts_itself_on_a_new_day_and_a_resume_sticks(live, monkeypatch):
+    # 11-17: the halt said "until resumed", and a resume was undone on the next run because today was still down
+    desk = _desk(live, monkeypatch)
+    desk.guard.limits["max_daily_loss_pct"] = 0.20
+    desk.pool.update(300, NOW)
+    desk.pool.update(230, NOW + timedelta(hours=1))
+    await desk.reconcile_live()
+    assert desk.guard.halted and desk.guard.state["day"] == desk.pool.state.day
+    desk.guard.resume(by="manager")  # the owner's go, the same day
+    await desk.reconcile_live()
+    assert not desk.guard.halted  # not re-halted: the pool's daily stop still holds new bets until midnight
+    desk.guard.halt("the pool lost $70.00 today (test)")  # halted again, today
+    desk.guard._mark_day(desk.pool.state.day)
+    desk.pool.update(230, NOW + timedelta(days=1))  # the next day: a fresh start
+    await desk.reconcile_live()
+    assert not desk.guard.halted and "a new day" in desk.guard.state["resumed_by"]
+    desk.guard.halt("positions differ (test)")  # someone else's halt is never lifted by the day changing
+    desk.pool.update(230, NOW + timedelta(days=2))
+    await desk.reconcile_live()
+    assert desk.guard.halted
+
+
 def test_live_trading_needs_both_switches_and_a_key(monkeypatch, tmp_path):
     cfg = DeskConfig(trading="live")
     monkeypatch.delenv("KALSHI_LIVE_TRADING", raising=False)

@@ -53,6 +53,9 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+LOSS_HALT = "the pool lost"  # how the daily-loss halt's reason starts (check_loss lifts only its own)
+
+
 class Guard:
     def __init__(self, ledger: Ledger, limits: Optional[dict] = None):
         self.ledger = ledger
@@ -121,11 +124,33 @@ class Guard:
             return f"{int(self.limits['max_orders_per_day'])} orders today: the daily limit"
         return None
 
-    def check_loss(self, equity: float, day_open: float) -> None:
-        """Halt if the pool has lost more than the hard daily limit."""
+    def check_loss(self, equity: float, day_open: float, day: Optional[str] = None) -> None:
+        """
+        Halt if the pool has lost more than the hard daily limit. `day` (the pool's local date) makes the halt a
+        daily one (11-17): it lifts itself when a new day starts, and a manager's resume the same day sticks (the
+        pool's own daily stop still holds new bets until midnight). Without `day`: halt until resumed, as before.
+        """
+        if self.halted:
+            if day and str(self.state.get("reason", "")).startswith(LOSS_HALT):
+                if not self.state.get("day"):
+                    self._mark_day(day)
+                elif self.state["day"] != day:
+                    self.resume(by=f"the daily-loss stop (a new day, {day})")
+            return
+        if day and self.state.get("resumed_by") and not self.state.get("day"):
+            self._mark_day(day)
         lost = day_open - equity
         pct = self.limits.get("max_daily_loss_pct")
         limit = day_open * float(pct) if pct else float(self.limits["max_daily_loss"])
         if day_open > 0 and lost > limit:
+            by = str(self.state.get("resumed_by") or "")
+            if day and by and not by.startswith("the ") and self.state.get("day") == day:
+                return  # the manager resumed after today's stop: their call (automatic resumes start "the ...")
             share = f"{float(pct):.0%} of the pool, " if pct else ""
-            self.halt(f"the pool lost ${lost:,.2f} today (limit {share}${limit:,.2f})")
+            self.halt(f"{LOSS_HALT} ${lost:,.2f} today (limit {share}${limit:,.2f})")
+            if day:
+                self._mark_day(day)
+
+    def _mark_day(self, day: str) -> None:
+        self.state["day"] = day
+        self.ledger.set_setting(SETTING, self.state)
