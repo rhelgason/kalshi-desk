@@ -159,10 +159,11 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
   day starts, and a manager's resume the same day sticks (before, the next run re-halted, and the halt waited for a
   person even after midnight). The pool's 15% daily stop still holds new bets until midnight either way.
 - **11-17: the new-user experience (NUX).** New friends get prefs.nux = "setup" at joinStart; the home page sends them
-  to /welcome (JoinFlow: welcome + passkey, Kalshi account + deposit, making an API key, pasting it with live checks
-  in lib/keycheck.ts, balance) until connectKalshi sets nux "0"; then components/Tour.tsx (mounted in the layout)
+  to /welcome (JoinFlow: welcome + passkey, Kalshi account (have one / create one), making an API key, pasting it
+  with live checks in lib/keycheck.ts; connectKalshi sets nux "money": an optional deposit step with the balance
+  Kalshi reported; Start the tour sets nux "0"); then components/Tour.tsx (mounted in the layout)
   spotlights one thing per step, saving the step in prefs.nux until "done". Existing users have no nux. The manager's
-  👀 Preview as a new friend (cockpit, Invite card) runs it all with nothing saved (/welcome?preview=1, localStorage).
+  👀 Preview as a new friend (cockpit, Invite card) runs it all on pretend data (a made-up key, a $0/$50 pretend balance; /welcome?preview=1, localStorage).
   Tour targets are CSS selectors (.money-hero, .team li a, .employee-chart, .cockpit-main, .menu > summary, menu links,
   [data-tour=pause], .theme-tiles): renaming those classes breaks the tour.
 - A weather day can sit unsettled for days on Kalshi's side (NY Nov 13, 2026: "closed", no result, Kalshi's deadline

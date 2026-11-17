@@ -37,7 +37,7 @@ const STEPS: Step[] = [
   { at: /^\/rules/, go: "/rules", target: '[data-tour="pause"]', click: true, fake: true, title: "Your pause button",
     body: "This button pauses your betting (while betting is paused, it says Resume instead). Tap it to see what it does." },
   { at: /^\/rules/, go: "/rules", target: '[data-tour="pause"]', title: "That's how you pause",
-    body: "For real, it stops new bets within 2 minutes; bets already on finish as usual, and the button turns into Resume. We didn't pause anything just now. Want to stop for good? Delete the key on Kalshi." },
+    body: "For real, it stops new bets within 2 minutes; bets already on finish as usual, and the button turns into Resume. It stays paused for as long as you like, until you tap Resume. We didn't pause anything just now." },
   { at: /./, target: ".menu > summary", click: true, title: "Last stop", body: "Open the menu again." },
   { at: /./, back: 9, quick: true, target: '.menu-list a[href="/settings"]', click: true, title: "Settings", body: "Tap Settings." },
   { at: /^\/settings/, go: "/settings", target: ".theme-tiles", click: true, title: "Pick a look",

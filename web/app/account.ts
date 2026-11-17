@@ -172,8 +172,8 @@ export async function connectKalshi(keyId: string, pemText: string): Promise<Res
     const balance = await kalshiBalance(id, pem);
     await home()`UPDATE public.offices SET key_id = ${id}, key_box = ${lockKey(pem)}, note = NULL, updated_at = now(),
       status = CASE WHEN status = 'setup' THEN 'ready' ELSE status END WHERE slug = ${user.office}`;
-    // The new-user experience moves on from Kalshi setup to the guided tour (components/Tour.tsx)
-    await home()`UPDATE public.users SET prefs = prefs || '{"nux":"0"}'::jsonb WHERE id = ${user.id} AND prefs->>'nux' = 'setup'`;
+    // The new-user experience moves on to its (optional) money step, then the guided tour (components/Tour.tsx)
+    await home()`UPDATE public.users SET prefs = prefs || '{"nux":"money"}'::jsonb WHERE id = ${user.id} AND prefs->>'nux' = 'setup'`;
     return { ok: true, balance };
   } catch (e) {
     return fail(e);

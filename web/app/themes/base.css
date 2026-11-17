@@ -272,3 +272,10 @@ html .tour-card p { margin: 0; line-height: 1.5; color: var(--text-secondary); }
 html .tour-card .btn { justify-self: end; }
 html .tour-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 html .tour-tap { color: var(--series-1) !important; font-weight: 600; }
+html .nux a:not(.btn) { color: var(--series-1); text-decoration: underline; text-underline-offset: 2px; }
+html .nux-agree { margin: 4px 0 18px; }
+html .nux-choice { display: grid; gap: 10px; }
+html .nux-choice .btn { width: 100%; text-align: center; }
+html .nux-preview-pick { display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+html .nux h2 .muted { font-size: 0.7em; font-weight: 500; }
+html .nux-preview-pick .chip[aria-pressed="true"] { background: var(--series-1); color: var(--page); border-color: var(--series-1); }

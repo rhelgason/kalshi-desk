@@ -3,17 +3,27 @@
 import { browserSupportsWebAuthn, startRegistration } from "@simplewebauthn/browser";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
-import { connectKalshi, joinPasskey, joinStart } from "@/app/account";
+import { connectKalshi, joinPasskey, joinStart, savePrefs } from "@/app/account";
 import { checkKeyId, checkPem, type Check } from "@/lib/keycheck";
 
 const cancelled = (e: unknown) => e instanceof Error && (e.name === "NotAllowedError" || e.name === "AbortError");
 
-/** Where someone is in the setup, kept on this device so leaving and coming back lands on the same screen. */
+/** Where someone is between the Kalshi screens, kept on this device so leaving and coming back lands on the same one. */
 const SPOT = "nux-setup";
 const remember = (step: number) => { try { localStorage.setItem(SPOT, String(step)); } catch {} };
 const recall = (): number | null => { try { const v = Number(localStorage.getItem(SPOT)); return v >= 1 && v <= 3 ? v : null; } catch { return null; } };
 
-const TITLES = ["Welcome", "Your Kalshi account", "Make an API key", "Paste your key", "Done"];
+const TITLES = ["Welcome", "Your Kalshi account", "Make an API key", "Paste your key", "Put money in", "Done"];
+const SIGN_UP = "https://kalshi.com/sign-up";
+
+/** A made-up key for the manager's preview: the right shape, so the paste checks can be tried. */
+const PRETEND_ID = "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d";
+function pretendKey(): string {
+  const abc = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  let body = "MIIEowIBAAKCAQEA";
+  while (body.length < 1588) body += abc[Math.floor(Math.random() * abc.length)];
+  return ["-----BEGIN RSA PRIVATE KEY-----", ...(body.match(/.{1,64}/g) ?? []), "-----END RSA PRIVATE KEY-----"].join("\n");
+}
 
 function Hint({ c }: { c: Check | null }) {
   if (!c) return null;
@@ -22,15 +32,18 @@ function Hint({ c }: { c: Check | null }) {
 
 /**
  * The new-user experience, part one (11-17): joining and setting up Kalshi, one phone-sized screen at a time.
- * Welcome and a passkey; a Kalshi account with money in it; an API key made click by click; pasting it (with live
- * checks, since both early friends were stuck on what to paste); and the balance Kalshi reports, proof it all works.
- * Then the guided tour of the app itself (components/Tour.tsx). `preview`: the manager walks through it with nothing
- * checked or saved.
+ * Welcome and a passkey; a Kalshi account (have one, or make one); an API key made click by click; pasting it (with
+ * live checks, since both early friends were stuck on what to paste); then money in, optional, with the balance
+ * Kalshi reported when the key was checked. Then the guided tour of the app (components/Tour.tsx).
+ *
+ * `preview`: the manager walks through it as a friend would, on pretend data: no passkey, a made-up key on request,
+ * a pretend balance they pick, and nothing checked or saved.
  */
 export default function JoinFlow({ token, name, owner, hasKey, signedIn, preview = false }:
   { token: string; name: string; owner: string; hasKey: boolean; signedIn: boolean; preview?: boolean }) {
   const router = useRouter();
   const [step, setStep] = useState(preview ? 0 : signedIn ? (hasKey ? 4 : 1) : 0);
+  const [creating, setCreating] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -38,12 +51,18 @@ export default function JoinFlow({ token, name, owner, hasKey, signedIn, preview
   const [pem, setPem] = useState("");
   const [fileName, setFileName] = useState<string | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
+  const [pretendBalance, setPretendBalance] = useState(0);
+  const [deposited, setDeposited] = useState(false);
 
   // Back where they left off (only between the Kalshi screens; the key itself is never kept)
   useEffect(() => {
     if (!preview && signedIn && !hasKey) { const s = recall(); if (s) setStep(s); }
   }, [preview, signedIn, hasKey]);
-  const go = (s: number) => { setMsg(null); setStep(s); if (!preview && s >= 1 && s <= 3) remember(s); window.scrollTo(0, 0); };
+  const go = (s: number) => {
+    setMsg(null); setCreating(false); setStep(s);
+    if (!preview && s >= 1 && s <= 3) remember(s);
+    window.scrollTo(0, 0);
+  };
 
   const passkey = () => start(async () => {
     setMsg(null);
@@ -73,7 +92,7 @@ export default function JoinFlow({ token, name, owner, hasKey, signedIn, preview
 
   const connect = () => start(async () => {
     setMsg(null);
-    if (preview) { setBalance(0); setPem(""); return go(4); }
+    if (preview) { setBalance(pretendBalance); setPem(""); return go(4); }
     const done = await connectKalshi(keyId, pem);
     if (!done.ok) return setMsg(done.error);
     setBalance(done.balance);
@@ -82,15 +101,30 @@ export default function JoinFlow({ token, name, owner, hasKey, signedIn, preview
     go(4);
   });
 
-  const tour = () => {
+  const tour = () => start(async () => {
     if (preview) { try { localStorage.setItem("nux-preview", "0"); } catch {} }
+    else await savePrefs({ nux: "0" });
     router.push("/");
     router.refresh();
-  };
+  });
+
+  const funded = balance != null && balance > 0;
 
   return (
     <div className="card narrow stack auth nux">
-      {preview && <div className="nux-preview-bar">👀 Preview: nothing here is checked or saved.</div>}
+      {preview && (
+        <div className="nux-preview-bar">
+          👀 Preview with pretend data: nothing is checked or saved.
+          {step <= 3 && (
+            <span className="nux-preview-pick">
+              Pretend Kalshi balance:
+              {[0, 50].map((b) => (
+                <button key={b} type="button" className="chip" aria-pressed={pretendBalance === b} onClick={() => setPretendBalance(b)}>${b}</button>
+              ))}
+            </span>
+          )}
+        </div>
+      )}
       <div className="steps" aria-hidden>{TITLES.map((t, s) => <span key={t} data-on={step >= s ? "" : undefined} />)}</div>
       <p className="nux-count muted small">Step {step + 1} of {TITLES.length} · {TITLES[step]}</p>
 
@@ -98,34 +132,33 @@ export default function JoinFlow({ token, name, owner, hasKey, signedIn, preview
         <>
           <h2>Hi {name}! 👋</h2>
           <p>
-            {owner} invited you to <strong>Kalshi Desk</strong>: a little office of trading bots that bets on
-            Kalshi&apos;s short markets (mostly &quot;will bitcoin be up in 15 minutes?&quot;) for you, in your own
-            Kalshi account, on its own. It mostly buys strong favorites just under $1 and waits to be paid.
+            {owner} invited you to <strong>Kalshi Desk</strong>, an office full of your own trading bots that bet on
+            Kalshi markets.
           </p>
           <ul className="howto">
             <li>💵 Real money, yours: it stays in your Kalshi account. The bots can&apos;t withdraw it (Kalshi keys can&apos;t).</li>
             <li>📉 It can lose. It has made money so far, but that&apos;s no promise. Only put in what you&apos;re fine losing.</li>
             <li>👀 {owner} sees every office&apos;s numbers (balance, bets, staff) to keep them all running well. That&apos;s part of joining.</li>
-            <li>⏸ You can pause it any time on the site, or stop it for good by deleting the key on Kalshi.</li>
+            <li>⏸ You can pause your office on the site whenever you like, for as long as you like, and resume when you&apos;re ready.</li>
           </ul>
-          <label className="check">
+          <label className="check nux-agree">
             <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
             <span>I&apos;ve read this, and I&apos;m in.</span>
           </label>
           <p className="sub">Next, save a passkey: your face, fingerprint or device PIN signs you in from now on. No password.</p>
           <button className="btn primary big" disabled={!agreed || pending} onClick={passkey}>
-            {pending ? "Waiting for your device…" : "Save my passkey"}
+            {pending ? "Waiting for your device…" : preview ? "Save my passkey (skipped in preview)" : "Save my passkey"}
           </button>
         </>
       )}
 
-      {step === 1 && (
+      {step === 1 && !creating && (
         <>
           <h2>Your Kalshi Account</h2>
-          <p className="sub">Kalshi is where the money and the bets live. The office only places bets there for you.</p>
+          <p className="sub">Kalshi is where your money and the bets live. The office only places bets there for you.</p>
           <ol className="howto">
             <li>
-              <strong>No account yet?</strong> Sign up at <a href="https://kalshi.com/sign-up" target="_blank" rel="noreferrer">kalshi.com</a>.
+              <strong>No account yet?</strong> <a href={SIGN_UP} target="_blank" rel="noreferrer">Sign up on Kalshi</a>.
               Kalshi asks for ID to confirm it&apos;s you; that usually takes a few minutes.
             </li>
             <li>
@@ -133,14 +166,30 @@ export default function JoinFlow({ token, name, owner, hasKey, signedIn, preview
               won&apos;t start on an account that already has open bets), and don&apos;t bet on it yourself while the office
               runs, since it checks every bet against Kalshi and yours would confuse it.
             </li>
-            <li>
-              <strong>Put money in</strong> (optional now): on Kalshi, tap <strong>Deposit</strong>. Start small, like $50.
-              Card deposits usually show up within minutes; bank transfers can take a few days. You can also do this later:
-              the office starts betting about 10 minutes after the money lands.
-            </li>
           </ol>
-          <button className="btn primary big" onClick={() => go(2)}>I have a Kalshi account →</button>
+          <div className="nux-choice">
+            <button className="btn primary big" onClick={() => go(2)}>I have a Kalshi account →</button>
+            <a className="btn big" href={SIGN_UP} target="_blank" rel="noreferrer" onClick={() => setCreating(true)}>Create a Kalshi account</a>
+          </div>
           {preview && <button className="link-btn" onClick={() => go(0)}>← Back</button>}
+        </>
+      )}
+
+      {step === 1 && creating && (
+        <>
+          <h2>Create Your Kalshi Account</h2>
+          <p className="sub">Kalshi&apos;s sign-up opened in a new tab. Keep this tab open: you&apos;ll come back here next.</p>
+          <ol className="howto">
+            <li>Sign up with your email and confirm it.</li>
+            <li>Kalshi asks for your details and a photo ID to confirm it&apos;s you. That usually takes a few minutes, sometimes longer.</li>
+            <li>Once you can sign in to Kalshi, come back to this tab.</li>
+          </ol>
+          <p className="muted small">
+            No new tab? <a href={SIGN_UP} target="_blank" rel="noreferrer">Open Kalshi&apos;s sign-up</a>. Waiting on the ID check?
+            You can close this and come back later: you&apos;ll land right here.
+          </p>
+          <button className="btn primary big" onClick={() => go(2)}>My Kalshi account is ready →</button>
+          <button className="link-btn" onClick={() => setCreating(false)}>← Back</button>
         </>
       )}
 
@@ -155,17 +204,16 @@ export default function JoinFlow({ token, name, owner, hasKey, signedIn, preview
             <li>Sign in at <a href="https://kalshi.com" target="_blank" rel="noreferrer">kalshi.com</a>.</li>
             <li>Click your <strong>profile</strong> (top right), then <strong>Account &amp; security</strong>.</li>
             <li>Find <strong>API keys</strong> and click <strong>Create new API key</strong>. Name it anything, like &quot;Kalshi Desk&quot;. If Kalshi asks what it may do, allow trading.</li>
-            <li>
-              Kalshi shows you <strong>two things, only once</strong>. Keep this page open next to it:
-              <div className="key-sample">
-                <div className="key-sample-label">1. The <strong>Key ID</strong>: one short line, like</div>
-                <code>1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d</code>
-                <div className="key-sample-label">2. The <strong>private key</strong>: a long block (Kalshi offers it as a file to download), like</div>
-                <pre>{"-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEAu3x9Lk2vQ8b…\nq7Hc0Zt1mPa4W9sdf0Kx2Ln5Rr…\n…about 25 lines like these…\n-----END RSA PRIVATE KEY-----"}</pre>
-              </div>
-            </li>
-            <li><strong>Download the private key file</strong> and copy the Key ID. Then come back here.</li>
+            <li>Kalshi shows you <strong>two things, only once</strong>. Keep this page open next to it.</li>
           </ol>
+          <div className="key-sample">
+            <div className="key-sample-label"><strong>1. The Key ID</strong>: the key&apos;s name tag. One short line of numbers, letters and dashes. Copy it.</div>
+            <code>1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d</code>
+          </div>
+          <div className="key-sample">
+            <div className="key-sample-label"><strong>2. The private key</strong>: the secret part. A long block of about 25 lines; Kalshi offers it as a file. Download it.</div>
+            <pre>{"-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEAu3x9Lk2vQ8b…\nq7Hc0Zt1mPa4W9sdf0Kx2Ln5Rr…\n…about 25 lines like these…\n-----END RSA PRIVATE KEY-----"}</pre>
+          </div>
           <p className="muted small">
             Closed it before saving them? No harm done: delete that key on Kalshi and make a new one.
           </p>
@@ -177,6 +225,11 @@ export default function JoinFlow({ token, name, owner, hasKey, signedIn, preview
       {step === 3 && (
         <>
           <h2>Paste Your Key</h2>
+          {preview && (
+            <button type="button" className="btn small" onClick={() => { setKeyId(PRETEND_ID); setPem(pretendKey()); setFileName(null); }}>
+              Fill in a pretend key
+            </button>
+          )}
           <div className="form nux-form">
             <label>
               <span className="nux-label">1. Key ID <span className="muted small">(the short line)</span></span>
@@ -214,22 +267,45 @@ export default function JoinFlow({ token, name, owner, hasKey, signedIn, preview
 
       {step === 4 && (
         <>
-          <h2>You&apos;re Connected! 🎉</h2>
-          {balance != null && balance > 0 && (
-            <p className="nux-balance up">Kalshi says your account has <strong>${balance.toFixed(2)}</strong> ✓</p>
+          <h2>Put Money In <span className="muted">(optional)</span></h2>
+          <p className="nux-balance up">✓ Your Kalshi key works.</p>
+          {balance != null && (
+            <p className="nux-balance">Kalshi says your account has <strong>${balance.toFixed(2)}</strong>{funded ? " ✓" : " so far."}</p>
           )}
-          {balance != null && balance <= 0 && (
-            <p className="nux-balance">
-              Kalshi says your account has <strong>$0</strong> so far. That&apos;s fine: once a deposit lands, the office
-              notices within about 10 minutes and starts betting.
-            </p>
+          {funded ? (
+            <p>That&apos;s enough to start: the staff begin betting with it within about 10 minutes. Add more on Kalshi any time.</p>
+          ) : (
+            <>
+              <p>The staff bet with whatever is in your Kalshi account. You can put money in now or any time later.</p>
+              <ol className="howto">
+                <li>On <a href="https://kalshi.com" target="_blank" rel="noreferrer">kalshi.com</a>, tap <strong>Deposit</strong>.</li>
+                <li>Start small, like $50. Card deposits usually show up within minutes; bank transfers can take a few days.</li>
+                <li>The office notices the money about 10 minutes after it lands and starts betting. Nothing to do here.</li>
+              </ol>
+            </>
           )}
-          {balance == null && <p className="nux-balance up">Your Kalshi key is connected ✓</p>}
+          {funded ? (
+            <button className="btn primary big" onClick={() => go(5)}>Next →</button>
+          ) : (
+            <div className="nux-choice">
+              <button className="btn primary big" onClick={() => { setDeposited(true); go(5); }}>I&apos;ve put money in →</button>
+              <button className="btn big" onClick={() => { setDeposited(false); go(5); }}>Skip for now</button>
+            </div>
+          )}
+        </>
+      )}
+
+      {step === 5 && (
+        <>
+          <h2>You&apos;re All Set Up! 🎉</h2>
           <p>
-            Your office opens within a couple of minutes. Meanwhile, here&apos;s a quick tour of the app: tap the
-            highlighted thing at each step.
+            {funded ? "Your office opens within a couple of minutes and starts betting with your money."
+              : deposited ? "Your office opens within a couple of minutes. Once your deposit lands on Kalshi, the staff start betting with it within about 10 minutes."
+              : "Your office opens within a couple of minutes. Put money in on Kalshi whenever you like: the staff start betting about 10 minutes after it lands."}
           </p>
-          <button className="btn primary big" onClick={tour}>Start the tour →</button>
+          <p>Next, a quick tour of the app: tap the highlighted thing at each step.</p>
+          <button className="btn primary big" disabled={pending} onClick={tour}>Start the tour →</button>
+          <button className="link-btn" onClick={() => go(4)}>← Back</button>
         </>
       )}
 

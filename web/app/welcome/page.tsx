@@ -13,15 +13,12 @@ export const dynamic = "force-dynamic";
  */
 export default async function WelcomePage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const preview = (await searchParams).preview === "1";
-  const [user, admin] = await Promise.all([currentUser(), isAdmin()]);
-  if (preview && admin) {
-    return <JoinFlow token="" name="Friend" owner={user?.name ?? "The desk's owner"} hasKey={false} signedIn={false} preview />;
-  }
+  const [user, admin, owners] = await Promise.all([currentUser(), isAdmin(),
+    home()`SELECT name FROM public.users WHERE role = 'owner' ORDER BY id LIMIT 1`.catch(() => [])]);
+  const owner = owners[0]?.name ?? "The desk's owner";
+  if (preview && admin) return <JoinFlow token="" name="Friend" owner={owner} hasKey={false} signedIn={false} preview />;
   if (!user) redirect("/login");
   if (!user.office) redirect("/");
-  const [office, owner] = await Promise.all([
-    home()`SELECT key_box IS NOT NULL AS has FROM public.offices WHERE slug = ${user.office}`.catch(() => []),
-    home()`SELECT name FROM public.users WHERE role = 'owner' ORDER BY id LIMIT 1`.catch(() => []),
-  ]);
-  return <JoinFlow token="" name={user.name} owner={owner[0]?.name ?? "The desk's owner"} hasKey={!!office[0]?.has} signedIn />;
+  const office = await home()`SELECT key_box IS NOT NULL AS has FROM public.offices WHERE slug = ${user.office}`.catch(() => []);
+  return <JoinFlow token="" name={user.name} owner={owner} hasKey={!!office[0]?.has} signedIn />;
 }
