@@ -35,6 +35,7 @@ Real money (desk/live):
 from __future__ import annotations
 
 import json
+from zoneinfo import ZoneInfo
 import logging
 import re
 import sqlite3
@@ -568,6 +569,59 @@ class Ledger:
             " ON CONFLICT(id) DO UPDATE SET summary = excluded.summary",
             (run_id, _now(), json.dumps(summary, default=str)),
         )
+
+    def publish_page_summary(self, tz: str) -> bool:
+        """
+        The website's season in small pieces (11-16): one row per employee per day (in the office's time zone) with
+        bets, wins, profit, money bet, best and worst bet and when the day's last bet finished, kept in the status row
+        `_page`. Training's season is ~40,000 bets; this is ~1,300 rows, so a page reads one small row instead.
+        On Postgres it's added up and written inside the database, so nothing big crosses the network each run.
+        Only redone when a bet has finished since last time. Returns whether it wrote.
+        """
+        last = self._rows("SELECT max(id) AS m, count(*) AS n FROM settlements WHERE season = ?", (self.season,))
+        key = (last[0]["m"], last[0]["n"], tz) if last else None
+        if key is not None and key == getattr(self, "_page_key", None):
+            return False
+        now = _now()
+        if self.is_postgres:
+            self._write("""
+                INSERT INTO status(key, updated_at, data)
+                SELECT '_page', ?, json_build_object('at', ?::text, 'season', ?::int, 'tz', ?::text, 'days', coalesce(json_agg(json_build_array(
+                    d, strategy, n, won, round(pnl::numeric, 4), round(cost::numeric, 4), round(best::numeric, 4),
+                    round(worst::numeric, 4), last) ORDER BY d, strategy), '[]'::json))::text
+                FROM (
+                    SELECT to_char(s.ts::timestamptz AT TIME ZONE ?::text, 'YYYY-MM-DD') AS d, s.strategy, count(*) AS n,
+                           count(*) FILTER (WHERE s.pnl > 0) AS won, sum(s.pnl) AS pnl, coalesce(sum(f.cost), 0) AS cost,
+                           max(s.pnl) AS best, min(s.pnl) AS worst,
+                           (extract(epoch FROM max(s.ts::timestamptz)) * 1000)::bigint AS last
+                    FROM settlements s
+                    LEFT JOIN (SELECT strategy, ticker, sum(count * price + fee) AS cost FROM fills WHERE season = ?
+                               GROUP BY strategy, ticker) f ON f.strategy = s.strategy AND f.ticker = s.ticker
+                    WHERE s.season = ?
+                    GROUP BY 1, 2
+                ) x
+                ON CONFLICT(key) DO UPDATE SET updated_at = excluded.updated_at, data = excluded.data""",
+                (now, now, self.season, tz, tz, self.season, self.season))
+        else:
+            zone = ZoneInfo(tz)
+            cost = {(r["strategy"], r["ticker"]): r["c"] for r in self._rows(
+                "SELECT strategy, ticker, sum(count * price + fee) AS c FROM fills WHERE season = ? GROUP BY strategy, ticker",
+                (self.season,))}
+            days: dict[tuple[str, str], list] = {}
+            for r in self._rows("SELECT ts, strategy, ticker, pnl FROM settlements WHERE season = ? ORDER BY ts", (self.season,)):
+                t = datetime.fromisoformat(r["ts"])
+                d = t.astimezone(zone).strftime("%Y-%m-%d")
+                row = days.setdefault((d, r["strategy"]), [d, r["strategy"], 0, 0, 0.0, 0.0, r["pnl"], r["pnl"], 0])
+                row[2] += 1
+                row[3] += r["pnl"] > 0
+                row[4] += r["pnl"]
+                row[5] += cost.get((r["strategy"], r["ticker"])) or 0.0
+                row[6], row[7] = max(row[6], r["pnl"]), min(row[7], r["pnl"])
+                row[8] = int(t.timestamp() * 1000)
+            out = [[*r[:4], *(round(v, 4) for v in r[4:8]), r[8]] for _, r in sorted(days.items())]
+            self.set_status("_page", {"at": now, "season": self.season, "tz": tz, "days": out})
+        self._page_key = key
+        return True
 
     # Reads -------------------------------------------------------------
 

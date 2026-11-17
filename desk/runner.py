@@ -1207,6 +1207,9 @@ class Desk:
             "underlyings": quotes,
             "crypto_events": self.crypto_event_tickers,
         })
+        # The website's season by day (only redone after a bet finishes)
+        self._safely("page summary", lambda: self.ledger.publish_page_summary(
+            self.policy["pool"].get("timezone") or "America/Vancouver"))
 
     def trading_status(self) -> dict:
         """Paper or real money, and for real money: the kill switch and the last check against Kalshi."""
