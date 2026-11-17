@@ -4,6 +4,7 @@ import Link from "next/link";
 import NavButtons from "@/components/NavButtons";
 import PullToRefresh from "@/components/PullToRefresh";
 import NavProgress from "@/components/NavProgress";
+import HeaderLink from "@/components/HeaderLink";
 import SubmitButton from "@/components/SubmitButton";
 import Ticker from "@/components/Ticker";
 import Taskbar from "@/components/Taskbar";
@@ -43,6 +44,8 @@ export async function generateViewport(): Promise<Viewport> {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const [admin, real, book, { theme: look, mode }, user] = await Promise.all([isAdmin(), getRealBook(), viewedBook(), readLook(), currentUser()]);
   const office = await getOffice(book);
+  // The manager looking at a friend's office: the header takes them back to their own view
+  const inOffice = admin && isOffice(book);
   return (
     <html lang="en" data-theme={look} data-mode={mode} className={`${pixel.variable} ${sans.variable} ${condensed.variable}`}>
       <body>
@@ -52,26 +55,26 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {look === "broadcast" && <Ticker book={book} />}
         <div className="shell">
           <header className="topbar">
-            <Link href="/" className="brand">
+            <HeaderLink href="/" leave={inOffice} className="brand">
               <span className="brand-mark"><Avatar k="dart_monkey" size={34} /></span>
               <span className="brand-name">Kalshi <em>Desk</em></span>
-            </Link>
+            </HeaderLink>
             <nav className="nav">
-              {(user || admin) && <NavButtons book={book} hasLive={!!real} manager={admin} />}
+              {(user || admin) && <NavButtons book={book} hasLive={!!real} manager={admin} inOffice={inOffice} />}
               <details className="menu">
                 <summary aria-label="Menu">{user ? user.name : "Menu"}</summary>
                 <div className="menu-list">
-                  <Link href="/settings">Settings</Link>
-                  {admin && <Link href="/offices">Invites</Link>}
-                  {admin && <Link href="/backtests">Practice runs</Link>}
+                  <HeaderLink href="/settings" leave={inOffice}>Settings</HeaderLink>
+                  {admin && <HeaderLink href="/offices" leave={inOffice}>Invites</HeaderLink>}
+                  {admin && <HeaderLink href="/backtests" leave={inOffice}>Practice runs</HeaderLink>}
                   {user ? (
                     <>
-                      <Link href="/login">Passkeys{user.role === "owner" ? " · manager" : ""}</Link>
+                      <HeaderLink href="/login" leave={inOffice}>Passkeys{user.role === "owner" ? " · manager" : ""}</HeaderLink>
                       <form action={signOut}><SubmitButton>Sign out</SubmitButton></form>
                     </>
                   ) : admin ? (
                     <>
-                      <Link href="/login">Remember this device</Link>
+                      <HeaderLink href="/login" leave={inOffice}>Remember this device</HeaderLink>
                       <form action={logoutAction}><SubmitButton>Manager · log out</SubmitButton></form>
                     </>
                   ) : (
@@ -82,7 +85,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </nav>
           </header>
           {/* The manager looking at a friend's office: always say whose, with the way back */}
-          {admin && isOffice(book) && (
+          {inOffice && (
             <div className="viewing-bar">
               <span>Viewing <strong>{office?.name ?? "a friend"}&apos;s office</strong></span>
               <form action={viewOffice.bind(null, null)}><SubmitButton className="btn small primary">← Back to my office</SubmitButton></form>

@@ -217,6 +217,13 @@ export async function viewOffice(book: Book | null) {
   redirect("/");
 }
 
+/** Leave a friend's office for the manager's own view (11-16: any click in the header does this). */
+export async function leaveOffice() {
+  const jar = await cookies();
+  if (isOffice(jar.get(BOOK_COOKIE)?.value)) jar.delete(BOOK_COOKIE);
+  revalidatePath("/", "layout");
+}
+
 /** A friend's own pause button (the owner can press it too, from their office page). */
 export async function setOfficePaused(paused: boolean): Promise<Result> {
   try {
