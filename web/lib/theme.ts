@@ -4,23 +4,24 @@
  * away (no flash of the wrong look) and each phone or laptop keeps its own.
  */
 export const THEMES = {
-  studio: { label: "Studio", icon: "◐", blurb: "The default: plain and clear, dark or light", color: "#0b0d12" },
-  office: { label: "Office", icon: "🕹️", blurb: "The pixel office: arcade fonts and 8-bit staff", color: "#0f0d1f" },
-  broadcast: { label: "Broadcast", icon: "📺", blurb: "Sports TV: scoreboard, ticker, play-by-play", color: "#070b18" },
-  desktop: { label: "Desktop", icon: "💾", blurb: "A 1995 desktop: windows, bevels, a taskbar", color: "#008080" },
+  studio: { label: "Studio", icon: "◐", blurb: "Plain and clear: the default", bar: { dark: "#0b0d12", light: "#f4f5f8" } },
+  office: { label: "Office", icon: "🕹️", blurb: "The pixel office: arcade type and 8-bit staff", bar: { dark: "#0f0d1f", light: "#f4f0ff" } },
+  desktop: { label: "Desktop", icon: "💾", blurb: "A 1995 PC: windows, bevels, a taskbar", bar: { dark: "#0b2238", light: "#008080" } },
+  terminal: { label: "Terminal", icon: "⌨️", blurb: "A trading screen: mono type, amber on black", bar: { dark: "#050505", light: "#f7f5ef" } },
 } as const;
 export type ThemeKey = keyof typeof THEMES;
-// "look", not "theme" (11-16): everyone starts on the redesign; old picks don't carry over
-export const THEME_COOKIE = "look";
-export const THEME_PREF = "look";
+// New names on each redesign so everyone starts on dark Studio and old picks don't carry over ("look" 11-16,
+// "skin" 11-17 with the four themes); anything picked after that is remembered as usual
+export const THEME_COOKIE = "skin";
+export const THEME_PREF = "skin";
 export const DEFAULT_THEME: ThemeKey = "studio";
 export const parseTheme = (v: string | undefined | null): ThemeKey =>
   v && v in THEMES ? (v as ThemeKey) : DEFAULT_THEME;
 
-// Light or dark (11-16, Studio only): dark unless they pick light; a phone in light mode doesn't switch it
+// Light or dark (every theme since 11-17): dark unless they pick light; a phone in light mode doesn't switch it
 export type Mode = "dark" | "light";
-export const MODE_COOKIE = "mode";
-export const MODE_PREF = "mode";
+export const MODE_COOKIE = "shade";
+export const MODE_PREF = "shade";
 export const parseMode = (v: string | undefined | null): Mode => (v === "light" ? "light" : "dark");
 /** The browser bar's colour for a look. */
-export const barColor = (t: ThemeKey, m: Mode) => (t === "studio" ? (m === "light" ? "#f4f5f8" : "#0b0d12") : THEMES[t].color);
+export const barColor = (t: ThemeKey, m: Mode) => THEMES[t].bar[m];

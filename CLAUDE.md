@@ -120,6 +120,10 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
   bot then calls /api/warm (desk/cloud.py warm_site; `DESK_WARM_URL=off` stops it). Never pass whole-season bets to a page.
   Don't call `revalidatePath` just to refresh the screen: in Next 15 it marks every cached database read stale
   (unstable_cache's implicit path tags), which made every book switch slow until 11-17. Use revalidateTag(bookTag) for data.
+- **11-17: four themes on one shared look** (web/app/themes): base.css is Studio's styling for every page and shared
+  piece; studio/office/desktop/terminal.css only set colours, type, corner sizes (`--r-pill/xl/lg/md/sm`) and a few
+  decorations, each in dark and light. New pieces: style them in base.css with `var(--r-*)` corners, never a theme file.
+  Everyone was reset to dark Studio (cookie/pref names `skin`/`shade`); a signed-in person's pick follows them to every device.
 - **Fast Sadie trial** on the server (desk/fast.py, from 2026-10-26 07:12 UTC): always-on bid vs a 2-minute cron twin,
   pretend money from $87.63 each. `python -m desk fast-report`. So far it fills more, not better per $1.
 

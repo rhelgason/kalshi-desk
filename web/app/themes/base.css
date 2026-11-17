@@ -1,0 +1,227 @@
+/* ==========================================================================
+   The shared look (11-17): every theme starts from this (Studio's styling, made the base), so every page and
+   shared piece (the joined top bar and switcher, the attached menu, cards, stat cells, chips, charts, tables)
+   has the same shape everywhere. A theme file (studio, office, desktop, terminal) only changes colours, type,
+   corners and a few decorations, for dark and for light. Selectors here are `html …` so a theme's
+   `html[data-theme="x"] …` always wins over them.
+   ========================================================================== */
+html:root {
+  /* Corner sizes (11-17): every piece uses one of these, so a theme reshapes everything by setting five numbers */
+  --r-pill: 999px; --r-xl: 22px; --r-lg: 14px; --r-md: 10px; --r-sm: 6px;
+  color-scheme: light;
+  --page: #f4f5f8;
+  --surface-1: #ffffff;
+  --surface-2: #f1f3f7;
+  --text-primary: #0d1321;
+  --text-secondary: #4a5568;
+  --text-muted: #8b95a7;
+  --grid: #edf0f4;
+  --axis: #c8cfda;
+  --border: #e5e8ee;
+  --series-1: #0b9e6f;
+  --series-2: #f08c00;
+  --deemph: #d5dae3;
+  --up: #0b9e6f;
+  --down: #e5484d;
+  --good: #0b9e6f;
+  --warning: #d97706;
+  --critical: #e5484d;
+  --coin: #0d1321;
+  --wash: rgba(11, 158, 111, 0.07);
+  --shadow: rgba(13, 19, 33, 0.06);
+  --pixel: var(--font-sans), system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+html:not([data-mode="light"]) {
+  color-scheme: dark;
+  --page: #0b0d12;
+  --surface-1: #15181f;
+  --surface-2: #1d212b;
+  --text-primary: #f3f5f9;
+  --text-secondary: #aab3c2;
+  --text-muted: #6f7a8c;
+  --grid: #232835;
+  --axis: #3a4252;
+  --border: #252a36;
+  --series-1: #2fd39a;
+  --up: #2fd39a;
+  --down: #ff6369;
+  --good: #2fd39a;
+  --critical: #ff6369;
+  --coin: #f3f5f9;
+  --wash: rgba(47, 211, 154, 0.08);
+  --shadow: rgba(0, 0, 0, 0.35);
+}
+
+html body { background: var(--page); font-size: 15px; -webkit-font-smoothing: antialiased; }
+/* The same page width as the other themes (11-09: 760px looked thin on a laptop) */
+
+/* Header: plain wordmark, pill toggle */
+html .brand-name { font-family: var(--pixel); font-size: 19px; font-weight: 750; letter-spacing: -0.03em;
+  color: var(--text-primary); text-shadow: none; text-transform: none; }
+html .brand .avatar { border-radius: var(--r-md); }
+html .views { background: var(--surface-2); padding: 3px; border-radius: var(--r-pill); gap: 2px; }
+html .nav-btn, html .menu > summary { font-family: var(--pixel); font-size: 13px; font-weight: 600;
+  padding: 7px 14px; border: 0; border-radius: var(--r-pill); box-shadow: none; background: transparent; color: var(--text-secondary); }
+html .menu > summary { background: var(--surface-2); padding: 7px 12px; }
+html .nav-btn[aria-current="page"] { background: var(--surface-1); color: var(--text-primary);
+  box-shadow: 0 1px 3px var(--shadow), 0 1px 1px var(--shadow); }
+html .nav-btn.view-live[aria-current="page"] { background: var(--up); color: #fff; }
+html .menu-list { border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: 0 12px 40px var(--shadow); }
+
+/* Cards */
+html .card { border: 0; border-radius: var(--r-xl); padding: 20px;
+  box-shadow: 0 1px 2px var(--shadow), 0 8px 28px var(--shadow); }
+html .card h2, html .section-title, html .pixel {
+  font-family: var(--pixel); font-size: 17px; font-weight: 700; letter-spacing: -0.02em; text-transform: none;
+  color: var(--text-primary); line-height: 1.3; }
+html .stack > * + * { margin-top: 14px; }
+
+/* The number */
+html .money-hero .big-number { font-family: var(--pixel); font-size: 52px; font-weight: 750;
+  letter-spacing: -0.045em; text-shadow: none; margin: 6px 0 2px; line-height: 1.05; }
+@media (max-width: 420px) { html .money-hero .big-number { font-size: 44px; } }
+html .money-hero .change { font-size: 16px; }
+html .tile .value, html .money-row .value { font-family: var(--pixel); font-size: 22px;
+  font-weight: 700; letter-spacing: -0.02em; }
+html .hero h1 { font-family: var(--pixel); font-size: 28px; font-weight: 750; letter-spacing: -0.03em;
+  color: var(--text-primary); text-shadow: none; }
+
+/* Range tabs, buttons, chips */
+html .seg { border: 0; border-radius: var(--r-md); background: var(--surface-2); padding: 3px; }
+html .seg a { font-family: var(--pixel); font-size: 13px; font-weight: 600; border-radius: var(--r-sm); padding: 7px 2px; }
+html .seg a[aria-current="true"] { background: var(--surface-1); color: var(--text-primary);
+  box-shadow: 0 1px 3px var(--shadow), 0 1px 1px var(--shadow); }
+html .btn { border: 1px solid var(--border); border-radius: var(--r-md); box-shadow: none; }
+html .btn:active { transform: none; }
+html .btn.primary { background: var(--text-primary); color: var(--page); }
+html .chip { border-radius: var(--r-pill); border-width: 1px; background: var(--surface-2); border-color: transparent; }
+html .badge { border-radius: var(--r-pill); border: 0; padding: 3px 9px; font-weight: 600; background: var(--surface-2); }
+html .badge.up { background: color-mix(in srgb, var(--up) 12%, transparent); }
+html .badge.down { background: color-mix(in srgb, var(--down) 12%, transparent); color: var(--down); }
+html .stat-row { border-radius: var(--r-lg); border: 0; gap: 0; background: var(--surface-2); }
+html .stat-row > div { background: var(--surface-2); }
+html .card > .spotlight { background: var(--surface-2); border-radius: var(--r-lg); }
+
+/* Faces: soft rounded tiles instead of raw pixels */
+html .avatar { border-radius: 30%; background: var(--surface-2); padding: 2px; }
+html .team a { border-radius: var(--r-lg); padding: 10px 8px; margin: 0 -8px; }
+html .team li, html .feed li { border-bottom-color: var(--grid); }
+html .ptr { font-family: var(--pixel); font-size: 12px; border-radius: var(--r-pill); background: var(--text-primary);
+  color: var(--page); box-shadow: 0 6px 20px var(--shadow); }
+
+/* New pieces */
+html .player-card { border: 0; border-radius: var(--r-xl); box-shadow: 0 1px 2px var(--shadow), 0 8px 28px var(--shadow); }
+html .player-front { background: linear-gradient(135deg, color-mix(in srgb, var(--series-1) 10%, var(--surface-1)), var(--surface-1) 70%); padding: 22px; }
+html .player-portrait { border: 0; border-radius: var(--r-xl); background: var(--surface-2); padding: 10px; }
+html .player-portrait .avatar { background: transparent; }
+html .player-name { font-size: 30px; font-weight: 750; letter-spacing: -0.03em; }
+html .player-title { letter-spacing: 0.04em; font-weight: 600; }
+html .player-stats { background: var(--grid); border-top: 0; }
+html .player-stats dd:not(.player-note) { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
+html .form-pip { border-radius: 50%; width: 16px; height: 16px; font-size: 0; }
+html .record-grid { border: 0; border-radius: var(--r-lg); background: var(--grid); }
+html .record { background: var(--surface-2); }
+html .record-hot { background: color-mix(in srgb, var(--series-2) 14%, var(--surface-2)); }
+html .record-value { font-weight: 700; letter-spacing: -0.02em; }
+html .day { border-radius: var(--r-sm); }
+html .riding { border-radius: var(--r-lg); }
+html .riding-bet { border-radius: var(--r-pill); border: 0; }
+html .readout-reset { border: 0; }
+html input:not([type]), html input[type="text"], html input[type="number"], html input[type="password"],
+html textarea, html select { border-radius: var(--r-md); background: var(--surface-2); border-color: transparent; padding: 8px 10px; }
+
+/* --- Studio's own refinements over Clean ------------------------------------------------------------- */
+html:root { --series-1: #2563eb; --wash: rgba(37, 99, 235, 0.07); font-feature-settings: "tnum" 1, "cv11" 1; }
+html:not([data-mode="light"]) { --series-1: #6b9cff; --wash: rgba(107, 156, 255, 0.09); }
+html body { font-size: 14.5px; }
+html .card { border: 1px solid var(--border); border-radius: var(--r-lg); padding: 18px; box-shadow: none; }
+html .card h2, html .section-title { font-size: 13px; font-weight: 600; letter-spacing: 0;
+  color: var(--text-secondary); text-transform: none; }
+html .money-hero .big-number { font-size: 44px; font-weight: 650; letter-spacing: -0.035em; }
+@media (max-width: 420px) { html .money-hero .big-number { font-size: 38px; } }
+html .money-hero .change { font-size: 14.5px; font-weight: 550; }
+html .tile .value { font-size: 20px; font-weight: 650; }
+html .brand-name { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
+html .avatar { border-radius: 28%; }
+html .btn { border-radius: var(--r-md); }
+html .badge { border-radius: var(--r-sm); font-weight: 550; }
+html .nav-btn.view-live[aria-current="page"] { background: var(--surface-1); color: var(--text-primary); }
+
+/* Header (11-16): Dart Monkey Dan in a coin-coloured tile, a two-tone wordmark, a bar that stays on top */
+html .topbar { position: sticky; top: 0; z-index: 30; margin: 0 -16px 18px; padding: 10px 16px;
+  background: color-mix(in srgb, var(--page) 82%, transparent); backdrop-filter: saturate(1.4) blur(14px);
+  -webkit-backdrop-filter: saturate(1.4) blur(14px); border-bottom: 1px solid var(--grid); }
+html .brand-mark { display: grid; place-items: center; width: 42px; height: 42px; border-radius: var(--r-md);
+  background: linear-gradient(145deg, #ffd66b, #ff9f43); box-shadow: 0 2px 0 #d9822b, 0 6px 16px rgba(255, 159, 67, 0.3); }
+html .brand-mark .avatar { background: transparent; padding: 0; image-rendering: pixelated; }
+html .brand-name { font-size: 24px; font-weight: 800; letter-spacing: -0.03em; color: var(--text-primary); }
+html .brand-name em { color: #f08c2e; }
+@media (max-width: 420px) { html .brand-name { font-size: 21px; } }
+
+/* The office heading and the money number: big, in a green (or red) that shades across the digits */
+html .office-title { font-size: 24px; font-weight: 750; letter-spacing: -0.025em; }
+html .money-hero .big-number { font-size: 50px; font-weight: 750; letter-spacing: -0.045em; line-height: 1.05;
+  margin-top: 8px; background-clip: text; -webkit-background-clip: text; color: transparent; }
+html .money-hero .big-number.up { background-image: linear-gradient(100deg, #0b8a4d 10%, #10a37f 55%, #0ea5a4); }
+html .money-hero .big-number.down { background-image: linear-gradient(100deg, #c2321f, #e8590c); }
+html:not([data-mode="light"]) .money-hero .big-number.up { background-image: linear-gradient(100deg, #34d399, #5eead4); }
+html:not([data-mode="light"]) .money-hero .big-number.down { background-image: linear-gradient(100deg, #f87171, #fb923c); }
+
+@media (max-width: 420px) { html .money-hero .big-number { font-size: 42px; } }
+html .money-hero .change { color: var(--text-secondary); font-weight: 500; margin-top: 2px; }
+html .auth h2 { font-size: 20px; font-weight: 700; color: var(--text-primary); }
+html .shell { padding-top: 0; }
+html .topbar { padding-top: calc(10px + env(safe-area-inset-top)); }
+
+/* Level chips (11-16): each step up looks it, from a plain grey Intern to a gold VP with a sheen (the top level since 11-17) */
+html .lvl { font-size: 10.5px; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; border: 0;
+  border-radius: var(--r-sm); padding: 3px 7px 2px; line-height: 1.3; }
+html .lvl-3 { position: relative; overflow: hidden; }
+html .lvl-3::after { content: ""; position: absolute; inset: 0; transform: translateX(-120%);
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.7) 50%, transparent 70%); animation: lvl-sheen 3.5s ease-in-out infinite; }
+@keyframes lvl-sheen { 0%, 60% { transform: translateX(-120%); } 100% { transform: translateX(120%); } }
+@media (prefers-reduced-motion: reduce) { html .lvl-3::after { animation: none; } }
+html .lvl-star { padding: 0 2px; }
+html .quip { font-style: normal; font-size: 12.5px; color: var(--text-secondary); }
+
+/* Card titles read as headers, like the office name (11-16) */
+html .card h2, html .card-head h2 { font-size: 20px; font-weight: 750; letter-spacing: -0.02em;
+  color: var(--text-primary); }
+html .card-head { margin-bottom: 12px; align-items: center; }
+html .whatif-open { border-color: color-mix(in srgb, var(--series-2) 60%, var(--border)); color: var(--text-primary); }
+html .records .record-grid { background: none; border-radius: 0; }
+html .records .record, html .records .record-hot { background: none; }
+html .card { --card-pad: 18px; }
+
+/* Level chips, one recipe (11-16): each level only sets its colours, so every chip has the same shape, edge and glow */
+html .lvl { background: var(--lvl-bg); color: var(--lvl-fg); opacity: 1;
+  box-shadow: 0 1px 0 var(--lvl-edge), 0 0 var(--lvl-glow-size, 0px) var(--lvl-glow, transparent); }
+html .lvl-0 { --lvl-bg: linear-gradient(135deg, #a8b38c, #7d8a5f); --lvl-fg: #fff; --lvl-edge: #66724c; }
+html .lvl-1 { --lvl-bg: linear-gradient(135deg, #3b82f6, #2563eb); --lvl-fg: #fff; --lvl-edge: #1d4ed8; }
+html .lvl-2 { --lvl-bg: linear-gradient(135deg, #a855f7, #7c3aed); --lvl-fg: #fff; --lvl-edge: #6d28d9;
+  --lvl-glow: rgba(168, 85, 247, 0.35); --lvl-glow-size: 10px; }
+html .lvl-3 { --lvl-bg: linear-gradient(135deg, #fde047, #f59e0b 60%, #d97706); --lvl-fg: #422006; --lvl-edge: #b45309;
+  --lvl-glow: rgba(245, 158, 11, 0.5); --lvl-glow-size: 14px; }
+html .lvl-benched { --lvl-bg: linear-gradient(135deg, #9ca3af, #6b7280); --lvl-fg: #fff; --lvl-edge: #4b5563; }
+html .lvl-yard { --lvl-bg: linear-gradient(135deg, #94a3b8, #64748b); --lvl-fg: #fff; --lvl-edge: #475569; }
+html .lvl-star { --lvl-bg: transparent; --lvl-edge: transparent; }
+
+/* Phone header (11-16): wordmark and menu on the first row, the office switcher across the full second row */
+@media (max-width: 600px) {
+  html .topbar { row-gap: 10px; padding-bottom: 10px; }
+  html .topbar .nav { display: contents; }
+  html .topbar .menu { order: 1; margin-left: auto; }
+  html .topbar .views { order: 2; flex: 1 0 100%; display: flex; }
+  html .topbar .views .nav-btn { flex: 1; text-align: center; justify-content: center; padding: 8px 6px; }
+}
+
+/* The header menu, attached (11-17): the button and the open list are one shape. The button takes the list's
+   surface and border on top and both sides, and covers the list's top edge beneath it */
+html .menu > summary { width: 38px; height: 34px; padding: 0; border-radius: var(--r-md); border: 1px solid transparent;
+  color: var(--text-secondary); }
+html .menu > summary:hover { color: var(--text-primary); }
+html .menu[open] > summary { position: relative; z-index: 22; background: var(--surface-1); border-color: var(--border);
+  border-bottom-width: 0; border-radius: var(--r-md) var(--r-md) 0 0; color: var(--text-primary); height: 35px; margin-bottom: -1px; }
+html .menu[open] .menu-list { top: 100%; margin-top: 0; border-radius: var(--r-lg) 0 var(--r-lg) var(--r-lg); padding: 6px; box-shadow: 0 16px 40px var(--shadow); }
+html .menu-list a, html .menu-list button { border-radius: var(--r-md); padding: 10px 12px; font-weight: 550; }

@@ -1,12 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Oswald, Press_Start_2P } from "next/font/google";
+import { IBM_Plex_Mono, Inter, Press_Start_2P } from "next/font/google";
 import Link from "next/link";
 import NavButtons from "@/components/NavButtons";
 import PullToRefresh from "@/components/PullToRefresh";
 import NavProgress from "@/components/NavProgress";
 import HeaderLink from "@/components/HeaderLink";
 import SubmitButton from "@/components/SubmitButton";
-import Ticker from "@/components/Ticker";
 import Taskbar from "@/components/Taskbar";
 import { barColor } from "@/lib/theme";
 import { readLook } from "@/lib/look";
@@ -18,14 +17,16 @@ import { currentUser } from "@/lib/session";
 import { viewOffice } from "./account";
 import Menu from "@/components/Menu";
 import "./globals.css";
+import "./themes/base.css";
 import "./themes/studio.css";
-import "./themes/broadcast.css";
+import "./themes/office.css";
 import "./themes/desktop.css";
+import "./themes/terminal.css";
 
 const pixel = Press_Start_2P({ weight: "400", subsets: ["latin"], variable: "--font-pixel", display: "swap" });
 // The other looks' type: only downloaded by a browser when its theme uses it
 const sans = Inter({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
-const condensed = Oswald({ subsets: ["latin"], variable: "--font-condensed", display: "swap" });
+const mono = IBM_Plex_Mono({ weight: ["400", "500", "600", "700"], subsets: ["latin"], variable: "--font-mono", display: "swap" });
 
 
 export const metadata: Metadata = {
@@ -46,12 +47,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // The manager looking at a friend's office: the header takes them back to their own view
   const inOffice = admin && isOffice(book);
   return (
-    <html lang="en" data-theme={look} data-mode={mode} className={`${pixel.variable} ${sans.variable} ${condensed.variable}`}>
+    <html lang="en" data-theme={look} data-mode={mode} className={`${pixel.variable} ${sans.variable} ${mono.variable}`}>
       <body>
         <NavProgress stamp={Date.now()} />
         <PullToRefresh />
         {/* Theme decorations: each shows only in its own look (CSS), and costs nothing elsewhere */}
-        {look === "broadcast" && <Ticker book={book} />}
         <div className="shell">
           <header className="topbar">
             <HeaderLink href="/" leave={inOffice} className="brand">

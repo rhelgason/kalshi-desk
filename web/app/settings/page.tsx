@@ -52,9 +52,9 @@ export default async function SettingsPage() {
               <div className="settings-row settings-action"><AddPasskey label="Add a passkey on this device" /></div>
             </>
           ) : (
-            <div className="settings-row settings-action">
-              <div className="grow">
-                <div>Remember this device</div>
+            <div className="settings-row settings-block">
+              <div>
+                <div className="settings-row-title">🔑 Remember this device</div>
                 <div className="muted small">Save a passkey and this device never asks for the password again.</div>
               </div>
               <AddPasskey askName label="Save a passkey" />
