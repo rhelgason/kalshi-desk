@@ -57,8 +57,9 @@ def main(out: str) -> None:
             n = 0
             with gzip.open(path, "wb") as f, conn.cursor().copy(f"COPY (SELECT * FROM {t} WHERE {cond}) TO STDOUT WITH CSV HEADER") as cp:
                 for chunk in cp:
-                    f.write(chunk)
-                    n += chunk.count(b"\n")
+                    b = bytes(chunk)
+                    f.write(b)
+                    n += b.count(b"\n")
             print(f"  {t}: archived ~{max(0, n - 1)} rows -> {path.name} ({path.stat().st_size // 1024} KB)")
         Ledger(url, schema).prune_logs(force=True)
         for table in doomed(now):
