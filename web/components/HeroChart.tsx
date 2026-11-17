@@ -1,5 +1,6 @@
 "use client";
 
+import { replayWhatIf } from "@/lib/whatif";
 import { useMemo, useState } from "react";
 import type { PortfolioPoint } from "@/lib/portfolio";
 import type { MoneyMove } from "@/lib/types";
@@ -72,31 +73,11 @@ export default function HeroChart({ points, marks, checked, members, bets, putIn
   const ratio = betOn && b > 0 && betPct > 0 ? b / 100 / betPct : 1;
   const on = (moneyOn && m > 0) || (betOn && b > 0) || out.length > 0;
 
-  // Replay the season: the real pool and the what-if pool side by side, deposits scaled like the money put in
-  const alt = useMemo(() => {
-    if (!on) return null;
-    const moves = marks ?? [];
-    const start = putIn - moves.reduce((s, x) => s + x.amount, 0);
-    let real = start, what = real * k;
-    const events: [number, number, string | null, number][] = [
-      ...moves.map((x) => [x.t, 0, null, x.amount] as [number, number, string | null, number]),
-      ...bets.map(([t, s, p]) => [t, 1, s, p] as [number, number, string | null, number]),
-    ].sort((a, c) => a[0] - c[0] || a[1] - c[1]);
-    const timeline: [number, number][] = [];
-    for (const [t, kind, who, v] of events) {
-      if (kind === 0) { real += v; what += v * k; }
-      else {
-        if (!out.includes(who!) && real > 0) what += v * (what / real) * ratio;
-        real += v;
-      }
-      timeline.push([t, Math.max(0, what)]);
-    }
-    let i = 0, last = start * k;
-    return points.map((p) => {
-      while (i < timeline.length && timeline[i][0] <= p.t) last = timeline[i++][1];
-      return last;
-    });
-  }, [on, marks, bets, points, putIn, k, ratio, out]);
+  // Replay the season (lib/whatif.ts): the real pool and the what-if pool side by side
+  const alt = useMemo(
+    () => (on ? replayWhatIf({ bets, moves: marks ?? [], putIn, k, ratio, out, times: points.map((p) => p.t) }) : null),
+    [on, marks, bets, points, putIn, k, ratio, out],
+  );
 
   const reset = () => {
     setMoneyOn(false); setMoney(String(Math.round(putIn))); setBetOn(false); setBet(String(+(betPct * 100).toFixed(2)));

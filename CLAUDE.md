@@ -9,7 +9,7 @@ database through `DATABASE_URL` in `.env` (session pooler, port 5432).
 **Pushing to main deploys** (2026-11-03): both Vercel projects build production from GitHub, each only when its own
 files change (deploy/README.md). Run any database change the new code needs BEFORE pushing.
 
-Tests: `python -m pytest -q` (all offline). Web type-check: `cd web && node_modules/.bin/tsc --noEmit -p .`
+Tests: `python -m pytest -q` (all offline); the what-if math: `node web/lib/whatif.test.ts`. Web type-check: `cd web && node_modules/.bin/tsc --noEmit -p .`
 
 ## Links (nothing secret here; secrets live in `.env`, Vercel, and the server's /etc/kalshi-desk.env)
 
