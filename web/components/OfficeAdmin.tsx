@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { createInvite, setOfficePaused, viewOffice } from "@/app/account";
+import { createInvite, setOfficePaused } from "@/app/account";
 import type { Book } from "@/lib/db";
 
-/** The owner's invite maker on /offices: a first name in, a link out (good for a week, for one person). */
+/** The owner's invite maker (the cockpit's Invite a Friend card): a first name in, a link out (good for a week, for one person). */
 export function InviteForm({ forUser, name: fixed }: { forUser?: number; name?: string }) {
   const [name, setName] = useState(fixed ?? "");
   const [link, setLink] = useState<string | null>(null);
@@ -21,7 +21,7 @@ export function InviteForm({ forUser, name: fixed }: { forUser?: number; name?: 
     <div className="stack-tight">
       {!fixed && <label className="form">Their first name <input value={name} onChange={(e) => setName(e.target.value)} maxLength={40} /></label>}
       <button className="btn" disabled={pending || !name.trim()} onClick={make}>
-        {fixed ? "🔗 New sign-in link (lost their phone?)" : "✉️ Make an invite link"}
+        {fixed ? `🔗 New sign-in link for ${fixed}` : "✉️ Make an invite link"}
       </button>
       {link && <input readOnly value={link} onFocus={(e) => e.currentTarget.select()} />}
       {msg && <div className={msg.startsWith("✓") ? "up" : "down"}>{msg}</div>}
@@ -29,9 +29,20 @@ export function InviteForm({ forUser, name: fixed }: { forUser?: number; name?: 
   );
 }
 
-export function OpenOffice({ book }: { book: Book }) {
-  const [pending, start] = useTransition();
-  return <button className="btn" disabled={pending} onClick={() => start(() => viewOffice(book))}>Open →</button>;
+/** A fresh sign-in link for one of the friends (picked from a list): for a new phone without their passkey. */
+export function SignInLink({ friends }: { friends: { id: number; name: string }[] }) {
+  const [who, setWho] = useState(friends[0]?.id ?? 0);
+  const name = friends.find((f) => f.id === who)?.name ?? "";
+  return (
+    <div className="stack-tight">
+      <label className="form">Friend
+        <select value={who} onChange={(e) => setWho(Number(e.target.value))}>
+          {friends.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+        </select>
+      </label>
+      <InviteForm key={who} forUser={who} name={name} />
+    </div>
+  );
 }
 
 /** Pause or resume an office's betting: the friend's own button (and the owner's, on a friend's page). */

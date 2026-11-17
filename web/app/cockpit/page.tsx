@@ -6,6 +6,7 @@ import { isAdmin } from "@/lib/admin";
 import { requireViewer } from "@/lib/book";
 import { getAnalysis, getBets, getKillSwitch, getLive, getPolicy, getRoster, getSeasonStart, home, withRoster, type Book } from "@/lib/db";
 import NeedsAttention from "@/components/NeedsAttention";
+import InviteCard from "@/components/InviteCard";
 import { advise, betsPerDay, type Advice } from "@/lib/advice";
 import type { Employee } from "@/lib/types";
 import { dollars, pct } from "@/lib/format";
@@ -138,6 +139,7 @@ export default async function CockpitPage({ searchParams }: { searchParams: Prom
         <OfficeTable rows={rows} money={admin} now={now} period={RANGE_WORDS[range]} />
       </Card>
       {admin ? <div className="grid two cockpit-under">{working}<NeedsAttention todo={todo} /></div> : working}
+      {admin && <InviteCard />}
     </div>
   );
 }

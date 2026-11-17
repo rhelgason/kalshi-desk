@@ -15,8 +15,8 @@ import { getOffice, getRealBook, viewedBook } from "@/lib/book";
 import { isOffice } from "@/lib/db";
 import { isAdmin } from "@/lib/admin";
 import { currentUser } from "@/lib/session";
-import { logoutAction } from "./actions";
-import { signOut, viewOffice } from "./account";
+import { viewOffice } from "./account";
+import Menu from "@/components/Menu";
 import "./globals.css";
 import "./themes/clean.css";
 import "./themes/studio.css";
@@ -61,27 +61,18 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </HeaderLink>
             <nav className="nav">
               {(user || admin) && <NavButtons book={book} hasLive={!!real} manager={admin} inOffice={inOffice} />}
-              <details className="menu">
-                <summary aria-label="Menu">{user ? user.name : "Menu"}</summary>
-                <div className="menu-list">
-                  <HeaderLink href="/settings" leave={inOffice}>Settings</HeaderLink>
-                  {admin && <HeaderLink href="/offices" leave={inOffice}>Invites</HeaderLink>}
-                  {admin && <HeaderLink href="/backtests" leave={inOffice}>Practice runs</HeaderLink>}
-                  {user ? (
-                    <>
-                      <HeaderLink href="/login" leave={inOffice}>Passkeys{user.role === "owner" ? " · manager" : ""}</HeaderLink>
-                      <form action={signOut}><SubmitButton>Sign out</SubmitButton></form>
-                    </>
-                  ) : admin ? (
-                    <>
-                      <HeaderLink href="/login" leave={inOffice}>Remember this device</HeaderLink>
-                      <form action={logoutAction}><SubmitButton>Manager · log out</SubmitButton></form>
-                    </>
-                  ) : (
-                    <Link href="/login">Sign in</Link>
-                  )}
-                </div>
-              </details>
+              {/* The same two places for everyone signed in (11-17): their own settings (account, sign-out, look) and the
+                  office's rules. Invites live on the cockpit now */}
+              <Menu label={user ? user.name : admin ? "Manager" : "Menu"}>
+                {user || admin ? (
+                  <>
+                    <HeaderLink href="/settings" leave={inOffice}>⚙️ Settings</HeaderLink>
+                    <HeaderLink href="/rules" leave={inOffice}>📜 Office Rules</HeaderLink>
+                  </>
+                ) : (
+                  <Link href="/login">🔑 Sign in</Link>
+                )}
+              </Menu>
             </nav>
           </header>
           {/* The manager looking at a friend's office: always say whose, with the way back */}

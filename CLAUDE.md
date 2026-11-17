@@ -110,7 +110,7 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
   Same staff and rules as the real book (playbook synced every 10 min: hires, firings, settings, bet size); own pool,
   levels, reviews, awards, pause button; no phone pings. They decide on the owner's clock (Desk.lag) and join a family
   bid instead of topping it (Desk.family), so they never get ahead of the owner. Website: passkey logins, 400-day
-  sessions (lib/session.ts), invites from /offices (manager), sign-up at /join/<token>; a friend sees only their office.
+  sessions (lib/session.ts), invites from the cockpit's Invite a Friend card (manager; /offices redirects there since 11-17), sign-up at /join/<token>; a friend sees only their office.
   Kalshi keys are locked to the server's key (/etc/kalshi-desk-offices.pem; public half in web/lib/vault.ts).
   Tables: deploy/friends.sql. Manager actions refuse office books (app/actions.ts managedBook).
 - **11-16: website speed.** Training's season is ~40,000 bets (5 MB, over Next's 2 MB cache limit), so pages no

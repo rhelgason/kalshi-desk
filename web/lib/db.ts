@@ -7,7 +7,7 @@ import type { Bet } from "./records";
 import type { DayRow } from "./season";
 import { binFor, RANGES, type History, type RangeKey, type Settlement } from "./portfolio";
 import type {
-  Accuracy, BacktestSummary, Evidence, Fill, LiveStatus, MoneyMove, NewsItem, Point, Policy, Realism, RosterRow, TuningRun,
+  Accuracy, Evidence, Fill, LiveStatus, MoneyMove, NewsItem, Point, Policy, Realism, RosterRow, TuningRun,
 } from "./types";
 
 // Use Supabase's SESSION pooler (port 5432) for the dashboard. Through the
@@ -379,15 +379,6 @@ async function getSettledCountQuery(book: Book, season: number): Promise<number>
   return rows[0].n;
 }
 
-async function listBacktestsQuery(): Promise<{ id: string; created_at: string; summary: BacktestSummary }[]> {
-  const rows = await db()`SELECT id, created_at, summary FROM backtests ORDER BY id DESC LIMIT 50`;
-  return rows.map((r) => ({ id: r.id, created_at: r.created_at, summary: JSON.parse(r.summary) }));
-}
-
-async function getBacktestQuery(id: string): Promise<BacktestSummary | null> {
-  const rows = await db()`SELECT summary FROM backtests WHERE id = ${id}`;
-  return rows.length ? JSON.parse(rows[0].summary) : null;
-}
 
 /** Live employee stats with the latest HR fields from the table (admin edits show immediately). */
 export function withRoster<T extends { key: string }>(employees: T[], roster: Record<string, RosterRow>) {
@@ -481,8 +472,6 @@ export const getRecentFills = sturdy("getRecentFills", getRecentFillsQuery);
 export const getSettlementStats = sturdy("getSettlementStats", getSettlementStatsQuery);
 export const getActivity = sturdy("getActivity", getActivityQuery);
 export const getSettledCount = sturdy("getSettledCount", getSettledCountQuery);
-export const listBacktests = sturdy("listBacktests", listBacktestsQuery);
-export const getBacktest = sturdy("getBacktest", getBacktestQuery);
 export const getBtcSeries = sturdy("getBtcSeries", getBtcSeriesQuery);
 export const getPoolRecord = sturdy("getPoolRecord", getPoolRecordQuery);
 export const getCoinStats = sturdy("getCoinStats", getCoinStatsQuery);

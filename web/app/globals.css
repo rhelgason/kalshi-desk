@@ -765,3 +765,20 @@ html[data-navigating] body { cursor: progress; }
 .skel-line.short { width: 60%; }
 @keyframes skel { from { background-position: 100% 0; } to { background-position: -100% 0; } }
 @media (prefers-reduced-motion: reduce) { .skel { animation: none; } }
+
+/* Header menu (11-17): every item, link or button, is one full-width row */
+.menu-list { gap: 2px; }
+.menu-list > *, .menu-list form, .menu-list form button { display: block; width: 100%; box-sizing: border-box; }
+.menu-list a, .menu-list button { white-space: nowrap; }
+
+/* Settings: the account card */
+.plain-list { list-style: none; margin: 4px 0 10px; padding: 0; display: grid; gap: 6px; }
+.account-out { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+
+/* The cockpit's Invite a Friend card: full width, the two forms side by side on a wide screen */
+.invite-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
+.invite-part { display: grid; gap: 8px; align-content: start; }
+.invite-part h3 { margin: 0; font-size: 14px; }
+.invite-part p { margin: 0; }
+.invite-part input, .invite-part select, .invite-part .btn { width: 100%; box-sizing: border-box; }
+.joining { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); }

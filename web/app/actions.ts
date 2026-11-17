@@ -2,7 +2,7 @@
 
 import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
-import { login, logout, requireAdmin } from "@/lib/admin";
+import { login, requireAdmin } from "@/lib/admin";
 import { cookies } from "next/headers";
 import { BOOK_COOKIE, viewedBook, type Book } from "@/lib/book";
 import { bookTag, db, getLive, getPolicy, isOffice } from "@/lib/db";
@@ -41,11 +41,6 @@ function done(paths: string[] = ["/"]) {
 export async function loginAction(_: unknown, form: FormData) {
   if (!(await login(String(form.get("password") ?? "")))) return { error: "Wrong password" };
   redirect(String(form.get("next") || "/"));
-}
-
-export async function logoutAction() {
-  await logout();
-  redirect("/");
 }
 
 export async function suspendEmployee(key: string, days: number | null, reason: string) {

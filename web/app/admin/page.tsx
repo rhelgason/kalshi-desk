@@ -1,21 +1,12 @@
-import SubmitButton from "@/components/SubmitButton";
+import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/admin";
-import { logoutAction } from "../actions";
 import LoginForm from "./LoginForm";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
   const { next } = await searchParams;
-  if (await isAdmin()) {
-    return (
-      <div className="card narrow stack auth">
-        <h2>You&apos;re the Manager</h2>
-        <p className="sub">Manager controls appear on employee pages and in Settings.</p>
-        <form action={logoutAction}><SubmitButton className="btn">Log out</SubmitButton></form>
-      </div>
-    );
-  }
+  if (await isAdmin()) redirect(next ?? "/settings");
   return (
     <div className="card narrow stack auth">
       <h2>Manager Login</h2>
