@@ -213,7 +213,9 @@ export async function viewOffice(book: Book | null) {
   } else {
     jar.delete(BOOK_COOKIE);
   }
-  revalidatePath("/", "layout");
+  // No revalidatePath here: in Next 15 it also marks every cached database read made while drawing a page as stale
+  // (unstable_cache's implicit path tags), so each switch threw the whole cache away (11-17). The page reads the
+  // cookie afresh on the refresh that follows.
   redirect("/");
 }
 
@@ -221,7 +223,9 @@ export async function viewOffice(book: Book | null) {
 export async function leaveOffice() {
   const jar = await cookies();
   if (isOffice(jar.get(BOOK_COOKIE)?.value)) jar.delete(BOOK_COOKIE);
-  revalidatePath("/", "layout");
+  // No revalidatePath here: in Next 15 it also marks every cached database read made while drawing a page as stale
+  // (unstable_cache's implicit path tags), so each switch threw the whole cache away (11-17). The page reads the
+  // cookie afresh on the refresh that follows.
 }
 
 /** A friend's own pause button (the owner can press it too, from their office page). */

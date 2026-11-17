@@ -216,6 +216,8 @@ export async function pickBook(book: Book) {
   const jar = await cookies();
   if (book === "pretend") jar.set(BOOK_COOKIE, "pretend", { path: "/", maxAge: 3600, sameSite: "lax", httpOnly: true, secure: true });
   else jar.delete(BOOK_COOKIE);
-  revalidatePath("/", "layout");
+  // No revalidatePath here: in Next 15 it also marks every cached database read made while drawing a page as stale
+  // (unstable_cache's implicit path tags), so each switch threw the whole cache away (11-17). The page reads the
+  // cookie afresh on the refresh that follows.
 }
 
