@@ -20,6 +20,7 @@ the month is on pace to go over, so the account never gets paused.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import resource
@@ -311,6 +312,28 @@ async def run_all_books(config_path: Optional[str] = None) -> dict:
                 out["real"] = {"ok": False, "error": f"{type(e).__name__}: {e}"}
     out["pretend"] = await run_cloud_tick(config_path=str(path))
     return {"ok": all(r.get("ok") for r in out.values()), **out}
+
+
+def warm_site(url: Optional[str] = None, timeout: float = 20.0) -> Optional[dict]:
+    """
+    Ask the website to fill its caches for the owner's offices after a run (11-16, web/app/api/warm), so the first
+    visit after each run doesn't wait on the database. Never fails the run: any trouble is logged and skipped.
+    DESK_WARM_URL picks another address; set it to "off" to stop.
+    """
+    import os
+    import urllib.request
+
+    from desk.notify import DASHBOARD
+
+    url = url or os.environ.get("DESK_WARM_URL") or f"{DASHBOARD}/api/warm"
+    if url == "off":
+        return None
+    try:
+        with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "kalshi-desk-bot"}), timeout=timeout) as r:
+            return json.loads(r.read().decode() or "{}")
+    except Exception as e:  # the site being down or not yet having the route must never stop the bot
+        logger.info("warming the website failed: %s", e)
+        return None
 
 
 def reset_pool_day(ledger: Ledger, equity: float) -> Optional[dict]:

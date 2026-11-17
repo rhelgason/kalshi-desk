@@ -757,6 +757,9 @@ def main(argv: list[str] | None = None) -> int:
             from desk.cloud import run_all_books
 
             result = asyncio.run(run_all_books())
+            from desk.cloud import warm_site
+
+            result["warm"] = warm_site() or {"ok": False}
             print(json.dumps({k: (v if not isinstance(v, dict) else {x: v[x] for x in ("ok", "skipped", "error", "fills",
                               "seconds") if x in v}) for k, v in result.items()}))
             if not result.get("ok"):

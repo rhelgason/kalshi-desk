@@ -246,3 +246,18 @@ def test_load_accounts_only_returns_the_requested_employees(tmp_path):
     ledger = Ledger(tmp_path / "x.db")
     ledger.load_accounts(100, ["a", "b", "retired"])
     assert set(ledger.load_accounts(100, ["a", "b"])) == {"a", "b"}
+
+
+def test_page_summary_adds_up_each_employee_by_local_day():
+    from desk.paper.ledger import Ledger
+    led = Ledger(":memory:")
+    # 06:30 UTC on the 2nd is still the 1st in Vancouver; 20:00 UTC is the 2nd
+    for ticker, ts, pnl in (("A", "2026-11-02T06:30:00+00:00", 0.5), ("B", "2026-11-02T20:00:00+00:00", -2.0),
+                            ("C", "2026-11-02T21:00:00+00:00", 0.25)):
+        led.record_fill("s", ticker, Side.YES, 10, 0.95, 0.01, ts=ts)
+        led.record_settlement("s", ticker, 1.0, pnl, ts=ts)
+    assert led.publish_page_summary("America/Vancouver")
+    assert not led.publish_page_summary("America/Vancouver")      # nothing new finished: left alone
+    days = led.get_status("_page")["days"]
+    assert [d[:4] for d in days] == [["2026-11-01", "s", 1, 1], ["2026-11-02", "s", 2, 1]]
+    assert days[1][4] == -1.75 and days[1][5] == round(2 * 9.51, 4) and days[1][6:8] == [0.25, -2.0]
