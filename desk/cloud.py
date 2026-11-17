@@ -51,7 +51,9 @@ MONTHLY_CPU_BUDGET = float(os.getenv("DESK_CPU_BUDGET_HOURS", "3")) * 3600
 CLOUD_OVERRIDES = dict(
     slow_series_every_seconds=600,  # hourly ladders every 10 minutes
     universe_refresh_seconds=600,  # broad non-crypto scan every 10 minutes
-    crypto_refresh_seconds=0,  # discover new 15-minute windows every run
+    # New 15-minute windows every 4 minutes (11-17, was every run): each list covers the next hour
+    # (crypto_horizon_hours), so a window is known long before its 5-9 minutes; and Kalshi refused ~16,000 calls a day
+    crypto_refresh_seconds=240,
     settle_check_seconds=0,  # settle every run
     status_every_seconds=0,  # refresh the dashboard every run
     equity_every_seconds=300,
@@ -174,6 +176,7 @@ def restore_desk(cfg: DeskConfig, ledger: Ledger, client: KalshiClient, feed: Cr
     desk._last_equity = _dt(t.get("equity"))
     desk._last_accuracy = _dt(t.get("accuracy"))
     desk._last_prune = _dt(t.get("prune"))
+    desk._last_crypto = _dt(t.get("crypto"))
     # Known windows, so "Crypto events: ..." is only logged when they change
     desk.crypto_event_tickers = list(state.get("crypto_events") or [])
     desk.started_at = _dt(state.get("started_at")) or desk.started_at
@@ -208,7 +211,7 @@ def saved_state(desk: Desk, feed: CryptoFeed, old: dict) -> dict:
         "strategies": {s.key: st for s in desk.strategies if (st := s.get_state()) is not None},
         "timers": {"universe": _iso(desk._last_universe), "slow": _iso(desk._last_slow),
                    "equity": _iso(desk._last_equity), "accuracy": _iso(desk._last_accuracy),
-                   "prune": _iso(desk._last_prune)},
+                   "prune": _iso(desk._last_prune), "crypto": _iso(desk._last_crypto)},
         "crypto_events": desk.crypto_event_tickers,
         "started_at": _iso(desk.started_at),
         "tick_count": desk.tick_count,

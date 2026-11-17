@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import math
+import random
 import time
 import uuid
 from typing import Any, AsyncIterator, Optional
@@ -65,6 +66,11 @@ class RateLimiter:
                     self._tokens -= 1
                     return
                 await asyncio.sleep((1 - self._tokens) / self.rate)
+
+    def slow_down(self, factor: float = 0.7, floor: float = 1.0) -> None:
+        """Kalshi said "too many requests": ask less often for the rest of this client's life (11-17)."""
+        self.rate = max(floor, self.rate * factor)
+        self.capacity = max(1.0, min(self.capacity, self.rate))
 
 
 class KalshiClient:
@@ -118,7 +124,7 @@ class KalshiClient:
         params = {k: v for k, v in (params or {}).items() if v is not None}
         headers: dict[str, str] = {}
 
-        for attempt in range(self.max_retries + 1):
+        for attempt in range(self.max_retries + 3):
             await self._limiter.acquire()
             if auth or self.signer:
                 if not self.signer:
@@ -135,9 +141,17 @@ class KalshiClient:
                 continue
 
             if resp.status_code == 429 or resp.status_code >= 500:
-                if attempt >= self.max_retries:
+                # 11-17: ~16,000 refusals a day, and a market list that failed 5 times in a row was a market
+                # skipped that run. Now: slow down for the rest of the run, honour Kalshi's Retry-After, try longer
+                if resp.status_code == 429:
+                    self._limiter.slow_down()
+                if attempt >= self.max_retries + (2 if resp.status_code == 429 else 0):
                     raise KalshiAPIError(resp.status_code, resp.text[:200])
-                wait = 0.5 * 2**attempt
+                try:
+                    hint = float(resp.headers.get("retry-after") or 0)
+                except ValueError:
+                    hint = 0.0
+                wait = min(8.0, max(hint, 0.5 * 2**attempt)) * (0.8 + 0.4 * random.random())
                 logger.warning("Kalshi %s %s -> %s; retrying in %.1fs", method, path, resp.status_code, wait)
                 await asyncio.sleep(wait)
                 continue

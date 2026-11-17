@@ -302,7 +302,10 @@ class Desk:
             try:
                 events = await self.client.get_events(series_ticker=series, status="open", with_markets=False)
             except KalshiAPIError as e:
-                logger.warning("Couldn't list events for %s: %s", series, e)
+                # Keep the windows we already knew for it (11-17: a failed list dropped the coin for that run)
+                kept = [t for t in self.crypto_event_tickers if t.split("-", 1)[0] == series]
+                logger.warning("Couldn't list events for %s (keeping %d known): %s", series, len(kept), e)
+                tickers += kept
                 continue
             for e in events:
                 if e.strike_date and now < e.strike_date <= horizon:
