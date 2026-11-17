@@ -63,9 +63,22 @@ export const viewedBook = cache(async (): Promise<Book> => {
  * friend could see them). A visitor goes to sign in; a login the database can't check right now gets a "try
  * again" page, never somebody else's books.
  */
+/**
+ * Someone is on the site: stamped at most every 5 minutes per server instance (public.status '_seen'), so the
+ * after-run warm-up (app/api/warm) can skip while nobody's looking (11-17: it read both offices every 2 minutes,
+ * day and night, against the free plan's download allowance).
+ */
+let seenAt = 0;
+function markSeen() {
+  if (Date.now() - seenAt < 5 * 60_000) return;
+  seenAt = Date.now();
+  home()`INSERT INTO public.status (key, updated_at, data) VALUES ('_seen', ${new Date().toISOString()}, '{}')
+    ON CONFLICT (key) DO UPDATE SET updated_at = excluded.updated_at`.catch(() => { seenAt = 0; });
+}
+
 export async function requireViewer(): Promise<void> {
   const { user, failed } = await sessionLookup();
-  if (user || (await passwordCookie())) return;
+  if (user || (await passwordCookie())) { markSeen(); return; }
   if (failed) throw new Error("Couldn't check your login just now (the database is busy). Try again in a minute.");
   redirect("/login");
 }

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   getAnalysis, getBetsSince, getBonusPot, getDays, getLive, getMoneyIn, getMoneyMoves, getNews, getPolicy, getRecentFills, getRoster,
-  type Book,
+  home, type Book,
 } from "@/lib/db";
 import { betWindow } from "@/lib/season";
 
@@ -27,6 +27,10 @@ async function warm(book: Book) {
 
 export async function GET() {
   const t = Date.now();
+  // Nobody on the site for 20 minutes: nothing to warm (the next visitor's first load fills the caches)
+  const seen = await home()`SELECT updated_at FROM public.status WHERE key = '_seen'`.catch(() => []);
+  const last = seen[0] ? Date.parse(String(seen[0].updated_at)) : 0;
+  if (Date.now() - last > 20 * 60_000) return NextResponse.json({ ok: true, skipped: "nobody on the site" });
   const done = await Promise.allSettled((["real", "pretend"] as Book[]).map(warm));
   return NextResponse.json({ ok: done.every((d) => d.status === "fulfilled"), ms: Date.now() - t });
 }

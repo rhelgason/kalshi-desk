@@ -113,7 +113,9 @@ def dump_feed(feed: CryptoFeed, keep_minutes: int = 75) -> dict:
     cutoff = datetime.now(timezone.utc) - timedelta(minutes=keep_minutes)
     mine = set(feed.symbols)  # coins the desk no longer watches are dropped
     return {
-        "history": {s: [[t.isoformat(), p] for t, p in h if t >= cutoff] for s, h in feed.history.items() if s in mine},
+        # Seconds and 7 significant digits (11-17: as ISO text it was ~40 KB of the state read back every run)
+        "history": {s: [[int(t.timestamp()), float(f"{p:.7g}")] for t, p in h if t >= cutoff]
+                    for s, h in feed.history.items() if s in mine},
         "quotes": {s: {"iv": q.implied_vol, "rv": q.realized_vol, "spot": q.spot, "at": q.fetched_at.isoformat()}
                    for s, q in feed.quotes.items() if s in mine},
         "vol_refreshed": {s: t.isoformat() for s, t in feed._vol_refreshed.items() if s in mine},
@@ -124,7 +126,8 @@ def load_feed(feed: CryptoFeed, data: dict) -> None:
     mine = set(feed.symbols)
     for s, pts in (data.get("history") or {}).items():
         if s in mine:
-            feed.history[s] = deque(((datetime.fromisoformat(t), p) for t, p in pts), maxlen=2000)
+            feed.history[s] = deque(((datetime.fromtimestamp(t, timezone.utc) if isinstance(t, (int, float))
+                                      else datetime.fromisoformat(t), p) for t, p in pts), maxlen=2000)
     for s, q in (data.get("quotes") or {}).items():
         if s in mine:
             # Keep when the price was fetched: a saved price is not a fresh one
