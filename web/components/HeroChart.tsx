@@ -20,6 +20,33 @@ const tidy = (v: string, decimals: boolean) => {
   return s === "" || s === "." ? "0" : s;
 };
 
+/** One step up or down, never below 0. */
+const nudge = (v: string, by: number) => String(Math.max(0, Math.round((Number(v) + by) * 100) / 100));
+
+/**
+ * A what-if number: type a fresh number (it clears to 0, no leading zero), or step it with the ▲▼ beside it or the
+ * keyboard's arrow keys (11-17: the boxes lost the browser's own arrows when they became text boxes).
+ */
+function NumberBox({ value, onChange, step, decimals = false, prefix, suffix, label }: {
+  value: string; onChange: (v: string) => void; step: number; decimals?: boolean; prefix?: string; suffix?: string; label: string;
+}) {
+  return (
+    <span className="whatif-input">
+      {prefix}
+      <input type="text" inputMode={decimals ? "decimal" : "numeric"} aria-label={label} value={value}
+             onFocus={(e) => e.target.select()} onChange={(e) => onChange(tidy(e.target.value, decimals))}
+             onKeyDown={(e) => {
+               if (e.key === "ArrowUp" || e.key === "ArrowDown") { e.preventDefault(); onChange(nudge(value, e.key === "ArrowUp" ? step : -step)); }
+             }} />
+      {suffix}
+      <span className="stepper">
+        <button type="button" aria-label={`Up ${step}`} onClick={() => onChange(nudge(value, step))}>▲</button>
+        <button type="button" aria-label={`Down ${step}`} onClick={() => onChange(nudge(value, -step))}>▼</button>
+      </span>
+    </span>
+  );
+}
+
 /**
  * The office chart with a light "What if…" under it (11-16). Three switches that combine: a different amount put
  * in, a different bet size, and leaving employees out. Typing in a box turns its switch on.
@@ -78,7 +105,6 @@ export default function HeroChart({ points, marks, checked, members, bets, putIn
   const toggleOut = (key: string) => setOut((o) => (o.includes(key) ? o.filter((x) => x !== key) : [...o, key]));
   const end = alt?.[alt.length - 1];
   const endPut = (points[points.length - 1]?.putIn ?? putIn) * k;
-  const nudge = (v: string, by: number, min: number) => String(Math.max(min, Math.round((Number(v) + by) * 100) / 100));
 
   return (
     <>
@@ -93,28 +119,14 @@ export default function HeroChart({ points, marks, checked, members, bets, putIn
             <button type="button" className="whatif-close" aria-expanded onClick={reset}>🔮 What if… <span className="chev" aria-hidden>▴</span></button>
             <div className="whatif-row">
               <button type="button" className="chip" aria-pressed={moneyOn} onClick={() => { if (moneyOn) setMoney(String(Math.round(putIn))); setMoneyOn(!moneyOn); }}>With</button>
-              <label className="whatif-input">$
-                <input type="text" inputMode="numeric" value={money} onFocus={(e) => e.target.select()}
-                       onChange={(e) => { setMoney(tidy(e.target.value, false)); setMoneyOn(true); }}
-                       onKeyDown={(e) => {
-                         if (e.key === "ArrowUp" || e.key === "ArrowDown") {
-                           e.preventDefault(); setMoney(nudge(money, e.key === "ArrowUp" ? 10 : -10, 0)); setMoneyOn(true);
-                         }
-                       }} />
-              </label>
+              <NumberBox value={money} step={10} prefix="$" label="Money put in"
+                         onChange={(v) => { setMoney(v); setMoneyOn(true); }} />
               <span className="muted">put in</span>
             </div>
             <div className="whatif-row">
               <button type="button" className="chip" aria-pressed={betOn} onClick={() => { if (betOn) setBet(String(+(betPct * 100).toFixed(2))); setBetOn(!betOn); }}>Every bet</button>
-              <label className="whatif-input">
-                <input type="text" inputMode="decimal" value={bet} onFocus={(e) => e.target.select()}
-                       onChange={(e) => { setBet(tidy(e.target.value, true)); setBetOn(true); }}
-                       onKeyDown={(e) => {
-                         if (e.key === "ArrowUp" || e.key === "ArrowDown") {
-                           e.preventDefault(); setBet(nudge(bet, e.key === "ArrowUp" ? 0.5 : -0.5, 0)); setBetOn(true);
-                         }
-                       }} />%
-              </label>
+              <NumberBox value={bet} step={0.5} decimals suffix="%" label="Each bet, % of the pool"
+                         onChange={(v) => { setBet(v); setBetOn(true); }} />
               <span className="muted">of the pool (now {+(betPct * 100).toFixed(2)}%)</span>
             </div>
             <div className="whatif-row whatif-people">

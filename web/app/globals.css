@@ -782,3 +782,10 @@ html[data-navigating] body { cursor: progress; }
 .invite-part p { margin: 0; }
 .invite-part input, .invite-part select, .invite-part .btn { width: 100%; box-sizing: border-box; }
 .joining { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); }
+
+/* The what-if's ▲▼ beside each number box (components/HeroChart NumberBox) */
+.whatif-input .stepper { display: inline-grid; grid-template-rows: 1fr 1fr; margin-left: 4px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.whatif-input .stepper button { font-size: 8px; line-height: 1; padding: 3px 7px; background: var(--surface-2); color: var(--text-secondary); border: 0; cursor: pointer; }
+.whatif-input .stepper button + button { border-top: 1px solid var(--border); }
+.whatif-input .stepper button:hover { color: var(--text-primary); }
+.whatif-input .stepper button:active { background: var(--series-1); color: #fff; }
