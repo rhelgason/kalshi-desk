@@ -298,3 +298,28 @@ html .nux-testing { display: flex; gap: 12px; align-items: center; padding: 14px
 html .nux-spinner { width: 22px; height: 22px; flex: none; border-radius: 50%; border: 3px solid var(--border);
   border-top-color: var(--series-1); animation: nux-spin 0.8s linear infinite; }
 @keyframes nux-spin { to { transform: rotate(360deg); } }
+
+/* Where It's Heading (components/ForecastCard, 11-17): the season so far, then the prediction model's fan */
+html .forecast .card-aside .segmented { padding: 2px; }
+html .forecast .card-aside .segmented button { padding: 5px 11px; }
+html .forecast-chart { display: block; width: 100%; height: auto; margin: 4px 0 8px; }
+html .forecast-chart text { fill: var(--text-muted); font-size: 11px; font-family: var(--font-sans), system-ui, sans-serif; }
+html .forecast-chart .fc-grid { stroke: var(--grid); }
+html .forecast-chart .fc-wide { fill: var(--series-1); opacity: 0.12; }
+html .forecast-chart .fc-likely { fill: var(--series-1); opacity: 0.24; }
+html .forecast-chart .fc-mid { fill: none; stroke: var(--series-1); stroke-width: 2.5; stroke-dasharray: 6 4; }
+html .forecast-chart .fc-past { fill: none; stroke: var(--text-primary); stroke-width: 2.5; stroke-linejoin: round; }
+html .forecast-chart .fc-dot-now { fill: var(--text-primary); }
+html .forecast-chart .fc-dot-mid { fill: var(--series-1); }
+html .forecast-chart .fc-tested line { stroke: var(--warning); stroke-dasharray: 4 4; }
+html .forecast-chart .fc-tested text { fill: var(--warning); }
+html .fc-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--text-secondary); margin-bottom: 12px; }
+html .fc-legend i { display: inline-block; width: 14px; height: 8px; border-radius: var(--r-sm); margin-right: 5px; vertical-align: middle; }
+html .fc-legend .fc-k-past { background: var(--text-primary); height: 3px; }
+html .fc-legend .fc-k-mid { background: var(--series-1); height: 3px; }
+html .fc-legend .fc-k-likely { background: color-mix(in srgb, var(--series-1) 30%, transparent); }
+html .fc-legend .fc-k-wide { background: color-mix(in srgb, var(--series-1) 14%, transparent); }
+html .fc-legend .fc-k-tested { background: var(--warning); height: 2px; }
+html .fc-foot { margin: 12px 0 0; line-height: 1.5; }
+html .forecast .stat-cells.flat { --cols: 3; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+html .forecast-box { width: 100%; min-width: 0; }

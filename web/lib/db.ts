@@ -125,6 +125,8 @@ const statusRow = sturdy("status", statusQuery);
 const status = async <T,>(book: Book, key: string) => (await statusRow(book, key)) as T | null;
 
 export const getLive = (book: Book) => status<LiveStatus>(book, "live");
+/** The prediction model's latest run for this book (desk/forecast.py, nightly): see components/ForecastCard. */
+export const getForecast = (book: Book) => status<import("@/components/ForecastCard").Forecast>(book, "_forecast");
 
 /** The weekly bonus pot (desk/bonus.py): money saved up, and what the Employee of the Week has left to bet. */
 export type BonusPot = { pot: number; winner: string | null; given: number; left: number; since: string | null };

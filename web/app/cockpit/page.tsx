@@ -4,9 +4,10 @@ import StatRow, { toneOf } from "@/components/ui/StatRow";
 import ReturnsChart, { type ReturnLine } from "@/components/ReturnsChart";
 import { isAdmin } from "@/lib/admin";
 import { requireViewer } from "@/lib/book";
-import { getAnalysis, getBets, getKillSwitch, getLive, getPolicy, getRoster, getSeasonStart, home, withRoster, type Book } from "@/lib/db";
+import { getAnalysis, getBets, getForecast, getKillSwitch, getLive, getPolicy, getRoster, getSeasonStart, home, withRoster, type Book } from "@/lib/db";
 import NeedsAttention from "@/components/NeedsAttention";
 import InviteCard from "@/components/InviteCard";
+import ForecastCard from "@/components/ForecastCard";
 import SystemAlert from "@/components/SystemAlert";
 import { advise, betsPerDay, type Advice } from "@/lib/advice";
 import type { Employee } from "@/lib/types";
@@ -81,7 +82,7 @@ export default async function CockpitPage({ searchParams }: { searchParams: Prom
   // The manager previewing the new-user tour sees a friend's cockpit: percentages, no manager cards
   const fresh = await previewFresh(manager);
   const admin = manager && fresh == null;
-  const offices = await loadOffices();
+  const [offices, forecast] = await Promise.all([loadOffices(), admin ? getForecast("real").catch(() => null) : null]);
   // The manager's to-do list for their real-money office (moved here from the old Team page, 11-16)
   let todo: { e: Employee; advice: Advice }[] = [];
   if (admin) {
@@ -160,6 +161,7 @@ export default async function CockpitPage({ searchParams }: { searchParams: Prom
         <ReturnsChart lines={lines} from={from} now={now} checked={offices[0]?.updated} />
         <OfficeTable rows={rows} money={admin} now={now} period={RANGE_WORDS[range]} />
       </Card>
+      {admin && forecast?.fan?.length ? <ForecastCard f={forecast} /> : null}
       {admin ? <div className="grid two cockpit-under">{working}<NeedsAttention todo={todo} /></div> : working}
       {admin && <InviteCard />}
     </div>
