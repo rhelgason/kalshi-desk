@@ -702,16 +702,16 @@ input[role="switch"]:disabled { opacity: 0.5; cursor: default; }
 .skill-sure strong { font-size: 26px; font-weight: 750; color: var(--text-primary); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .skill-gauge .skill-verdict { font-size: 15px; }
 
-/* Last 50 bets strip: wins up, losses down, from one middle line */
+/* Latest results as dots: they share the line evenly, round at any width */
 .form-strip { margin-top: 14px; }
-.form-strip-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+.form-strip-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px; }
 .form-strip-head .stat-label { margin: 0; }
-.form-bars { display: flex; gap: 2px; height: 56px; position: relative; }
-.form-bars::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px solid var(--grid); }
-.form-col { flex: 1; position: relative; }
-.form-col i { position: absolute; left: 0; right: 0; border-radius: 2px; }
-.form-col i.w { bottom: 50%; background: var(--up); }
-.form-col i.l { top: 50%; background: var(--down); }
+.form-dots { display: flex; gap: 3px; }
+.form-dot { flex: 1; max-width: 16px; aspect-ratio: 1; border-radius: 50%; }
+.form-dot.w { background: var(--up); }
+.form-dot.l { background: var(--down); box-shadow: 0 0 0 2px color-mix(in srgb, var(--down) 30%, transparent); }
+.phone-only { display: none; }
+@media (max-width: 600px) { .wide-only { display: none; } .phone-only { display: inline; } }
 /* The employee chart greys out while a new range loads, like the office chart */
 .employee-chart .chart { position: relative; }
 html[data-range-loading] .employee-chart .chart svg, html[data-range-loading] .employee-chart .chart .readout { opacity: 0.35; transition: opacity 0.15s; }

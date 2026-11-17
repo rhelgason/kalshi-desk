@@ -2,9 +2,7 @@ import PolicyForm from "@/components/PolicyForm";
 import RealMoney from "@/components/RealMoney";
 import Setup from "@/components/Setup";
 import ThemePicker from "@/components/ThemePicker";
-import { cookies } from "next/headers";
-import { currentUser } from "@/lib/session";
-import { THEME_COOKIE, THEME_PREF, parseTheme } from "@/lib/theme";
+import { readLook } from "@/lib/look";
 import { isAdmin } from "@/lib/admin";
 import { viewedBook, requireViewer } from "@/lib/book";
 import { getCoverage, getJobs, getKillSwitch, getLive, getPolicy, isOffice } from "@/lib/db";
@@ -31,12 +29,12 @@ export default async function Handbook() {
   }
   const { policy, jobs, coverage, admin, office, trading, killSwitch } = data;
   const at = policy.autotune;
-  const look = parseTheme((await cookies()).get(THEME_COOKIE)?.value ?? ((await currentUser())?.prefs[THEME_PREF] as string));
+  const look = await readLook();
   return (
     <div className="stack">
       <section className="card">
         <h2>Settings</h2>
-        <ThemePicker current={look} />
+        <ThemePicker current={look.theme} mode={look.mode} />
       </section>
       <section className="card">
         <h2>Employee Handbook</h2>

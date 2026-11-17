@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Studio (2026-11-16, the default): a plain, confident money app. Follows the phone's light or dark mode,
+   Studio (2026-11-16, the default): a plain, confident money app. Dark unless Settings picks Light,
    one typeface with numbers that line up, neutral surfaces, green and red only for money. Built from
    Clean, with crisper cards (a hairline border, not a soft shadow) and less shouting.
    ========================================================================== */
@@ -28,28 +28,27 @@ html[data-theme="studio"] {
   --pixel: var(--font-sans), system-ui, -apple-system, sans-serif;
   font-family: var(--font-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
 }
-@media (prefers-color-scheme: dark) {
-  html[data-theme="studio"] {
-    color-scheme: dark;
-    --page: #0b0d12;
-    --surface-1: #15181f;
-    --surface-2: #1d212b;
-    --text-primary: #f3f5f9;
-    --text-secondary: #aab3c2;
-    --text-muted: #6f7a8c;
-    --grid: #232835;
-    --axis: #3a4252;
-    --border: #252a36;
-    --series-1: #2fd39a;
-    --up: #2fd39a;
-    --down: #ff6369;
-    --good: #2fd39a;
-    --critical: #ff6369;
-    --coin: #f3f5f9;
-    --wash: rgba(47, 211, 154, 0.08);
-    --shadow: rgba(0, 0, 0, 0.35);
-  }
+html[data-theme="studio"]:not([data-mode="light"]) {
+  color-scheme: dark;
+  --page: #0b0d12;
+  --surface-1: #15181f;
+  --surface-2: #1d212b;
+  --text-primary: #f3f5f9;
+  --text-secondary: #aab3c2;
+  --text-muted: #6f7a8c;
+  --grid: #232835;
+  --axis: #3a4252;
+  --border: #252a36;
+  --series-1: #2fd39a;
+  --up: #2fd39a;
+  --down: #ff6369;
+  --good: #2fd39a;
+  --critical: #ff6369;
+  --coin: #f3f5f9;
+  --wash: rgba(47, 211, 154, 0.08);
+  --shadow: rgba(0, 0, 0, 0.35);
 }
+
 html[data-theme="studio"] body { background: var(--page); font-size: 15px; -webkit-font-smoothing: antialiased; }
 /* The same page width as the other themes (11-09: 760px looked thin on a laptop) */
 
@@ -96,9 +95,6 @@ html[data-theme="studio"] .chip { border-radius: 999px; border-width: 1px; backg
 html[data-theme="studio"] .badge { border-radius: 999px; border: 0; padding: 3px 9px; font-weight: 600; background: var(--surface-2); }
 html[data-theme="studio"] .badge.up { background: color-mix(in srgb, var(--up) 12%, transparent); }
 html[data-theme="studio"] .badge.down { background: color-mix(in srgb, var(--down) 12%, transparent); color: var(--down); }
-html[data-theme="studio"] .lvl { font-family: var(--pixel); font-size: 10.5px; font-weight: 650; letter-spacing: 0; text-transform: none;
-  border: 0; border-radius: 6px; padding: 3px 6px; background: var(--surface-2); }
-html[data-theme="studio"] .lvl-2 { background: color-mix(in srgb, var(--series-2) 18%, transparent); color: var(--text-primary); }
 html[data-theme="studio"] .stat-row { border-radius: 16px; border: 0; gap: 0; background: var(--surface-2); }
 html[data-theme="studio"] .stat-row > div { background: var(--surface-2); }
 html[data-theme="studio"] .card > .spotlight { background: var(--surface-2); border-radius: 16px; }
@@ -133,7 +129,7 @@ html[data-theme="studio"] textarea, html[data-theme="studio"] select { border-ra
 
 /* --- Studio's own refinements over Clean ------------------------------------------------------------- */
 html[data-theme="studio"] { --series-1: #2563eb; --wash: rgba(37, 99, 235, 0.07); font-feature-settings: "tnum" 1, "cv11" 1; }
-@media (prefers-color-scheme: dark) { html[data-theme="studio"] { --series-1: #6b9cff; --wash: rgba(107, 156, 255, 0.09); } }
+html[data-theme="studio"]:not([data-mode="light"]) { --series-1: #6b9cff; --wash: rgba(107, 156, 255, 0.09); }
 html[data-theme="studio"] body { font-size: 14.5px; }
 html[data-theme="studio"] .card { border: 1px solid var(--border); border-radius: 14px; padding: 18px; box-shadow: none; }
 html[data-theme="studio"] .card h2, html[data-theme="studio"] .section-title { font-size: 13px; font-weight: 600; letter-spacing: 0;
@@ -165,10 +161,9 @@ html[data-theme="studio"] .money-hero .big-number { font-size: 50px; font-weight
   margin-top: 8px; background-clip: text; -webkit-background-clip: text; color: transparent; }
 html[data-theme="studio"] .money-hero .big-number.up { background-image: linear-gradient(100deg, #0b8a4d 10%, #10a37f 55%, #0ea5a4); }
 html[data-theme="studio"] .money-hero .big-number.down { background-image: linear-gradient(100deg, #c2321f, #e8590c); }
-@media (prefers-color-scheme: dark) {
-  html[data-theme="studio"] .money-hero .big-number.up { background-image: linear-gradient(100deg, #34d399, #5eead4); }
-  html[data-theme="studio"] .money-hero .big-number.down { background-image: linear-gradient(100deg, #f87171, #fb923c); }
-}
+html[data-theme="studio"]:not([data-mode="light"]) .money-hero .big-number.up { background-image: linear-gradient(100deg, #34d399, #5eead4); }
+html[data-theme="studio"]:not([data-mode="light"]) .money-hero .big-number.down { background-image: linear-gradient(100deg, #f87171, #fb923c); }
+
 @media (max-width: 420px) { html[data-theme="studio"] .money-hero .big-number { font-size: 42px; } }
 html[data-theme="studio"] .money-hero .change { color: var(--text-secondary); font-weight: 500; margin-top: 2px; }
 html[data-theme="studio"] .auth h2 { font-size: 20px; font-weight: 700; color: var(--text-primary); }
@@ -178,31 +173,21 @@ html[data-theme="studio"] .topbar { padding-top: calc(10px + env(safe-area-inset
 /* Level chips (11-16): each step up looks it, from a plain grey Intern to a gold Partner with a sheen */
 html[data-theme="studio"] .lvl { font-size: 10.5px; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; border: 0;
   border-radius: 6px; padding: 3px 7px 2px; line-height: 1.3; }
-html[data-theme="studio"] .lvl-0 { background: var(--surface-2); color: var(--text-muted); opacity: 1; box-shadow: inset 0 0 0 1px var(--border); }
-html[data-theme="studio"] .lvl-1 { background: linear-gradient(135deg, #3b82f6, #2563eb); color: #fff; box-shadow: 0 1px 0 #1d4ed8; }
-html[data-theme="studio"] .lvl-2 { background: linear-gradient(135deg, #a855f7, #7c3aed); color: #fff; box-shadow: 0 1px 0 #6d28d9, 0 0 10px rgba(168, 85, 247, 0.35); }
-html[data-theme="studio"] .lvl-3 { background: linear-gradient(135deg, #f43f5e, #e11d48); color: #fff; box-shadow: 0 1px 0 #be123c, 0 0 12px rgba(244, 63, 94, 0.4); }
-html[data-theme="studio"] .lvl-4 { position: relative; overflow: hidden; background: linear-gradient(135deg, #fde047, #f59e0b 60%, #d97706);
-  color: #422006; box-shadow: 0 1px 0 #b45309, 0 0 14px rgba(245, 158, 11, 0.5); }
+html[data-theme="studio"] .lvl-4 { position: relative; overflow: hidden; }
 html[data-theme="studio"] .lvl-4::after { content: ""; position: absolute; inset: 0; transform: translateX(-120%);
   background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.7) 50%, transparent 70%); animation: lvl-sheen 3.5s ease-in-out infinite; }
 @keyframes lvl-sheen { 0%, 60% { transform: translateX(-120%); } 100% { transform: translateX(120%); } }
 @media (prefers-reduced-motion: reduce) { html[data-theme="studio"] .lvl-4::after { animation: none; } }
-html[data-theme="studio"] .lvl-yard { background: transparent; color: var(--text-muted); box-shadow: inset 0 0 0 1px dashed var(--border); }
-html[data-theme="studio"] .lvl-star { background: transparent; padding: 0 2px; box-shadow: none; }
+html[data-theme="studio"] .lvl-star { padding: 0 2px; }
 html[data-theme="studio"] .quip { font-style: normal; font-size: 12.5px; color: var(--text-secondary); }
 
 /* Card titles read as headers, like the office name (11-16) */
 html[data-theme="studio"] .card h2, html[data-theme="studio"] .card-head h2 { font-size: 20px; font-weight: 750; letter-spacing: -0.02em;
   color: var(--text-primary); }
 html[data-theme="studio"] .card-head { margin-bottom: 12px; align-items: center; }
-/* Intern: a sprout green outline, clearly the first rung without looking switched off */
-html[data-theme="studio"] .lvl-0 { background: color-mix(in srgb, #84cc16 14%, transparent); color: #65a30d; box-shadow: inset 0 0 0 1px color-mix(in srgb, #84cc16 55%, transparent); }
-@media (prefers-color-scheme: dark) { html[data-theme="studio"] .lvl-0 { color: #a3e635; } }
 html[data-theme="studio"] .whatif-open { border-color: color-mix(in srgb, var(--series-2) 60%, var(--border)); color: var(--text-primary); }
 html[data-theme="studio"] .records .record-grid { background: none; border-radius: 0; }
 html[data-theme="studio"] .records .record, html[data-theme="studio"] .records .record-hot { background: none; }
-html[data-theme="studio"] .lvl-benched { background: var(--surface-2); color: var(--text-muted); box-shadow: inset 0 0 0 1px var(--border); }
 html[data-theme="studio"] .card { --card-pad: 18px; }
 
 /* Level chips, one recipe (11-16): each level only sets its colours, so every chip has the same shape, edge and glow */
@@ -219,4 +204,12 @@ html[data-theme="studio"] .lvl-4 { --lvl-bg: linear-gradient(135deg, #fde047, #f
 html[data-theme="studio"] .lvl-benched { --lvl-bg: linear-gradient(135deg, #9ca3af, #6b7280); --lvl-fg: #fff; --lvl-edge: #4b5563; }
 html[data-theme="studio"] .lvl-yard { --lvl-bg: linear-gradient(135deg, #94a3b8, #64748b); --lvl-fg: #fff; --lvl-edge: #475569; }
 html[data-theme="studio"] .lvl-star { --lvl-bg: transparent; --lvl-edge: transparent; }
-@media (prefers-color-scheme: dark) { html[data-theme="studio"] .lvl-0 { color: #fff; } }
+
+/* Phone header (11-16): wordmark and menu on the first row, the office switcher across the full second row */
+@media (max-width: 600px) {
+  html[data-theme="studio"] .topbar { row-gap: 10px; padding-bottom: 10px; }
+  html[data-theme="studio"] .topbar .nav { display: contents; }
+  html[data-theme="studio"] .topbar .menu { order: 1; margin-left: auto; }
+  html[data-theme="studio"] .topbar .views { order: 2; flex: 1 0 100%; display: flex; }
+  html[data-theme="studio"] .topbar .views .nav-btn { flex: 1; text-align: center; justify-content: center; padding: 8px 6px; }
+}

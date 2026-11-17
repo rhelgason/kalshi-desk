@@ -1,12 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Oswald, Press_Start_2P } from "next/font/google";
-import { cookies } from "next/headers";
 import Link from "next/link";
 import NavButtons from "@/components/NavButtons";
 import PullToRefresh from "@/components/PullToRefresh";
 import Ticker from "@/components/Ticker";
 import Taskbar from "@/components/Taskbar";
-import { THEMES, THEME_COOKIE, THEME_PREF, parseTheme } from "@/lib/theme";
+import { barColor } from "@/lib/theme";
+import { readLook } from "@/lib/look";
 import Avatar from "@/components/Avatar";
 import { getOffice, getRealBook, viewedBook } from "@/lib/book";
 import { isOffice } from "@/lib/db";
@@ -25,8 +25,6 @@ const pixel = Press_Start_2P({ weight: "400", subsets: ["latin"], variable: "--f
 const sans = Inter({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
 const condensed = Oswald({ subsets: ["latin"], variable: "--font-condensed", display: "swap" });
 
-// This device's pick, else the one saved with their login (app/account.ts savePrefs)
-const theme = async () => parseTheme((await cookies()).get(THEME_COOKIE)?.value ?? ((await currentUser())?.prefs[THEME_PREF] as string));
 
 export const metadata: Metadata = {
   title: "Kalshi Desk",
@@ -36,14 +34,15 @@ export const metadata: Metadata = {
 };
 
 export async function generateViewport(): Promise<Viewport> {
-  return { themeColor: THEMES[await theme()].color, viewportFit: "cover" };
+  const { theme, mode } = await readLook();
+  return { themeColor: barColor(theme, mode), viewportFit: "cover" };
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const [admin, real, book, look, user] = await Promise.all([isAdmin(), getRealBook(), viewedBook(), theme(), currentUser()]);
+  const [admin, real, book, { theme: look, mode }, user] = await Promise.all([isAdmin(), getRealBook(), viewedBook(), readLook(), currentUser()]);
   const office = await getOffice(book);
   return (
-    <html lang="en" data-theme={look} className={`${pixel.variable} ${sans.variable} ${condensed.variable}`}>
+    <html lang="en" data-theme={look} data-mode={mode} className={`${pixel.variable} ${sans.variable} ${condensed.variable}`}>
       <body>
         <PullToRefresh />
         {/* Theme decorations: each shows only in its own look (CSS), and costs nothing elsewhere */}

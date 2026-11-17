@@ -1,14 +1,14 @@
 import type { Evidence } from "@/lib/types";
 
-const SHORT: Record<Evidence["verdict_key"], string> = {
-  too_early: "Too early to tell", luck: "Could be luck", probably_not: "Probably no edge", losing: "Reliably losing",
-  promising: "Promising", fragile: "Real, but thin", strong: "Real skill",
-};
+/** The needle in words: how sure the stats are that it's skill (a reliable loser is its own case). */
+const say = (c: number, losing: boolean) =>
+  losing ? "Reliably losing" : c >= 0.95 ? "Almost certainly skill" : c >= 0.8 ? "Probably skill" : c >= 0.6 ? "Leaning skill"
+    : c >= 0.4 ? "Too close to call" : c >= 0.2 ? "Leaning luck" : "Probably luck";
 
 /**
  * Skill or luck at a glance (11-16): a half-dial from "luck" to "skill" with a needle at how sure the stats are that
- * the employee's edge is real (desk/evidence: their record against what chance alone would do), the verdict in a
- * few words, and how many more bets it would take to be sure.
+ * the employee's edge is real (desk/evidence: their record against what chance alone would do), that in a few words,
+ * and how many bets it's judged on.
  */
 export default function SkillGauge({ e }: { e?: Evidence }) {
   if (!e) return <div className="empty">No finished bets yet.</div>;
@@ -20,9 +20,7 @@ export default function SkillGauge({ e }: { e?: Evidence }) {
     return `M${x1},${y1} A${r},${r} 0 0 1 ${x2},${y2}`;
   };
   const [nx, ny] = at(c);
-  const good = ["strong", "fragile", "promising"].includes(e.verdict_key);
-  const bad = ["losing", "probably_not"].includes(e.verdict_key);
-  const more = e.bets_needed && e.bets_needed > e.bets && e.edge > 0 ? e.bets_needed - e.bets : null;
+  const losing = e.verdict_key === "losing";
   return (
     <div className="skill-gauge">
       <svg viewBox="0 0 180 104" role="img" aria-label={`${Math.round(c * 100)}% sure it's skill, not luck`}>
@@ -39,9 +37,8 @@ export default function SkillGauge({ e }: { e?: Evidence }) {
         <text x={cx - r} y={cy + 16} textAnchor="middle" fontSize={10} fill="var(--text-muted)">luck</text>
         <text x={cx + r} y={cy + 16} textAnchor="middle" fontSize={10} fill="var(--text-muted)">skill</text>
       </svg>
-      <div className="skill-sure"><strong>{Math.round(c * 100)}%</strong> sure it&apos;s skill</div>
-      <div className={`skill-verdict ${good ? "up" : bad ? "down" : ""}`}>{SHORT[e.verdict_key]}</div>
-      <div className="muted small">{e.bets} bets{more ? ` · ~${more.toLocaleString()} more to be sure` : ""}</div>
+      <div className={`skill-verdict ${losing ? "down" : c >= 0.8 ? "up" : ""}`}>{say(c, losing)}</div>
+      <div className="muted small">assessed across {e.bets.toLocaleString()} bets</div>
     </div>
   );
 }
