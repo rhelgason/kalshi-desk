@@ -1,3 +1,4 @@
+import SubmitButton from "@/components/SubmitButton";
 import Link from "next/link";
 import { AddPasskey, PasskeyLogin } from "@/components/PasskeyButtons";
 import { isAdmin } from "@/lib/admin";
@@ -29,7 +30,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           account). On a computer without one, choose &quot;use a phone&quot; when you sign in and scan the code.
         </p>
         <AddPasskey label="Add a passkey on this device" />
-        <form action={signOut}><button className="btn">Sign out</button></form>
+        <form action={signOut}><SubmitButton className="btn">Sign out</SubmitButton></form>
       </div>
     );
   }

@@ -1,3 +1,4 @@
+import SubmitButton from "@/components/SubmitButton";
 import { isAdmin } from "@/lib/admin";
 import { logoutAction } from "../actions";
 import LoginForm from "./LoginForm";
@@ -11,7 +12,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       <div className="card narrow stack auth">
         <h2>You&apos;re the Manager</h2>
         <p className="sub">Manager controls appear on employee pages and in Settings.</p>
-        <form action={logoutAction}><button className="btn">Log out</button></form>
+        <form action={logoutAction}><SubmitButton className="btn">Log out</SubmitButton></form>
       </div>
     );
   }

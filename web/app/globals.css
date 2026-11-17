@@ -501,7 +501,8 @@ textarea.pem { width: 100%; min-height: 90px; font-family: ui-monospace, monospa
 .strip-pnl { font-size: 12px; font-variant-numeric: tabular-nums; }
 
 .viewing-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: -8px 0 16px;
-  padding: 10px 14px; border-radius: 10px; background: var(--wash); border: 1px solid var(--border); }
+  padding: 10px 14px; border-radius: 12px; background: color-mix(in srgb, var(--series-2) 12%, var(--surface-1));
+  border: 1px solid color-mix(in srgb, var(--series-2) 45%, var(--border)); }
 
 .returns-chart svg { display: block; width: 100%; }
 .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; font-size: 12.5px; color: var(--text-secondary); }
@@ -738,3 +739,17 @@ th[aria-sort] .sort-btn { color: var(--text-primary); }
 .working-days .day-strip { margin-top: 0; }
 @media (max-width: 600px) { .working { grid-template-columns: 1fr; } }
 .cockpit-under { align-items: start; }
+
+/* Page changing (NavProgress): a bar sliding across the top; buttons that sent a form spin (SubmitButton) */
+.nav-progress { position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 100; pointer-events: none; opacity: 0;
+  transition: opacity 0.2s; overflow: hidden; }
+.nav-progress::after { content: ""; position: absolute; top: 0; bottom: 0; width: 40%; left: -40%;
+  background: linear-gradient(90deg, transparent, var(--series-2), var(--up)); border-radius: 0 3px 3px 0; }
+html[data-navigating] .nav-progress { opacity: 1; }
+html[data-navigating] .nav-progress::after { animation: nav-slide 1.1s ease-in-out infinite; }
+@keyframes nav-slide { from { left: -40%; } to { left: 100%; } }
+html[data-navigating] body { cursor: progress; }
+.spinner { display: inline-block; width: 0.9em; height: 0.9em; margin-right: 6px; vertical-align: -0.12em; border-radius: 50%;
+  border: 2px solid currentColor; border-right-color: transparent; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { html[data-navigating] .nav-progress::after { animation-duration: 3s; } .spinner { animation-duration: 2s; } }

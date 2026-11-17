@@ -53,7 +53,8 @@ export const viewedBook = cache(async (): Promise<Book> => {
   const picked = (await cookies()).get(BOOK_COOKIE)?.value;
   if (picked === "pretend") return "pretend";
   if (picked === "real" && (await getRealBook())) return "real";
-  if (isOffice(picked) && user?.role === "owner" && (await getOffice(picked))) return picked;
+  // The manager, signed in by passkey or by the manager password (11-16: the password alone opened their own office)
+  if (isOffice(picked) && (user?.role === "owner" || (await passwordCookie())) && (await getOffice(picked))) return picked;
   return defaultBook();
 });
 

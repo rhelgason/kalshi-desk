@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { dollars, pct } from "@/lib/format";
+import SubmitButton from "./SubmitButton";
 
 /** One office's row. */
 export type OfficeRow = {
@@ -67,7 +68,7 @@ export default function OfficeTable({ rows, money, now, period }: { rows: Office
               </td>
               {cols.map((c) => <td key={c.key} className="num">{c.show(r)}</td>)}
               {money && (
-                <td className="num">{r.visit && <form action={r.visit}><button className="btn small">Open</button></form>}</td>
+                <td className="num">{r.visit && <form action={r.visit}><SubmitButton className="btn small">Open</SubmitButton></form>}</td>
               )}
             </tr>
           ))}

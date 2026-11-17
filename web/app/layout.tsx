@@ -3,6 +3,8 @@ import { Inter, Oswald, Press_Start_2P } from "next/font/google";
 import Link from "next/link";
 import NavButtons from "@/components/NavButtons";
 import PullToRefresh from "@/components/PullToRefresh";
+import NavProgress from "@/components/NavProgress";
+import SubmitButton from "@/components/SubmitButton";
 import Ticker from "@/components/Ticker";
 import Taskbar from "@/components/Taskbar";
 import { barColor } from "@/lib/theme";
@@ -44,6 +46,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en" data-theme={look} data-mode={mode} className={`${pixel.variable} ${sans.variable} ${condensed.variable}`}>
       <body>
+        <NavProgress stamp={Date.now()} />
         <PullToRefresh />
         {/* Theme decorations: each shows only in its own look (CSS), and costs nothing elsewhere */}
         {look === "broadcast" && <Ticker book={book} />}
@@ -64,12 +67,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   {user ? (
                     <>
                       <Link href="/login">Passkeys{user.role === "owner" ? " · manager" : ""}</Link>
-                      <form action={signOut}><button>Sign out</button></form>
+                      <form action={signOut}><SubmitButton>Sign out</SubmitButton></form>
                     </>
                   ) : admin ? (
                     <>
                       <Link href="/login">Remember this device</Link>
-                      <form action={logoutAction}><button>Manager · log out</button></form>
+                      <form action={logoutAction}><SubmitButton>Manager · log out</SubmitButton></form>
                     </>
                   ) : (
                     <Link href="/login">Sign in</Link>
@@ -82,7 +85,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           {admin && isOffice(book) && (
             <div className="viewing-bar">
               <span>Viewing <strong>{office?.name ?? "a friend"}&apos;s office</strong></span>
-              <form action={viewOffice.bind(null, null)}><button className="btn small">Back to my office</button></form>
+              <form action={viewOffice.bind(null, null)}><SubmitButton className="btn small primary">← Back to my office</SubmitButton></form>
             </div>
           )}
           {children}

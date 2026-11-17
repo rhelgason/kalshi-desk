@@ -16,6 +16,11 @@ export default function NavButtons({ book, hasLive, manager }: { book: Book; has
   const [picked, setPicked] = useState(book);
   const [pending, start] = useTransition();
   useEffect(() => setPicked(book), [book]);
+  // The loading bar across the top (NavProgress) while the office switches
+  useEffect(() => {
+    if (pending) document.documentElement.dataset.navigating = "";
+    else delete document.documentElement.dataset.navigating;
+  }, [pending]);
 
   const choose = (b: Book) => {
     setPicked(b);
