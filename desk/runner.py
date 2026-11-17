@@ -423,6 +423,8 @@ class Desk:
         results = []
         was_stopped = bool(self.pool.state.stopped_at)
         self.pool.update(self.pool.total_equity(self.accounts, self.marks), _now(), self.pool.capital(self.accounts))
+        if self.guard and self.pool.equity:
+            self.guard.equity = self.pool.equity  # the order limit follows the pool as just valued
         if self.guard and self.pool.state.stopped_at and not was_stopped:
             # Real money: the daily stop is a pause too (until midnight), so it pings the phone
             notify.paused(f"the pool is down {-self.pool.today:.1%} today (daily stop at "
@@ -481,7 +483,10 @@ class Desk:
             return []
         placed = await _done(self.broker.place(bet, _now()))
         if not placed:
-            self._skip(bet, "not enough free cash for the bid")
+            # The real reason (11-17: the order limit was being logged as "not enough free cash" for three days)
+            dollars = sum(leg.count * leg.limit_price for leg in bet.legs)
+            why = (self.guard.refuse(dollars) if self.guard and bet.strategy in self.pool.members else None)
+            self._skip(bet, why or "not enough free cash for the bid")
             return []
         who = self.personas.get(strat.key, strat.key)
         for o in placed:
@@ -871,7 +876,10 @@ class Desk:
     async def check_guard(self) -> None:
         """Re-read the kill switch; while it's on, nothing real stays on the book."""
         self.guard.refresh()
-        self.guard.equity = self.pool.equity  # for limits set as a share of the pool
+        # For limits set as a share of the pool. 11-17: each server run is a fresh process, so the pool's value isn't
+        # known yet at this point (it's worked out when deciding); a 0 here made the order limit fall back to the
+        # $40 default, refusing every Senior's bid (6% of a $950 pool) since the pool passed ~$670 on 11-14
+        self.guard.equity = self.pool.equity or self.pool.total_equity(self.accounts, self.marks)
         signer = getattr(self.client, "signer", None)
         if hasattr(signer, "fingerprint"):  # which key is in use, safe to show (see KalshiSigner.fingerprint)
             self.journal.info["key"] = signer.fingerprint()

@@ -355,6 +355,18 @@ def test_the_order_limit_can_be_a_share_of_the_pool(live):
     assert "limit" in g.refuse(31.0)
 
 
+async def test_a_fresh_run_knows_the_pool_before_the_order_limit_is_checked(live, monkeypatch):
+    # 11-17: each server run is a new process; the pool's value was still 0 at the guard check, so a share-of-the-pool
+    # limit fell back to the $40 default and refused every bid over $40
+    desk = _desk(live, monkeypatch)
+    desk.guard.limits["max_order_pct"] = 0.25
+    assert desk.pool.equity == 0
+    await desk.check_guard()
+    total = desk.pool.total_equity(desk.accounts, desk.marks)
+    assert total > 0 and desk.guard.equity == total
+    assert desk.guard.refuse(min(total * 0.24, total - 1)) is None
+
+
 async def test_the_loss_limit_can_be_a_share_of_the_pool(live, monkeypatch):
     desk = _desk(live, monkeypatch)
     desk.guard.limits["max_daily_loss_pct"] = 0.20
