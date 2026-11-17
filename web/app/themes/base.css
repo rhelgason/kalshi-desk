@@ -311,15 +311,18 @@ html .forecast-chart .fc-mid { fill: none; stroke: var(--series-1); stroke-width
 html .forecast-chart .fc-past { fill: none; stroke: var(--text-primary); stroke-width: 2.5; stroke-linejoin: round; }
 html .forecast-chart .fc-dot-now { fill: var(--text-primary); }
 html .forecast-chart .fc-dot-mid { fill: var(--series-1); }
-html .forecast-chart .fc-tested line { stroke: var(--warning); stroke-dasharray: 4 4; }
-html .forecast-chart .fc-tested text { fill: var(--warning); }
-html .fc-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--text-secondary); margin-bottom: 12px; }
-html .fc-legend i { display: inline-block; width: 14px; height: 8px; border-radius: var(--r-sm); margin-right: 5px; vertical-align: middle; }
-html .fc-legend .fc-k-past { background: var(--text-primary); height: 3px; }
-html .fc-legend .fc-k-mid { background: var(--series-1); height: 3px; }
-html .fc-legend .fc-k-likely { background: color-mix(in srgb, var(--series-1) 30%, transparent); }
-html .fc-legend .fc-k-wide { background: color-mix(in srgb, var(--series-1) 14%, transparent); }
-html .fc-legend .fc-k-tested { background: var(--warning); height: 2px; }
 html .fc-foot { margin: 12px 0 0; line-height: 1.5; }
 html .forecast .stat-cells.flat { --cols: 3; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-html .forecast-box { width: 100%; min-width: 0; }
+html .forecast-box { width: 100%; min-width: 0; position: relative; }
+html .forecast-chart { touch-action: pan-y; cursor: crosshair; margin-bottom: 14px; }
+html .forecast-chart .fc-l-mid { fill: var(--series-1); font-weight: 600; }
+html .forecast-chart .fc-l-likely { fill: color-mix(in srgb, var(--series-1) 75%, var(--text-muted)); }
+html .forecast-chart .fc-l-wide { fill: var(--text-muted); }
+html .forecast-chart .fc-l-past { fill: var(--text-primary); font-weight: 600; }
+html .forecast-chart .fc-hover line { stroke: var(--text-muted); stroke-dasharray: 3 3; }
+html .forecast-chart .fc-hover circle { stroke: var(--surface-1); stroke-width: 2; }
+html .fc-tip { position: absolute; top: 0; transform: translateX(-50%); pointer-events: none; min-width: 150px;
+  background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--r-md); padding: 8px 10px;
+  box-shadow: 0 4px 14px var(--shadow); font-size: 12px; color: var(--text-secondary); line-height: 1.45; }
+html .fc-tip-day { color: var(--text-muted); font-size: 11px; }
+html .fc-tip-main { color: var(--text-primary); font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
