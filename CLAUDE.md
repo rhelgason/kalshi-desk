@@ -151,6 +151,10 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
   and hourly ladder that closes at the same time counts against one 16% cap ("close 26NOV171100"). It was per coin,
   and an 8 AM PT dip took $198 (20%) in one instant and tripped the real book's 20% hard stop. Season replay: -3%
   profit, worst moment halved. Same day: a fresh-process bug had capped real orders at $40 since 11-14 (runner check_guard).
+- **11-17: five coin specialists to VP** on the real book and both offices (DOGE, SOL, NEAR, ETH, BNB): a replay of every
+  book (research in session; sizing grid of bet % x window cap) showed coin specialists earn the most per $1 in both real
+  and Training, and the cap makes the share between employees matter more than bet size. Kept 4% bets and the 16% cap:
+  in-sample "bet more" always wins on 2-3 weeks of 97% win rates, which is the overbetting trap.
 - A weather day can sit unsettled for days on Kalshi's side (NY Nov 13, 2026: "closed", no result, Kalshi's deadline
   Nov 20, while every other city and day paid next morning ~7 am PT). Not a bug: settle_check asks Kalshi about every
   held ticker each run, listed or not, and books it the moment a result appears; Riding Now shows them as "settling".
