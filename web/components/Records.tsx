@@ -1,7 +1,8 @@
 import type { Employee } from "@/lib/types";
 import { dollars, perDollar, shortName } from "@/lib/format";
 import { bestHour, biggest, days, greenRun, hourLabel, lastDays, streaks, winsToRecover, type Bet } from "@/lib/records";
-import Avatar from "./Avatar";
+import Card from "./ui/Card";
+import StatRow, { toneOf } from "./ui/StatRow";
 
 const when = (t: number, tz: string) => new Date(t).toLocaleDateString("en-US", { timeZone: tz, month: "short", day: "numeric" });
 const dayLabel = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
@@ -30,60 +31,25 @@ export default function Records({ bets, employees, tz, strip = 21 }: { bets: Bet
   const hot = runs[0]?.run > 0 ? runs[0] : null;
   const strip21 = strip ? lastDays(all, strip, tz) : [];
   const scale = Math.max(...strip21.map((d) => Math.abs(d.pnl)), 0.01);
-  const face = (k: string) => who[k] ? <Avatar k={k} emoji={who[k].emoji} size={20} /> : null;
+  const face = (k: string) => ({ k, emoji: who[k]?.emoji });
   const name = (k: string) => (who[k] ? shortName(who[k].name) : k);
 
   return (
-    <section className="card records">
-      <h2>Streaks &amp; Records</h2>
-      <div className="record-grid">
-        <div className={`record ${s.currentIsBest ? "record-hot" : ""}`}>
-          <span className="record-label">🔥 Win streak</span>
-          <strong className="record-value">{s.current}</strong>
-          <span className="record-note">{s.currentIsBest ? "a season record, still going" : `record ${s.best}${s.bestEnd ? ` (${when(s.bestEnd, tz)})` : ""}`}</span>
-        </div>
-        <div className="record">
-          <span className="record-label">🟩 Green days in a row</span>
-          <strong className="record-value">{green}</strong>
-          <span className="record-note">{played.filter((d) => d.pnl > 0).length} of {played.length} days up this season</span>
-        </div>
-        <div className="record">
-          <span className="record-label">📈 Best day</span>
-          <strong className="record-value up">{dollars(bestDay.pnl, true)}</strong>
-          <span className="record-note">{dayLabel(bestDay.day)} · {bestDay.won} of {bestDay.n} won</span>
-        </div>
-        <div className="record">
-          <span className="record-label">📉 Worst day</span>
-          <strong className={`record-value ${worstDay.pnl < 0 ? "down" : "up"}`}>{dollars(worstDay.pnl, true)}</strong>
-          <span className="record-note">{dayLabel(worstDay.day)} · {worstDay.won} of {worstDay.n} won</span>
-        </div>
-        {hours && (
-          <div className="record">
-            <span className="record-label">⏰ Golden hour</span>
-            <strong className="record-value">{hourLabel(hours.best.hour)}</strong>
-            <span className="record-note">{dollars(hours.best.pnl, true)} over {hours.best.n} bets · worst {hourLabel(hours.worst.hour)}</span>
-          </div>
-        )}
-        {hot && (
-          <div className="record">
-            <span className="record-label">🎯 Hot hand</span>
-            <strong className="record-value record-who">{face(hot.k)} {name(hot.k)}</strong>
-            <span className="record-note">{hot.run} wins in a row</span>
-          </div>
-        )}
-        {big.loss && (
-          <div className="record">
-            <span className="record-label">💥 Biggest loss</span>
-            <strong className="record-value down">{dollars(big.loss.pnl, true)}</strong>
-            <span className="record-note record-who">{face(big.loss.strategy)} {name(big.loss.strategy)} · {when(big.loss.t, tz)}{recover ? ` · ${recover} wins to earn back` : ""}</span>
-          </div>
-        )}
-        <div className="record">
-          <span className="record-label">⚡ Busiest day</span>
-          <strong className="record-value">{busiest.n} bets</strong>
-          <span className="record-note">{dayLabel(busiest.day)} · {dollars(busiest.pnl, true)} · {perDollar(sumRatio(bets, busiest.day, tz))}</span>
-        </div>
-      </div>
+    <Card title="Streaks & Records" className="records">
+      <StatRow flat stats={[
+        { label: "Win Streak", value: s.current, hot: s.currentIsBest,
+          note: s.currentIsBest ? "a season record, still going" : `record ${s.best}${s.bestEnd ? ` (${when(s.bestEnd, tz)})` : ""}` },
+        { label: "Green Days in a Row", value: green, note: `${played.filter((d) => d.pnl > 0).length} of ${played.length} days up this season` },
+        { label: "Best Day", value: dollars(bestDay.pnl, true), tone: toneOf(bestDay.pnl), note: `${dayLabel(bestDay.day)} · ${bestDay.won} of ${bestDay.n} won` },
+        { label: "Worst Day", value: dollars(worstDay.pnl, true), tone: toneOf(worstDay.pnl), note: `${dayLabel(worstDay.day)} · ${worstDay.won} of ${worstDay.n} won` },
+        ...(hours ? [{ label: "Golden Hour", value: hourLabel(hours.best.hour),
+          note: `${dollars(hours.best.pnl, true)} over ${hours.best.n} bets · worst ${hourLabel(hours.worst.hour)}` }] : []),
+        ...(hot ? [{ label: "Hot Hand", face: face(hot.k), value: name(hot.k), note: `${hot.run} wins in a row` }] : []),
+        ...(big.loss ? [{ label: "Biggest Loss", face: face(big.loss.strategy), value: dollars(big.loss.pnl, true), tone: "down" as const,
+          note: `${name(big.loss.strategy)} · ${when(big.loss.t, tz)}${recover ? ` · ${recover} wins to earn back` : ""}` }] : []),
+        { label: "Busiest Day", value: `${busiest.n} bets`,
+          note: `${dayLabel(busiest.day)} · ${dollars(busiest.pnl, true)} · ${perDollar(sumRatio(bets, busiest.day, tz))}` },
+      ]} />
       {strip > 0 && <>
       <div className="day-strip" role="img" aria-label={`Profit by day, last ${strip} days`}>
         {strip21.map((d) => {
@@ -97,7 +63,7 @@ export default function Records({ bets, employees, tz, strip = 21 }: { bets: Bet
       </div>
       <div className="day-strip-legend muted small"><span>{dayLabel(strip21[0].day)}</span><span>Each square is a day: green up, red down</span><span>today</span></div>
       </>}
-    </section>
+    </Card>
   );
 }
 

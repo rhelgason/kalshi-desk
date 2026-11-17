@@ -9,31 +9,38 @@ export type Stat = {
   note?: ReactNode;
   /** an employee: their portrait on the left, the value and note to its right */
   face?: { k: string; emoji?: string };
+  /** a record that's being set right now: the value lights up */
+  hot?: boolean;
 };
 
 /** "up" for a gain, "down" for a loss, nothing for zero. */
 export const toneOf = (v: number | null | undefined) => (v == null || Math.abs(v) < 0.005 ? null : v > 0 ? "up" : "down");
 
-/**
- * A row of connected stat cells (11-16): a header label, the number, a subline. Used for the office's three numbers,
- * the chart's highlights, the riding totals and the cockpit, so they all read the same. Four cells fold to two by
- * two on a phone.
- */
-export default function StatRow({ stats, className }: { stats: Stat[]; className?: string }) {
+/** One stat: header label, then the value and note, beside the employee's portrait when there is one. */
+export function StatCell({ s }: { s: Stat }) {
   return (
-    <div className={`stat-cells n${stats.length} ${className ?? ""}`}>
-      {stats.map((s, i) => (
-        <div key={i} className={`stat-cell ${s.face ? "has-face" : ""}`}>
-          <div className="stat-label">{s.label}</div>
-          <div className="stat-body">
-            {s.face && <Avatar k={s.face.k} emoji={s.face.emoji} size={36} className="stat-face" />}
-            <div className="stat-text">
-              <div className={`stat-value ${s.tone ?? ""}`}>{s.value}</div>
-              {s.note != null && <div className="stat-note">{s.note}</div>}
-            </div>
-          </div>
+    <div className={`stat-cell ${s.face ? "has-face" : ""} ${s.hot ? "hot" : ""}`}>
+      <div className="stat-label">{s.label}</div>
+      <div className="stat-body">
+        {s.face && <Avatar k={s.face.k} emoji={s.face.emoji} size={36} className="stat-face" />}
+        <div className="stat-text">
+          <div className={`stat-value ${s.tone ?? ""}`}>{s.value}</div>
+          {s.note != null && <div className="stat-note">{s.note}</div>}
         </div>
-      ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * A row of stat cells (11-16): the office's three numbers, the chart's highlights, the riding totals, the cockpit
+ * and the records all use it, so they read the same. Connected cells with dividers by default (four fold to two by
+ * two on a phone); `flat` when the stats are the whole card: a plain grid, no boxes inside the box.
+ */
+export default function StatRow({ stats, className, flat }: { stats: Stat[]; className?: string; flat?: boolean }) {
+  return (
+    <div className={`stat-cells n${stats.length} ${flat ? "flat" : ""} ${className ?? ""}`}>
+      {stats.map((s, i) => <StatCell key={i} s={s} />)}
     </div>
   );
 }

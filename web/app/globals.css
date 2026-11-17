@@ -626,3 +626,9 @@ html[data-range-loading] .office-hero .chart::after { content: "Updating…"; po
 .records .record { background: none; padding: 0; }
 .records .record-hot { background: none; }
 .records .record-hot .record-value { color: var(--series-2); }
+
+/* StatRow flat: the stats are the whole card (Streaks & Records), so a plain grid, no boxes inside the box */
+.stat-cells.flat { --cols: 4; background: none; border: 0; border-radius: 0; overflow: visible; gap: 18px 20px; margin: 0; }
+@media (max-width: 600px) { .stat-cells.flat { --cols: 2; } }
+.stat-cells.flat .stat-cell { background: none; padding: 0; }
+.stat-cell.hot .stat-value { color: var(--series-2); }
