@@ -143,7 +143,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
                           putIn={putIn} betPct={policy.pool.bet_pct} period={RANGE_WORDS[range]} />}
         facts={<HeroFacts period={RANGE_WORDS[range]} change={rangeChange} inRange={inRange}
                           all={finished} employees={employees} tz={tz} since={money.since} days={days} />}
-        under={isOffice(book) ? <OfficePause halted={!!kill?.halted} mine={officeOf(user) === book} /> : null}
+        under={isOffice(book) && officeOf(user) === book ? <OfficePause halted={!!kill?.halted} mine /> : null}
       />
 
       <RaceTrack positions={live.positions.filter((p) => members.has(p.strategy))} employees={employees} held={held}

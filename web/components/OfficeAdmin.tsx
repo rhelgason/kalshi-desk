@@ -48,7 +48,7 @@ export function SignInLink({ friends }: { friends: { id: number; name: string }[
   );
 }
 
-/** Pause or resume an office's betting: the friend's own button (and the owner's, on a friend's page). */
+/** Pause or resume an office's betting: only the friend's own button (11-17: the manager doesn't get one on friends' pages). */
 export function OfficePause({ halted, mine }: { halted: boolean; mine: boolean }) {
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
