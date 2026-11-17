@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { createInvite, setOfficePaused } from "@/app/account";
+import { createInvite } from "@/app/account";
 import type { Book } from "@/lib/db";
 
 /** The owner's invite maker (the cockpit's Invite a Friend card): a first name in, a link out (good for a week, for one person). */
@@ -48,23 +48,3 @@ export function SignInLink({ friends }: { friends: { id: number; name: string }[
   );
 }
 
-/** Pause or resume an office's betting: only the friend's own button (11-17: the manager doesn't get one on friends' pages). */
-export function OfficePause({ halted, mine }: { halted: boolean; mine: boolean }) {
-  const [pending, start] = useTransition();
-  const [msg, setMsg] = useState<string | null>(null);
-  const flip = () => {
-    const ask = halted ? "Start betting again?" : mine ? "Pause your office? Nothing new gets bet until you resume (bets already on finish as usual)."
-      : "Pause this friend's office?";
-    if (!confirm(ask)) return;
-    start(async () => {
-      const r = await setOfficePaused(!halted);
-      setMsg(r.ok ? (halted ? "✓ Back on from the next run (within 2 minutes)" : "✓ Paused from the next run (within 2 minutes)") : r.error);
-    });
-  };
-  return (
-    <div className="row-btns">
-      <button className="btn" disabled={pending} onClick={flip}>{halted ? "▶️ Resume betting" : "⏸ Pause betting"}</button>
-      {msg && <span className={msg.startsWith("✓") ? "up small" : "down small"}>{msg}</span>}
-    </div>
-  );
-}

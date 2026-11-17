@@ -228,15 +228,17 @@ export async function leaveOffice() {
   // cookie afresh on the refresh that follows.
 }
 
-/** A friend's own pause button (the owner can press it too, from their office page). */
+/** A friend's own pause button, on Office Rules (11-17). Can't lift the manager's Stop all trading. */
 export async function setOfficePaused(paused: boolean): Promise<Result> {
   try {
     const user = await currentUser();
     const book = await viewedBook();
     const mine = officeOf(user) === book;
-    if (!isOffice(book) || !(mine || (await isAdmin()))) throw new Error("Not your office");
-    const by = mine ? user!.name : "the owner";
+    if (!isOffice(book) || !mine) throw new Error("Not your office");
+    const by = user!.name;
     const at = new Date().toISOString();
+    const now = await db(book)`SELECT data FROM settings WHERE key = 'trading'`;
+    if (!paused && now.length && JSON.parse(now[0].data).all) throw new Error("The manager has stopped all trading; it comes back on when they resume it");
     const data = paused ? { halted: true, reason: `paused by ${by}`, by, at, long: true } : { halted: false, resumed_by: by, at };
     await db(book)`INSERT INTO settings (key, updated_at, data) VALUES ('trading', ${at}, ${JSON.stringify(data)})
       ON CONFLICT (key) DO UPDATE SET updated_at = excluded.updated_at, data = excluded.data`;

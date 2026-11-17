@@ -132,7 +132,8 @@ export const getBonusPot = async (book: Book): Promise<BonusPot> =>
   (await status<BonusPot>(book, "_bonus_pot")) ?? { pot: 0, winner: null, given: 0, left: 0, since: null };
 
 /** The kill switch straight from the table (the bot's status lags a run behind a press of the button). */
-export type KillSwitch = { halted: boolean; reason?: string; by?: string; at?: string; long?: boolean };
+/** `all`: set by the manager's Stop all trading (11-17), on every book at once; only the manager lifts it. */
+export type KillSwitch = { halted: boolean; reason?: string; by?: string; at?: string; long?: boolean; all?: boolean };
 export async function getKillSwitch(book: Book): Promise<KillSwitch> {
   const rows = await db(book)`SELECT data FROM settings WHERE key = 'trading'`;
   return rows.length ? JSON.parse(rows[0].data) : { halted: false };

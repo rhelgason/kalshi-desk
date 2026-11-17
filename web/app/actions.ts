@@ -203,6 +203,47 @@ export async function resumeTrading() {
   done(["/settings", "/"]);
 }
 
+/** Every friend's office book (each lives in its own `office_<name>` schema). */
+async function officeBooks(): Promise<Book[]> {
+  const rows = await db("real")`SELECT schema_name FROM information_schema.schemata WHERE schema_name LIKE 'office\_%'`;
+  return rows.map((r) => r.schema_name as string).filter(isOffice) as Book[];
+}
+
+async function setTrading(book: Book, data: Record<string, unknown>) {
+  await db(book)`INSERT INTO settings (key, updated_at, data) VALUES ('trading', ${now()}, ${JSON.stringify(data)})
+    ON CONFLICT (key) DO UPDATE SET updated_at = excluded.updated_at, data = excluded.data`;
+}
+
+/**
+ * Stop all trading (11-17, the manager only): the owner's real book and every friend's office at once. Friends
+ * can't turn theirs back on while it stands (app/account.ts setOfficePaused); only Resume everyone lifts it.
+ */
+export async function stopAllTrading(reason: string) {
+  await requireAdmin();
+  const data = { halted: true, reason: reason || "the manager stopped all trading", by: "manager", at: now(), long: true, all: true };
+  for (const book of ["real", ...(await officeBooks())] as Book[]) {
+    await setTrading(book, data);
+    await event(book, "trading", null, { action: "halted", reason: data.reason, all: true });
+    revalidateTag(bookTag(book));
+  }
+  done(["/rules"]);
+}
+
+/** Lift Stop all trading everywhere it was set (a friend's own pause from before stays). */
+export async function resumeAllTrading() {
+  await requireAdmin();
+  for (const book of ["real", ...(await officeBooks())] as Book[]) {
+    const rows = await db(book)`SELECT data FROM settings WHERE key = 'trading'`;
+    const kill = rows.length ? JSON.parse(rows[0].data) : {};
+    if (book !== "real" && !kill.all) continue;
+    await setTrading(book, { halted: false, resumed_by: "manager", at: now() });
+    await db(book)`UPDATE status SET data = '{}', updated_at = ${now()} WHERE key = '_live_books'`;
+    await event(book, "trading", null, { action: "resumed", all: true });
+    revalidateTag(bookTag(book));
+  }
+  done(["/rules"]);
+}
+
 /**
  * My office / Training: which of the owner's books to show. The app always opens on My office (11-16, owner), so
  * Training is only remembered for an hour, and picking My office forgets any other pick.

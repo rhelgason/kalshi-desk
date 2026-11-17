@@ -7,6 +7,7 @@ import { isAdmin } from "@/lib/admin";
 import { viewedBook, requireViewer } from "@/lib/book";
 import { getKillSwitch, getLive, getPolicy, isOffice } from "@/lib/db";
 import { LEVELS, awardName, poolShare } from "@/lib/hr";
+import { currentUser, officeOf } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -23,14 +24,17 @@ export default async function RulesPage() {
     const book = await viewedBook();
     // The rules are the viewed book's; the real-money panel is the real book's (a friend's: their office's)
     const money = isOffice(book) ? book : "real";
-    const [policy, admin, live, killSwitch] = await Promise.all([
-      getPolicy(book), isAdmin(), getLive(money).catch(() => null), getKillSwitch(money).catch(() => ({ halted: false })),
+    const [policy, admin, live, killSwitch, user] = await Promise.all([
+      getPolicy(book), isAdmin(), getLive(money).catch(() => null), getKillSwitch(money).catch(() => ({ halted: false })), currentUser(),
     ]);
-    data = { book, policy, admin: admin && !isOffice(book), office: isOffice(book), trading: live?.trading ?? { mode: "paper" as const }, killSwitch };
+    const office = isOffice(book);
+    // Your own pause: the manager on their real book (or Training, which shows it), a friend on their own office
+    const mine = office ? officeOf(user) === book : admin;
+    data = { book, policy, admin: admin && !office, office, mine, trading: live?.trading ?? { mode: "paper" as const }, killSwitch };
   } catch (e) {
     return <Setup error={String(e)} />;
   }
-  const { book, policy, admin, office, trading, killSwitch } = data;
+  const { book, policy, admin, office, mine, trading, killSwitch } = data;
   const p = policy.pool;
   return (
     <div className="stack">
@@ -63,7 +67,7 @@ export default async function RulesPage() {
         </dl>
       </Card>
 
-      <RealMoney trading={trading} killSwitch={killSwitch} admin={admin} />
+      <RealMoney trading={trading} killSwitch={killSwitch} admin={admin} mine={mine} office={office} />
 
       {admin && <ManagerControls training={book === "pretend"} />}
     </div>
