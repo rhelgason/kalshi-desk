@@ -186,7 +186,8 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
   get an uncertain extra fill penalty: almost all future growth is in untested sizes. Hourly Hazel and Wendell have no
   tape library (assumed size limits, marked). Self-check: started at $300 on 11-05 the real value on 11-17 sat at the
   58-65th percentile. Bad-day guard research (same session): skipping bids after fast coin moves didn't change the
-  worst days; skipping crowded moments halved profit; the shared window cap is the tool. Cockpit card: not built yet.
+  worst days; skipping crowded moments halved profit; the shared window cap is the tool. Cockpit card "Where It's
+  Heading" (components/ForecastCard.tsx, manager only, the real book's fan at 1/3/6 months); options B-D were set aside.
   **The NUX 6-month estimate (cockpit .working-estimate, Tour.tsx) should switch to this model when the card lands.**
 - A weather day can sit unsettled for days on Kalshi's side (NY Nov 13, 2026: "closed", no result, Kalshi's deadline
   Nov 20, while every other city and day paid next morning ~7 am PT). Not a bug: settle_check asks Kalshi about every
