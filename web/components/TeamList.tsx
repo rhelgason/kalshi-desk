@@ -4,7 +4,7 @@ import type { Employee, Point } from "@/lib/types";
 import { dollars, pct } from "@/lib/format";
 import Avatar from "./Avatar";
 import Sparkline from "./Sparkline";
-import { levelTitle } from "@/lib/hr";
+import LevelChip from "./ui/LevelChip";
 
 export type TeamRow = { e: Employee; light: Light; trend: Point[] };
 
@@ -32,9 +32,7 @@ export default function TeamList({ rows, star, starTitle = "Employee of the Week
                 <span className="name-line">
                   <span className="name">{e.name}</span>
                   {e.key === star && <span className="lvl lvl-star" title={starTitle}>🏆</span>}
-                  {e.control
-                    ? <span className="lvl lvl-yard" title="Control group: bets at random, so the others have something to beat">Yardstick</span>
-                    : <span className={`lvl lvl-${e.level ?? 1}`} title="Level: higher levels bet more of the pool">{levelTitle(e.level ?? 1)}</span>}
+                  <LevelChip level={e.level} control={e.control} />
                 </span>
                 <span className="quip">{notes?.[e.key] ?? light.label}</span>
               </span>
