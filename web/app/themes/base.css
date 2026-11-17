@@ -225,3 +225,50 @@ html .menu[open] > summary { position: relative; z-index: 22; background: var(--
   border-bottom-width: 0; border-radius: var(--r-md) var(--r-md) 0 0; color: var(--text-primary); height: 35px; margin-bottom: -1px; }
 html .menu[open] .menu-list { top: 100%; margin-top: 0; border-radius: var(--r-lg) 0 var(--r-lg) var(--r-lg); padding: 6px; box-shadow: 0 16px 40px var(--shadow); }
 html .menu-list a, html .menu-list button { border-radius: var(--r-md); padding: 10px 12px; font-weight: 550; }
+
+/* ---- The new-user experience (11-17): setup screens and the guided tour. Tokens only, so every look draws them -- */
+html .nux { text-align: left; }
+html .nux h2 { text-align: center; }
+html .nux .btn.big { width: 100%; }
+html .nux .link-btn { align-self: center; width: auto; }
+html .nux-count { margin: -4px 0 0; text-align: center; }
+html .nux-preview-bar { background: var(--wash); border: 1px dashed var(--series-1); border-radius: var(--r-md); padding: 8px 10px;
+  font-size: 13px; text-align: center; }
+html .nux .howto li { line-height: 1.5; }
+html .key-sample { margin-top: 8px; padding: 10px 12px; background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: var(--r-md); display: grid; gap: 6px; min-width: 0; }
+html .key-sample-label { font-size: 13px; color: var(--text-secondary); }
+html .key-sample code, html .key-sample pre, html .nux-rules code { font-family: var(--font-mono), ui-monospace, Menlo, monospace; font-size: 12px; }
+html .key-sample code { display: block; overflow-wrap: anywhere; }
+html .key-sample pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text-secondary); line-height: 1.45; }
+html .nux-form { display: grid; gap: 14px; }
+html .nux-form label, html .nux-field { display: grid; gap: 6px; }
+html .nux-label { font-weight: 600; }
+html .nux-or { text-align: center; }
+html .file-btn { display: block; text-align: center; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html .key-hint { font-size: 13px; line-height: 1.4; }
+html .nux-rules { margin: 0; }
+html .nux-rules code { white-space: nowrap; }
+html .nux-balance { padding: 10px 12px; border-radius: var(--r-md); background: var(--surface-2); border: 1px solid var(--border); text-align: center; }
+html .nux-preview-link { margin-top: 10px; display: inline-block; }
+
+html .tour { position: fixed; inset: 0; z-index: 1000; pointer-events: none; }
+html .tour-dim, html .tour-block { position: fixed; pointer-events: auto; }
+html .tour-dim { background: rgba(5, 6, 12, 0.66); }
+html .tour-block { background: transparent; }
+html .tour-ring { position: fixed; pointer-events: none; border: 2px solid var(--series-1); border-radius: var(--r-md);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--series-1) 30%, transparent); transition: top .15s, left .15s, width .15s, height .15s; }
+html .tour-ring[data-tap] { animation: tour-pulse 1.6s ease-in-out infinite; }
+@keyframes tour-pulse {
+  0%, 100% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--series-1) 30%, transparent); }
+  50% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--series-1) 10%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) { html .tour-ring[data-tap] { animation: none; } html .tour-ring { transition: none; } }
+html .tour-card { position: fixed; pointer-events: auto; background: var(--surface-1); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: var(--r-lg); padding: 14px 16px; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  display: grid; gap: 8px; max-width: 420px; margin: 0 auto; }
+html .tour-card h3 { margin: 0; font-size: 17px; }
+html .tour-card p { margin: 0; line-height: 1.5; color: var(--text-secondary); }
+html .tour-card .btn { justify-self: end; }
+html .tour-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+html .tour-tap { color: var(--series-1) !important; font-weight: 600; }

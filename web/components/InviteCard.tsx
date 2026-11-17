@@ -28,6 +28,7 @@ export default async function InviteCard() {
           <h3>New friend</h3>
           <p className="muted small">They open the link on their phone or computer, save a passkey and connect their Kalshi key. About five minutes. Their office runs your real-money staff and rules, half a minute after yours.</p>
           <InviteForm />
+          <a className="btn small nux-preview-link" href="/welcome?preview=1">👀 Preview as a new friend</a>
         </div>
         {signedUp.length > 0 && (
           <div className="invite-part">

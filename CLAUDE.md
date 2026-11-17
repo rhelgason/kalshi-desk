@@ -155,6 +155,16 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
   book (research in session; sizing grid of bet % x window cap) showed coin specialists earn the most per $1 in both real
   and Training, and the cap makes the share between employees matter more than bet size. Kept 4% bets and the 16% cap:
   in-sample "bet more" always wins on 2-3 weeks of 97% win rates, which is the overbetting trap.
+- **11-17: the bot's daily-loss halt is daily** (guard.check_loss gets the pool's day): it lifts itself when the new
+  day starts, and a manager's resume the same day sticks (before, the next run re-halted, and the halt waited for a
+  person even after midnight). The pool's 15% daily stop still holds new bets until midnight either way.
+- **11-17: the new-user experience (NUX).** New friends get prefs.nux = "setup" at joinStart; the home page sends them
+  to /welcome (JoinFlow: welcome + passkey, Kalshi account + deposit, making an API key, pasting it with live checks
+  in lib/keycheck.ts, balance) until connectKalshi sets nux "0"; then components/Tour.tsx (mounted in the layout)
+  spotlights one thing per step, saving the step in prefs.nux until "done". Existing users have no nux. The manager's
+  👀 Preview as a new friend (cockpit, Invite card) runs it all with nothing saved (/welcome?preview=1, localStorage).
+  Tour targets are CSS selectors (.money-hero, .team li a, .employee-chart, .cockpit-main, .menu > summary, menu links,
+  [data-tour=pause], .theme-tiles): renaming those classes breaks the tour.
 - A weather day can sit unsettled for days on Kalshi's side (NY Nov 13, 2026: "closed", no result, Kalshi's deadline
   Nov 20, while every other city and day paid next morning ~7 am PT). Not a bug: settle_check asks Kalshi about every
   held ticker each run, listed or not, and books it the moment a result appears; Riding Now shows them as "settling".

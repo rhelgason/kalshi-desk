@@ -1,3 +1,4 @@
+import Tour from "@/components/Tour";
 import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, Inter, Press_Start_2P } from "next/font/google";
 import Link from "next/link";
@@ -84,6 +85,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           {children}
         </div>
         {look === "desktop" && <Taskbar />}
+        {/* The new-user experience's guided tour: its step is kept with the login until they finish (or the manager's preview) */}
+        {(user || admin) && <Tour start={typeof user?.prefs?.nux === "string" && /^\d+$/.test(user.prefs.nux) ? Number(user.prefs.nux) : null} />}
       </body>
     </html>
   );

@@ -134,8 +134,8 @@ export async function joinStart(token: string, agreed: boolean): Promise<Result<
     let userId = inv.userId;
     if (!userId) {
       const slug = await freeSlug(inv.name);
-      userId = Number((await home()`INSERT INTO public.users (name, role, office, share_overview)
-        VALUES (${inv.name}, 'friend', ${slug}, true) RETURNING id`)[0].id);
+      userId = Number((await home()`INSERT INTO public.users (name, role, office, share_overview, prefs)
+        VALUES (${inv.name}, 'friend', ${slug}, true, '{"nux":"setup"}'::jsonb) RETURNING id`)[0].id);
       await home()`INSERT INTO public.offices (slug, user_id, name) VALUES (${slug}, ${userId}, ${inv.name})
         ON CONFLICT (slug) DO NOTHING`;
       await home()`UPDATE public.invites SET user_id = ${userId} WHERE token_hash = ${inviteHash(token)}`;
@@ -172,6 +172,8 @@ export async function connectKalshi(keyId: string, pemText: string): Promise<Res
     const balance = await kalshiBalance(id, pem);
     await home()`UPDATE public.offices SET key_id = ${id}, key_box = ${lockKey(pem)}, note = NULL, updated_at = now(),
       status = CASE WHEN status = 'setup' THEN 'ready' ELSE status END WHERE slug = ${user.office}`;
+    // The new-user experience moves on from Kalshi setup to the guided tour (components/Tour.tsx)
+    await home()`UPDATE public.users SET prefs = prefs || '{"nux":"0"}'::jsonb WHERE id = ${user.id} AND prefs->>'nux' = 'setup'`;
     return { ok: true, balance };
   } catch (e) {
     return fail(e);

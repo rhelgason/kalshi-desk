@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import AutoRefresh from "@/components/AutoRefresh";
 import LatestBets from "@/components/LatestBets";
 import HeroChart, { type WhatIfBet, type WhatIfMember } from "@/components/HeroChart";
@@ -41,6 +42,8 @@ export const dynamic = "force-dynamic";
  */
 export default async function Home({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   await requireViewer();
+  // Joined but Kalshi isn't set up yet: back to the setup, where they left off (the new-user experience)
+  if ((await currentUser())?.prefs?.nux === "setup") redirect("/welcome");
   const params = await searchParams;
   const range = parseRange(params.range, "week");
   const days = RANGES[range].days;
