@@ -54,6 +54,7 @@ export default function JoinFlow({ token, name, owner, hasKey, signedIn, preview
   const [pretendBalance, setPretendBalance] = useState(0);
   const [deposited, setDeposited] = useState(false);
   const [sheet, setSheet] = useState(false);
+  const [testing, setTesting] = useState(false);
 
   // Back where they left off (only between the Kalshi screens; the key itself is never kept)
   useEffect(() => {
@@ -91,19 +92,30 @@ export default function JoinFlow({ token, name, owner, hasKey, signedIn, preview
   const idCheck = checkKeyId(keyId), pemCheck = checkPem(pem);
   const ready = !!idCheck?.ok && !!pemCheck?.ok;
 
-  const connect = () => start(async () => {
-    setMsg(null);
-    if (preview) { setBalance(pretendBalance); setPem(""); return go(4); }
-    const done = await connectKalshi(keyId, pem);
-    if (!done.ok) return setMsg(done.error);
-    setBalance(done.balance);
-    setPem("");
-    try { localStorage.removeItem(SPOT); } catch {}
+  // Tested live with Kalshi on the next screen, with a clear "testing" state; a failure goes back to the paste screen
+  const connect = () => {
+    setTesting(true);
     go(4);
-  });
+    start(async () => {
+      if (preview) {
+        await new Promise((r) => setTimeout(r, 1800));
+        setBalance(pretendBalance); setPem(""); setTesting(false);
+        return;
+      }
+      const done = await connectKalshi(keyId, pem);
+      setTesting(false);
+      if (!done.ok) { go(3); setMsg(done.error); return; }
+      setBalance(done.balance);
+      setPem("");
+      try { localStorage.removeItem(SPOT); } catch {}
+    });
+  };
 
   const tour = () => start(async () => {
-    if (preview) { try { localStorage.setItem("nux-preview", "0"); } catch {} }
+    if (preview) {
+      try { localStorage.setItem("nux-preview", "0"); } catch {}
+      document.cookie = "nux_fresh=1; path=/; max-age=7200; samesite=lax";  // the home page shows a day-one office
+    }
     else await savePrefs({ nux: "0" });
     router.push("/");
     router.refresh();
@@ -208,11 +220,11 @@ export default function JoinFlow({ token, name, owner, hasKey, signedIn, preview
             <li>Kalshi shows you <strong>two things, only once</strong>. Keep this page open next to it.</li>
           </ol>
           <div className="key-sample">
-            <div className="key-sample-label"><strong>1. The Key ID</strong>: the key&apos;s name tag. One short line of numbers, letters and dashes. Copy it.</div>
+            <div className="key-sample-label"><strong>The Key ID</strong>: the key&apos;s name tag. One short line of numbers, letters and dashes. Copy it. Ex:</div>
             <code>1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d</code>
           </div>
           <div className="key-sample">
-            <div className="key-sample-label"><strong>2. The private key</strong>: the secret part. A long block of about 25 lines; Kalshi offers it as a file. Download it.</div>
+            <div className="key-sample-label"><strong>The private key</strong>: the secret part. A long block of about 25 lines; Kalshi offers it as a file. Download it. Ex:</div>
             <pre>{"-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEAu3x9Lk2vQ8b…\nq7Hc0Zt1mPa4W9sdf0Kx2Ln5Rr…\n…about 25 lines like these…\n-----END RSA PRIVATE KEY-----"}</pre>
           </div>
           <p className="muted small">
@@ -250,18 +262,12 @@ export default function JoinFlow({ token, name, owner, hasKey, signedIn, preview
               <Hint c={pemCheck} />
             </div>
           </div>
-          <ul className="howto small nux-rules">
-            <li><strong>Paste all of it</strong>, from <code>-----BEGIN</code> to <code>-----END … KEY-----</code>, those two lines included.</li>
-            <li>Copied it without the <code>-----</code> lines? That&apos;s fine too: we add them back.</li>
-            <li>Spaces and line breaks don&apos;t matter.</li>
-          </ul>
+          <p className="nux-rules"><strong>Paste all of it, including the BEGIN and END comments.</strong></p>
           <p className="muted small">
             It&apos;s checked with Kalshi, then locked so that only the desk&apos;s server can use it. Nobody can read it
             back, including this website.
           </p>
-          <button className="btn primary big" disabled={pending || !ready} onClick={connect}>
-            {pending ? "Checking with Kalshi…" : "Connect"}
-          </button>
+          <button className="btn primary big" disabled={pending || !ready} onClick={connect}>Connect</button>
           <button className="link-btn" onClick={() => go(2)}>← How do I make a key?</button>
         </>
       )}
@@ -269,7 +275,16 @@ export default function JoinFlow({ token, name, owner, hasKey, signedIn, preview
       {step === 4 && (
         <>
           <h2>Put Money In <span className="muted">(optional)</span></h2>
-          <p className="nux-balance up">✓ Your Kalshi key works.</p>
+          {testing ? (
+            <div className="nux-testing" role="status">
+              <span className="nux-spinner" aria-hidden />
+              <div>
+                <strong>Testing your key with Kalshi…</strong>
+                <div className="muted small">Asking Kalshi live for your balance. This takes a few seconds.</div>
+              </div>
+            </div>
+          ) : (<>
+          <p className="nux-balance up">✓ Kalshi accepted your key.</p>
           {balance != null && (
             <p className="nux-balance">Kalshi says your account has <strong>${balance.toFixed(2)}</strong>{funded ? " ✓" : " so far."}</p>
           )}
@@ -281,7 +296,7 @@ export default function JoinFlow({ token, name, owner, hasKey, signedIn, preview
               <ol className="howto">
                 <li>On <a href="https://kalshi.com" target="_blank" rel="noreferrer">kalshi.com</a>, tap <strong>Deposit</strong>.</li>
                 <li>Start small, like $50. Card deposits usually show up within minutes; bank transfers can take a few days.</li>
-                <li>The office notices the money about 10 minutes after it lands and starts betting. Nothing to do here.</li>
+                <li>The office automatically notices the money about 10 minutes after it lands and starts betting.</li>
               </ol>
             </>
           )}
@@ -293,6 +308,7 @@ export default function JoinFlow({ token, name, owner, hasKey, signedIn, preview
               <button className="btn big" onClick={() => { setDeposited(false); go(5); }}>Skip for now</button>
             </div>
           )}
+          </>)}
         </>
       )}
 
@@ -304,7 +320,7 @@ export default function JoinFlow({ token, name, owner, hasKey, signedIn, preview
               : deposited ? "Your office opens within a couple of minutes. Once your deposit lands on Kalshi, the staff start betting with it within about 10 minutes."
               : "Your office opens within a couple of minutes. Put money in on Kalshi whenever you like: the staff start betting about 10 minutes after it lands."}
           </p>
-          <p>Next, a quick tour of the app: tap the highlighted thing at each step.</p>
+          <p>Next, a tour of the app.</p>
           <button className="btn primary big" disabled={pending} onClick={tour}>Start the tour →</button>
           <button className="link-btn" onClick={() => go(4)}>← Back</button>
         </>

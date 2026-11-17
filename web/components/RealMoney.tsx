@@ -84,10 +84,10 @@ export default function RealMoney({ trading, killSwitch, admin, mine, office }: 
         )}
       </dl>
       {(mine || admin) && (
-        <div className="row-btns">
+        <div className="row-btns" data-tour="pause">
           {mine && (halted
-            ? <button className="btn primary" data-tour="pause" disabled={pending || (everyone && !admin)} onClick={resume}>▶️ Resume my betting</button>
-            : <button className="btn" data-tour="pause" disabled={pending} onClick={pause}>⏸ Pause my betting</button>)}
+            ? <button className="btn primary" disabled={pending || (everyone && !admin)} onClick={resume}>▶️ Resume my betting</button>
+            : <button className="btn" disabled={pending} onClick={pause}>⏸ Pause my betting</button>)}
           {admin && (everyone
             ? <button className="btn primary" disabled={pending}
                 onClick={() => confirm("Resume trading for everyone?") && run(resumeAllTrading, "Everyone bets again from the next run")}>

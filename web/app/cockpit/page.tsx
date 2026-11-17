@@ -18,6 +18,8 @@ import OfficeTable, { type OfficeRow } from "@/components/OfficeTable";
 import SkillGauge from "@/components/SkillGauge";
 import DayStrip from "@/components/DayStrip";
 import { viewOffice } from "../account";
+import { currentUser, officeOf } from "@/lib/session";
+import { previewFresh } from "@/lib/fresh";
 
 export const dynamic = "force-dynamic";
 
@@ -75,7 +77,8 @@ function returnLine(o: Office, color: string): ReturnLine {
 export default async function CockpitPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   await requireViewer();
   const range = parseRange((await searchParams).range, "week");
-  const admin = await isAdmin();
+  const [admin, user] = await Promise.all([isAdmin(), currentUser()]);
+  const fresh = await previewFresh(admin);
   const offices = await loadOffices();
   // The manager's to-do list for their real-money office (moved here from the old Team page, 11-16)
   let todo: { e: Employee; advice: Advice }[] = [];
@@ -109,9 +112,19 @@ export default async function CockpitPage({ searchParams }: { searchParams: Prom
   const start = Math.min(...offices.map((o) => o.since));
   const stripDays = Math.min(Math.min(30, Math.max(7, rangeDays ?? 30)), Math.ceil((now - start) / 86_400_000));
 
+  // What it might do for the person looking (the new-user tour's selling point, 11-17): the pace of every office
+  // together, as profit per dollar per day (money-weighted, no compounding), at HALF that pace for six months. Their
+  // own office's money, or $100 if they have none in yet (and in the manager's preview of a new friend).
+  const mineBook = admin ? "real" : officeOf(user);
+  const theirs = fresh ? 0 : offices.find((o) => o.book === mineBook)?.worth ?? 0;
+  const moneyDays = offices.reduce((s, o) => s + ((o.putIn + o.worth) / 2) * Math.max(0, (now - o.since) / 86_400_000), 0);
+  const pace = moneyDays > 0 ? profit / moneyDays : 0;
+  const base = theirs >= 1 ? theirs : 100;
+  const later6 = base * (1 + Math.max(0, pace) * 182 * 0.5);
+
   // What a newcomer asks: what did a dollar turn into, does it win most days, is it skill?
   const working = (
-    <Card title="Is It Working?">
+    <Card title="Is It Working?" className="is-working">
       <div className="working">
         <SkillGauge e={odds} />
         <div className="working-facts">
@@ -128,6 +141,16 @@ export default async function CockpitPage({ searchParams }: { searchParams: Prom
         </div>
       </div>
       {stripDays > 0 && <div className="working-days"><DayStrip bets={all} tz="America/Vancouver" n={stripDays} /></div>}
+      <div className="working-estimate" data-base={Math.round(base)} data-later={Math.round(later6)} data-has={theirs >= 1 ? "1" : ""}>
+        <div>
+          {theirs >= 1 ? <>With your <strong>{dollars(base)}</strong></> : <>With <strong>$100</strong> put in today</>}, our estimate is
+          about <strong className="up">{dollars(later6)}</strong> in 6 months.
+        </div>
+        <p className="muted small">
+          A rough guess, not a promise: it assumes the next 6 months go at half the pace of every office so far. Bad days
+          happen too, like Nov 17 (about −20% in a day).
+        </p>
+      </div>
     </Card>
   );
 

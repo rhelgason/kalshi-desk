@@ -163,7 +163,10 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
   with live checks in lib/keycheck.ts; connectKalshi sets nux "money": an optional deposit step with the balance
   Kalshi reported; Start the tour sets nux "0"); then components/Tour.tsx (mounted in the layout)
   spotlights one thing per step, saving the step in prefs.nux until "done". Existing users have no nux. The manager's
-  👀 Preview as a new friend (cockpit, Invite card) runs it all on pretend data (a made-up key, a $0/$50 pretend balance; /welcome?preview=1, localStorage).
+  👀 Preview as a new friend (cockpit, Invite card) runs it all on pretend data (a made-up key, a $0/$50 pretend balance; /welcome?preview=1, localStorage), and
+  its tour shows the manager's home as a day-one office (cookie nux_fresh, lib/fresh.ts). The tour ends when they tap a
+  theme. "Is it working?" on the cockpit shows a 6-month estimate (every office's profit per $ per day, at half pace,
+  no compounding) for the viewer's money or $100; the tour quotes it.
   Tour targets are CSS selectors (.money-hero, .team li a, .employee-chart, .cockpit-main, .menu > summary, menu links,
   [data-tour=pause], .theme-tiles): renaming those classes breaks the tour.
 - A weather day can sit unsettled for days on Kalshi's side (NY Nov 13, 2026: "closed", no result, Kalshi's deadline

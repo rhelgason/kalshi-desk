@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { emptyHistory, emptyLive, previewFresh } from "@/lib/fresh";
 import AutoRefresh from "@/components/AutoRefresh";
 import LatestBets from "@/components/LatestBets";
 import HeroChart, { type WhatIfBet, type WhatIfMember } from "@/components/HeroChart";
@@ -72,6 +73,10 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
     if (isOffice(book)) return <OfficeSoon />;
     return <Setup error={String(e)} />;
   }
+  // The manager previewing the new-user tour: their office as a friend's looks on day one (lib/fresh.ts)
+  const fresh = await previewFresh(data.admin);
+  if (fresh) Object.assign(data, { live: data.live && emptyLive(data.live), fills: [], rows: [], bets: [], marks: [],
+                                   money: emptyHistory(data.money, Date.now() - 60_000), kill: null });
   const { realBook, live, fills, roster, policy, money, admin, rows: dayRows, bets, firstDay, kill, marks, office, user, tz } = data;
   // Asked for once the top card's numbers are in, so they don't queue ahead of them (two database connections)
   const later = Promise.all([getAnalysis(book), getNews(book, 40), getBonusPot(book)]);

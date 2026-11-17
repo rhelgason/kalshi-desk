@@ -1,9 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 
-/** Desktop look only: a 1995 taskbar along the bottom, with a Start button and a clock. */
+/** Desktop look only: a 1995 taskbar along the bottom, just for the look: a clock, no buttons (11-17, owner). */
 export default function Taskbar() {
   const [now, setNow] = useState<Date | null>(null);
   useEffect(() => {
@@ -12,11 +11,7 @@ export default function Taskbar() {
     return () => clearInterval(id);
   }, []);
   return (
-    <div className="taskbar" role="navigation" aria-label="Taskbar">
-      <Link href="/" className="start-btn"><span aria-hidden>🪟</span> Start</Link>
-      <span className="task-sep" />
-      <Link href="/" className="task-item">📈 Kalshi Desk</Link>
-      <Link href="/rules" className="task-item task-extra">📜 Office Rules</Link>
+    <div className="taskbar" aria-hidden>
       <span className="task-clock">{now ? now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : ""}</span>
     </div>
   );

@@ -14,41 +14,52 @@ import { savePrefs } from "@/app/account";
  * before them (the open menu, the employee they tapped) go `back` to it instead.
  */
 type Step = {
-  at: RegExp; go?: string; back?: number; target?: string; title: string; body: string;
-  /** tapping the lit thing is the step; `fake`: the tap is shown, not done (the pause button) */
-  click?: boolean; fake?: boolean; wait?: string;
+  at: RegExp; go?: string; back?: number; target?: string; title: string;
+  /** the words; a function reads the lit element (the estimate on "Is it working?") */
+  body: string | ((el: Element | null) => string);
+  /** tapping the lit thing is the step; `end`: that tap also finishes the tour (the theme picker) */
+  click?: boolean; end?: boolean; wait?: string;
   /** an item in the open menu: if it isn't showing, the menu was closed, so go `back` at once */
   quick?: boolean;
 };
 
+const money = (n: string | undefined) => `$${Number(n ?? 0).toLocaleString("en-US")}`;
+
 const STEPS: Step[] = [
-  { at: /^\/$/, go: "/", target: ".money-hero", title: "This is your money",
-    body: "Everything in your office: cash on Kalshi plus the bets riding right now. The number only moves when a bet settles, and the chart shows the story so far.",
+  { at: /^\/$/, go: "/", target: ".money-hero", title: "This is your dashboard",
+    body: "A quick look at how your office is performing. The number only moves when a bet settles, and the chart shows the story so far.",
     wait: "Your office is opening: it takes a couple of minutes after connecting Kalshi. This page refreshes itself, and the tour carries on when it's ready." },
+  { at: /^\/$/, go: "/", target: ".race", title: "Bets riding now",
+    body: "Bets your staff have open right now, waiting to settle (most settle within 15 minutes). It stays empty until your money is in and the first bets go on." },
   { at: /^\/$/, go: "/", target: ".team li a", click: true, title: "Meet your staff",
     body: "Each employee is a bot with one job, like bitcoin's 15-minute markets. Tap one to see their page." },
-  { at: /^\/employee\//, back: 1, target: ".employee-chart", title: "An employee's page",
+  { at: /^\/employee\//, back: 2, target: ".employee-chart", title: "An employee's page",
     body: "How they've done, the bets they have riding, and their level: Intern, Associate, Senior, VP. Every week the office reviews itself: good employees get promoted to bigger bets, and weak ones get benched. You don't have to do anything." },
   { at: /./, target: '.nav a[href="/cockpit"]', click: true, title: "The cockpit", body: "Next, tap Cockpit." },
   { at: /^\/cockpit/, go: "/cockpit", target: ".cockpit-main", title: "Every office together",
-    body: "Everyone's offices on one chart, as a % return. Below it, \"Is it working?\" adds up every office's bets: the honest answer, since one office can be lucky for a few days but all of them over weeks can't." },
+    body: "Every office's return on one chart, as a %. Yours joins it once your staff start betting." },
+  { at: /^\/cockpit/, go: "/cockpit", target: ".is-working", title: "Is it working?",
+    body: (el) => {
+      const d = (el?.querySelector(".working-estimate") as HTMLElement | null)?.dataset ?? {};
+      const est = d.has
+        ? `With your ${money(d.base)} deposited, our estimate puts you at about ${money(d.later)} in 6 months.`
+        : `If you put $100 in today, our estimate puts you at about ${money(d.later)} in 6 months.`;
+      return `The honest answer: every office's bets added up, how often they win, and the odds it's skill rather than luck. ${est} That's a rough guess at half the pace so far, not a promise.`;
+    } },
   { at: /./, target: ".menu > summary", click: true, title: "The menu", body: "Settings and Office Rules live in the menu. Tap it to open it." },
-  { at: /./, back: 5, quick: true, target: '.menu-list a[href="/rules"]', click: true, title: "Office Rules", body: "Tap Office Rules." },
-  { at: /^\/rules/, go: "/rules", target: '[data-tour="pause"]', click: true, fake: true, title: "Your pause button",
-    body: "This button pauses your betting (while betting is paused, it says Resume instead). Tap it to see what it does." },
-  { at: /^\/rules/, go: "/rules", target: '[data-tour="pause"]', title: "That's how you pause",
-    body: "For real, it stops new bets within 2 minutes; bets already on finish as usual, and the button turns into Resume. It stays paused for as long as you like, until you tap Resume. We didn't pause anything just now." },
+  { at: /./, back: 7, quick: true, target: '.menu-list a[href="/rules"]', click: true, title: "Office Rules", body: "Tap Office Rules." },
+  { at: /^\/rules/, go: "/rules", target: '[data-tour="pause"]', title: "Pausing",
+    body: "Pause my betting stops your office's new bets until you resume (bets already on finish as usual), and Stop all trading is the manager's switch that pauses every office at once." },
   { at: /./, target: ".menu > summary", click: true, title: "Last stop", body: "Open the menu again." },
-  { at: /./, back: 9, quick: true, target: '.menu-list a[href="/settings"]', click: true, title: "Settings", body: "Tap Settings." },
-  { at: /^\/settings/, go: "/settings", target: ".theme-tiles", click: true, title: "Pick a look",
-    body: "Four styles, each in dark or light. Tap one you like; you can change it any time." },
-  { at: /./, title: "You're all set! 🎉",
-    body: "That's the whole office, and it runs itself. Haven't put money in yet? Deposit on Kalshi whenever you like: the office notices within about 10 minutes and the staff start betting. Small bets, many times a day." },
+  { at: /./, back: 10, quick: true, target: '.menu-list a[href="/settings"]', click: true, title: "Settings", body: "Tap Settings." },
+  { at: /^\/settings/, go: "/settings", target: ".theme-tiles", click: true, end: true, title: "Pick a look",
+    body: "Pick a style you like, and try a few. Tap My Office whenever you want to go back to your dashboard." },
 ];
 
 const PREVIEW = "nux-preview";
 const PAD = 6;
-type Box = { top: number; left: number; width: number; height: number };
+/** where the lit element is; `clip`: the bottom of the sticky header, which the outline never draws over */
+type Box = { top: number; left: number; width: number; height: number; clip: number };
 
 const visible = (el: Element | null): el is HTMLElement => {
   if (!el) return false;
@@ -85,7 +96,11 @@ export default function Tour({ start }: { start: number | null }) {
   }, [preview]);
 
   const moveTo = useCallback((n: number) => { setStep(n); setBox(null); save(n); }, [save]);
-  const finish = useCallback(() => { save("done"); setStep(null); if (path !== "/") router.push("/"); }, [save, path, router]);
+  // Done: they stay where they are (the theme picker, to try a few looks); the preview's day-one office ends too
+  const finish = useCallback(() => {
+    save("done"); setStep(null);
+    if (preview) { document.cookie = "nux_fresh=; path=/; max-age=0"; router.refresh(); }
+  }, [save, preview, router]);
 
   const s = step != null ? STEPS[Math.min(step, STEPS.length - 1)] : null;
 
@@ -108,8 +123,10 @@ export default function Tour({ start }: { start: number | null }) {
       if (visible(el)) {
         if (!scrolled) { el.scrollIntoView({ block: "center", behavior: "smooth" }); scrolled = true; }
         const r = el.getBoundingClientRect();
-        setBox((b) => (b && b.top === r.top && b.left === r.left && b.width === r.width && b.height === r.height ? b
-          : { top: r.top, left: r.left, width: r.width, height: r.height }));
+        const bar = document.querySelector(".topbar");
+        const clip = bar && !bar.contains(el) && getComputedStyle(bar).position !== "static" ? bar.getBoundingClientRect().bottom : 0;
+        setBox((b) => (b && b.top === r.top && b.left === r.left && b.width === r.width && b.height === r.height && b.clip === clip ? b
+          : { top: r.top, left: r.left, width: r.width, height: r.height, clip }));
         setMissing(false);
         setDisabled((el as HTMLButtonElement).disabled === true);
         since = performance.now();
@@ -134,23 +151,24 @@ export default function Tour({ start }: { start: number | null }) {
     const onClick = (e: MouseEvent) => {
       const el = document.querySelector(s.target!);
       if (!el || !el.contains(e.target as Node)) return;
-      if (s.fake) { e.preventDefault(); e.stopPropagation(); }
-      moveTo(step + 1);
+      if (s.end) finish();
+      else moveTo(step + 1);
     };
     document.addEventListener("click", onClick, true);
     return () => document.removeEventListener("click", onClick, true);
-  }, [s, step, moveTo]);
+  }, [s, step, moveTo, finish]);
 
   useLayoutEffect(() => { if (cardRef.current) setCardH(cardRef.current.offsetHeight); }, [step, box, missing]);
 
   if (!s || step == null) return null;
-  const last = step >= STEPS.length - 1;
   // Next only once the lit thing is showing, so nobody skips a step while the page is still loading
   const showNext = (!s.click && (!s.target || !!box || missing)) || disabled || (s.click && missing && !s.wait);
   const W = typeof window === "undefined" ? 400 : window.innerWidth, H = typeof window === "undefined" ? 800 : window.innerHeight;
 
   // The hole: the lit element plus a little room. No hole (a look-only step or nothing to light): dim everything.
-  const hole = box ? { top: box.top - PAD, left: box.left - PAD, width: box.width + PAD * 2, height: box.height + PAD * 2 } : null;
+  // Scrolled partly under the sticky header: the hole (and its outline) starts below it; fully under: no hole
+  const top = box ? Math.max(box.top - PAD, box.clip) : 0, bottom = box ? box.top + box.height + PAD : 0;
+  const hole = box && bottom - top > 8 ? { top, left: box.left - PAD, width: box.width + PAD * 2, height: bottom - top } : null;
   const card: React.CSSProperties = { left: 16, right: 16 };
   if (!hole) Object.assign(card, { top: Math.max(16, (H - cardH) / 2) });
   else {
@@ -181,15 +199,13 @@ export default function Tour({ start }: { start: number | null }) {
       )}
       <div className="tour-card" ref={cardRef} style={card}>
         <div className="tour-top">
-          <span className="muted small">{last ? "Tour done" : `Tour · ${step + 1} of ${STEPS.length - 1}`}</span>
+          <span className="muted small">Tour · {step + 1} of {STEPS.length}</span>
           {preview && <button type="button" className="link-btn small" onClick={finish}>End preview</button>}
         </div>
         <h3>{s.title}</h3>
-        <p>{missing && s.wait ? s.wait : s.body}</p>
-        {s.click && hole && !disabled && <p className="tour-tap small">👆 Tap the highlighted {s.target === ".theme-tiles" ? "style" : "spot"}</p>}
-        {last ? (
-          <button type="button" className="btn primary" onClick={finish}>Go to my office</button>
-        ) : showNext && !(missing && s.wait) ? (
+        <p>{missing && s.wait ? s.wait
+          : typeof s.body === "function" ? s.body(typeof document === "undefined" || !s.target ? null : document.querySelector(s.target)) : s.body}</p>
+        {showNext && !(missing && s.wait) ? (
           <button type="button" className="btn primary" onClick={() => moveTo(step + 1)}>Next</button>
         ) : null}
       </div>
