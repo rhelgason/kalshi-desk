@@ -20,7 +20,7 @@ const sumAt = (l: ReturnLine, t: number) => {
  * the scale on the right, the readout above, drag to read any moment. Offices of different sizes and ages share
  * one scale the standard way (a stock site's "compare"): each line starts at 0% where the range starts (or where
  * the office started, if later), and measures profit since then over what the office was worth then. The table under
- * it is the legend, so the readout shows all offices together until you drag, then each office at that moment.
+ * it is the legend, so the readout shows all offices together until you drag, then each office (by name) at that moment.
  */
 export default function ReturnsChart({ lines, from, now, checked, height = 240 }: {
   lines: ReturnLine[]; from: number; now: number; checked?: string | null; height?: number;
@@ -76,7 +76,8 @@ export default function ReturnsChart({ lines, from, now, checked, height = 240 }
             const v = valueAt(pts, ht);
             return v == null ? null : (
               <span key={l.key} className="readout-item">
-                <span className="swatch" style={{ background: l.color }} /> <strong className={v >= 0 ? "up" : "down"}>{pct(v, true, 1)}</strong>
+                <span className="swatch" style={{ background: l.color }} /> {l.label}{" "}
+                <strong className={v >= 0 ? "up" : "down"}>{pct(v, true, 1)}</strong>
               </span>
             );
           })}
