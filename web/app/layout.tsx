@@ -1,31 +1,33 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Oswald, Press_Start_2P } from "next/font/google";
-import { cookies } from "next/headers";
+import { IBM_Plex_Mono, Inter, Press_Start_2P } from "next/font/google";
 import Link from "next/link";
-import Avatar from "@/components/Avatar";
 import NavButtons from "@/components/NavButtons";
 import PullToRefresh from "@/components/PullToRefresh";
-import ThemePicker from "@/components/ThemePicker";
-import Ticker from "@/components/Ticker";
+import NavProgress from "@/components/NavProgress";
+import HeaderLink from "@/components/HeaderLink";
+import SubmitButton from "@/components/SubmitButton";
 import Taskbar from "@/components/Taskbar";
-import { THEMES, THEME_COOKIE, parseTheme } from "@/lib/theme";
-import { getRealBook, viewedBook } from "@/lib/book";
+import { barColor } from "@/lib/theme";
+import { readLook } from "@/lib/look";
+import Avatar from "@/components/Avatar";
+import { getOffice, getRealBook, viewedBook } from "@/lib/book";
+import { isOffice } from "@/lib/db";
 import { isAdmin } from "@/lib/admin";
 import { currentUser } from "@/lib/session";
-import { logoutAction } from "./actions";
-import { signOut } from "./account";
+import { viewOffice } from "./account";
+import Menu from "@/components/Menu";
 import "./globals.css";
-import "./themes/clean.css";
-import "./themes/broadcast.css";
+import "./themes/base.css";
+import "./themes/studio.css";
+import "./themes/office.css";
 import "./themes/desktop.css";
+import "./themes/terminal.css";
 
 const pixel = Press_Start_2P({ weight: "400", subsets: ["latin"], variable: "--font-pixel", display: "swap" });
 // The other looks' type: only downloaded by a browser when its theme uses it
 const sans = Inter({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
-const condensed = Oswald({ subsets: ["latin"], variable: "--font-condensed", display: "swap" });
+const mono = IBM_Plex_Mono({ weight: ["400", "500", "600", "700"], subsets: ["latin"], variable: "--font-mono", display: "swap" });
 
-// This device's pick, else the one saved with their login (app/account.ts savePrefs)
-const theme = async () => parseTheme((await cookies()).get(THEME_COOKIE)?.value ?? ((await currentUser())?.prefs.theme as string));
 
 export const metadata: Metadata = {
   title: "Kalshi Desk",
@@ -35,51 +37,50 @@ export const metadata: Metadata = {
 };
 
 export async function generateViewport(): Promise<Viewport> {
-  return { themeColor: THEMES[await theme()].color, viewportFit: "cover" };
+  const { theme, mode } = await readLook();
+  return { themeColor: barColor(theme, mode), viewportFit: "cover" };
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const [admin, real, book, look, user] = await Promise.all([isAdmin(), getRealBook(), viewedBook(), theme(), currentUser()]);
-  const friend = user?.role === "friend";
+  const [admin, real, book, { theme: look, mode }, user] = await Promise.all([isAdmin(), getRealBook(), viewedBook(), readLook(), currentUser()]);
+  const office = await getOffice(book);
+  // The manager looking at a friend's office: the header takes them back to their own view
+  const inOffice = admin && isOffice(book);
   return (
-    <html lang="en" data-theme={look} className={`${pixel.variable} ${sans.variable} ${condensed.variable}`}>
+    <html lang="en" data-theme={look} data-mode={mode} className={`${pixel.variable} ${sans.variable} ${mono.variable}`}>
       <body>
+        <NavProgress stamp={Date.now()} />
         <PullToRefresh />
         {/* Theme decorations: each shows only in its own look (CSS), and costs nothing elsewhere */}
-        {look === "broadcast" && <Ticker book={book} />}
         <div className="shell">
           <header className="topbar">
-            <Link href="/" className="brand">
-              <Avatar k="dart_monkey" size={36} />
-              <span className="brand-name">KALSHI DESK</span>
-            </Link>
+            <HeaderLink href="/" leave={inOffice} className="brand">
+              <span className="brand-mark"><Avatar k="dart_monkey" size={34} /></span>
+              <span className="brand-name">Kalshi <em>Desk</em></span>
+            </HeaderLink>
             <nav className="nav">
-              {/* A friend sees their own office only: no Live/Training tabs */}
-              {!friend && <NavButtons book={book} hasLive={!!real} />}
-              <details className="menu">
-                <summary aria-label="More">☰</summary>
-                <div className="menu-list">
-                  <ThemePicker current={look} />
-                  <Link href="/settings">📜 Desk rules</Link>
-                  {!friend && <Link href="/backtests">🕹️ Practice runs</Link>}
-                  {admin && <Link href="/offices">🏢 Friends&apos; offices</Link>}
-                  {user ? (
-                    <>
-                      <Link href="/login">👤 {user.name}{user.role === "owner" ? " · manager" : ""}</Link>
-                      <form action={signOut}><button>🚪 Sign out</button></form>
-                    </>
-                  ) : admin ? (
-                    <>
-                      <Link href="/login">📱 Remember this device</Link>
-                      <form action={logoutAction}><button>👔 Manager · log out</button></form>
-                    </>
-                  ) : (
-                    <Link href="/login">🔑 Sign in</Link>
-                  )}
-                </div>
-              </details>
+              {(user || admin) && <NavButtons book={book} hasLive={!!real} manager={admin} inOffice={inOffice} />}
+              {/* The same two places for everyone signed in (11-17): their own settings (account, sign-out, look) and the
+                  office's rules. Invites live on the cockpit now */}
+              <Menu label={user ? user.name : admin ? "Manager" : "Menu"}>
+                {user || admin ? (
+                  <>
+                    <HeaderLink href="/settings" leave={inOffice}>⚙️ Settings</HeaderLink>
+                    <HeaderLink href="/rules" leave={inOffice}>📜 Office Rules</HeaderLink>
+                  </>
+                ) : (
+                  <Link href="/login">🔑 Sign in</Link>
+                )}
+              </Menu>
             </nav>
           </header>
+          {/* The manager looking at a friend's office: always say whose, with the way back */}
+          {inOffice && (
+            <div className="viewing-bar">
+              <span>Viewing <strong>{office?.name ?? "a friend"}&apos;s office</strong></span>
+              <form action={viewOffice.bind(null, null)}><SubmitButton className="btn small primary">← Back to my office</SubmitButton></form>
+            </div>
+          )}
           {children}
         </div>
         {look === "desktop" && <Taskbar />}

@@ -18,7 +18,7 @@ export default function TradeFeed({ fills, employees }: { fills: Fill[]; employe
         const won = settled && (f.side === "yes" ? f.yes_value! >= 0.5 : f.yes_value! < 0.5);
         return (
           <li key={f.id}>
-            <Avatar k={f.strategy} emoji={e?.emoji ?? "•"} size={28} />
+            <Avatar k={f.strategy} emoji={e?.emoji ?? "•"} size={36} />
             <div className="what">
               <div>
                 <strong>{e ? shortName(e.name) : f.strategy}</strong> bet {money(f.count * f.price, false)} {what(f)}{" "}

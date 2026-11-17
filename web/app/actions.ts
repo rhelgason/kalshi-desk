@@ -2,7 +2,7 @@
 
 import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
-import { login, logout, requireAdmin } from "@/lib/admin";
+import { login, requireAdmin } from "@/lib/admin";
 import { cookies } from "next/headers";
 import { BOOK_COOKIE, viewedBook, type Book } from "@/lib/book";
 import { bookTag, db, getLive, getPolicy, isOffice } from "@/lib/db";
@@ -41,11 +41,6 @@ function done(paths: string[] = ["/"]) {
 export async function loginAction(_: unknown, form: FormData) {
   if (!(await login(String(form.get("password") ?? "")))) return { error: "Wrong password" };
   redirect(String(form.get("next") || "/"));
-}
-
-export async function logoutAction() {
-  await logout();
-  redirect("/");
 }
 
 export async function suspendEmployee(key: string, days: number | null, reason: string) {
@@ -208,10 +203,16 @@ export async function resumeTrading() {
   done(["/settings", "/"]);
 }
 
-/** The Real / Pretend tabs: remember which book this visitor is looking at. */
+/**
+ * My office / Training: which of the owner's books to show. The app always opens on My office (11-16, owner), so
+ * Training is only remembered for an hour, and picking My office forgets any other pick.
+ */
 export async function pickBook(book: Book) {
-  (await cookies()).set(BOOK_COOKIE, book === "real" ? "real" : "pretend",
-    { path: "/", maxAge: 365 * 86_400, sameSite: "lax", httpOnly: true, secure: true });
-  revalidatePath("/", "layout");
+  const jar = await cookies();
+  if (book === "pretend") jar.set(BOOK_COOKIE, "pretend", { path: "/", maxAge: 3600, sameSite: "lax", httpOnly: true, secure: true });
+  else jar.delete(BOOK_COOKIE);
+  // No revalidatePath here: in Next 15 it also marks every cached database read made while drawing a page as stale
+  // (unstable_cache's implicit path tags), so each switch threw the whole cache away (11-17). The page reads the
+  // cookie afresh on the refresh that follows.
 }
 

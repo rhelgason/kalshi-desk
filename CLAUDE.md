@@ -110,9 +110,20 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
   Same staff and rules as the real book (playbook synced every 10 min: hires, firings, settings, bet size); own pool,
   levels, reviews, awards, pause button; no phone pings. They decide on the owner's clock (Desk.lag) and join a family
   bid instead of topping it (Desk.family), so they never get ahead of the owner. Website: passkey logins, 400-day
-  sessions (lib/session.ts), invites from /offices (manager), sign-up at /join/<token>; a friend sees only their office.
+  sessions (lib/session.ts), invites from the cockpit's Invite a Friend card (manager; /offices redirects there since 11-17), sign-up at /join/<token>; a friend sees only their office.
   Kalshi keys are locked to the server's key (/etc/kalshi-desk-offices.pem; public half in web/lib/vault.ts).
   Tables: deploy/friends.sql. Manager actions refuse office books (app/actions.ts managedBook).
+- **11-16: website speed.** Training's season is ~40,000 bets (5 MB, over Next's 2 MB cache limit), so pages no
+  longer read every bet: after each run the bot writes the season by day (status row `_page`, one row per employee per
+  day, added up inside Postgres; Ledger.publish_page_summary) and pages take single bets only for the latest two weeks
+  (web/lib/season.ts betWindow; past days cached for hours, today's after each report) and daily rows before that. The
+  bot then calls /api/warm (desk/cloud.py warm_site; `DESK_WARM_URL=off` stops it). Never pass whole-season bets to a page.
+  Don't call `revalidatePath` just to refresh the screen: in Next 15 it marks every cached database read stale
+  (unstable_cache's implicit path tags), which made every book switch slow until 11-17. Use revalidateTag(bookTag) for data.
+- **11-17: four themes on one shared look** (web/app/themes): base.css is Studio's styling for every page and shared
+  piece; studio/office/desktop/terminal.css only set colours, type, corner sizes (`--r-pill/xl/lg/md/sm`) and a few
+  decorations, each in dark and light. New pieces: style them in base.css with `var(--r-*)` corners, never a theme file.
+  Everyone was reset to dark Studio (cookie/pref names `skin`/`shade`); a signed-in person's pick follows them to every device.
 - **Fast Sadie trial** on the server (desk/fast.py, from 2026-10-26 07:12 UTC): always-on bid vs a 2-minute cron twin,
   pretend money from $87.63 each. `python -m desk fast-report`. So far it fills more, not better per $1.
 

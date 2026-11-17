@@ -1,0 +1,94 @@
+/* ==========================================================================
+   Terminal (11-17): a trading screen on the shared look (base.css). One monospaced typeface, square corners,
+   hairline rules instead of shadows, small capital labels, amber for what's picked. Dark (amber on black) or light
+   (ink on paper).
+   ========================================================================== */
+html[data-theme="terminal"] {
+  color-scheme: light;
+  --page: #f7f5ef;
+  --surface-1: #fffefa;
+  --surface-2: #efece3;
+  --text-primary: #141310;
+  --text-secondary: #3f3c35;
+  --text-muted: #7c776c;
+  --grid: #e6e1d5;
+  --axis: #bdb6a6;
+  --border: #d8d2c3;
+  --series-1: #b36b00;
+  --series-2: #1f6fb2;
+  --deemph: #ddd7c8;
+  --up: #0a7d2c;
+  --down: #c4271d;
+  --good: #0a7d2c;
+  --warning: #b36b00;
+  --critical: #c4271d;
+  --coin: #b36b00;
+  --wash: rgba(179, 107, 0, 0.07);
+  --shadow: rgba(20, 19, 16, 0.08);
+  --r-pill: 2px; --r-xl: 2px; --r-lg: 2px; --r-md: 2px; --r-sm: 2px;
+  --pixel: var(--font-mono), ui-monospace, Menlo, monospace;
+  font-family: var(--font-mono), ui-monospace, Menlo, monospace;
+}
+html[data-theme="terminal"]:not([data-mode="light"]) {
+  color-scheme: dark;
+  --page: #050505;
+  --surface-1: #0d0d0c;
+  --surface-2: #171614;
+  --text-primary: #ece7dc;
+  --text-secondary: #b9b2a3;
+  --text-muted: #7a7466;
+  --grid: #1f1e1b;
+  --axis: #3a3833;
+  --border: #2a2925;
+  --series-1: #ffb000;
+  --series-2: #4fc3f7;
+  --deemph: #2c2a26;
+  --up: #3fdc6f;
+  --down: #ff5a4e;
+  --good: #3fdc6f;
+  --warning: #ffb000;
+  --critical: #ff5a4e;
+  --coin: #ffb000;
+  --wash: rgba(255, 176, 0, 0.08);
+  --shadow: rgba(0, 0, 0, 0.5);
+}
+html[data-theme="terminal"] body { font-size: 13.5px; font-feature-settings: normal; }
+
+/* Square corners, hairlines, no soft shadows */
+html[data-theme="terminal"] .card, html[data-theme="terminal"] .player-card { border-radius: 2px; box-shadow: none; }
+html[data-theme="terminal"] .btn, html[data-theme="terminal"] .chip, html[data-theme="terminal"] .badge, html[data-theme="terminal"] .theme-tile,
+html[data-theme="terminal"] .settings-rows, html[data-theme="terminal"] .control, html[data-theme="terminal"] .segmented,
+html[data-theme="terminal"] .segmented button, html[data-theme="terminal"] .seg, html[data-theme="terminal"] .seg a,
+html[data-theme="terminal"] .views, html[data-theme="terminal"] .nav-btn, html[data-theme="terminal"] .stat-row,
+html[data-theme="terminal"] .avatar, html[data-theme="terminal"] .brand-mark, html[data-theme="terminal"] .lvl,
+html[data-theme="terminal"] .day, html[data-theme="terminal"] .menu-list a, html[data-theme="terminal"] .theme-preview,
+html[data-theme="terminal"] input, html[data-theme="terminal"] select { border-radius: 2px; }
+html[data-theme="terminal"] .menu-list, html[data-theme="terminal"] .nav-btn[aria-current="page"],
+html[data-theme="terminal"] .seg a[aria-current="true"], html[data-theme="terminal"] .segmented button[aria-checked="true"] { box-shadow: none; }
+
+/* Labels as a screen's column heads: small capitals, spaced, in the accent */
+html[data-theme="terminal"] .card h2, html[data-theme="terminal"] .card-head h2, html[data-theme="terminal"] .section-title {
+  font-size: 12px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--series-1); }
+html[data-theme="terminal"] .stat-label, html[data-theme="terminal"] th { letter-spacing: 0.08em; text-transform: uppercase; font-size: 11px; }
+html[data-theme="terminal"] .brand-name { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; }
+html[data-theme="terminal"] .brand-name em { color: var(--series-1); }
+html[data-theme="terminal"] .office-title { font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
+
+/* The money number: flat, coloured, mono (no gradient) */
+html[data-theme="terminal"] .money-hero .big-number { font-weight: 600; letter-spacing: -0.04em; background: none;
+  -webkit-background-clip: border-box; background-clip: border-box; }
+html[data-theme="terminal"] .money-hero .big-number.up { color: var(--up); background-image: none; }
+html[data-theme="terminal"] .money-hero .big-number.down { color: var(--down); background-image: none; }
+
+/* What's picked: the accent, with dark ink on it */
+html[data-theme="terminal"] .nav-btn[aria-current="page"], html[data-theme="terminal"] .seg a[aria-current="true"],
+html[data-theme="terminal"] .segmented button[aria-checked="true"] { background: var(--series-1); color: var(--page); }
+html[data-theme="terminal"] .btn.primary { background: var(--series-1); color: var(--page); border-color: var(--series-1); }
+html[data-theme="terminal"] .brand-mark { box-shadow: none; }
+
+/* Level chips: flat colours, no glow or sheen */
+html[data-theme="terminal"] .lvl { box-shadow: none; }
+html[data-theme="terminal"] .lvl-3::after { display: none; }
+html[data-theme="terminal"] .menu[open] > summary { border-radius: 2px 2px 0 0; }
+html[data-theme="terminal"] .menu[open] .menu-list { border-radius: 2px 0 2px 2px; }
+html[data-theme="terminal"] .menu[open] .menu-list { box-shadow: none; }

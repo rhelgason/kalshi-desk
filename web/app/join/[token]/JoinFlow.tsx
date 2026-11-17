@@ -52,7 +52,7 @@ export default function JoinFlow({ token, name, owner, hasKey, signedIn }:
   });
 
   return (
-    <div className="card narrow stack">
+    <div className="card narrow stack auth">
       <div className="steps" aria-hidden>{[0, 2, 3].map((s) => <span key={s} data-on={step >= s ? "" : undefined} />)}</div>
 
       {step === 0 && (
@@ -82,7 +82,7 @@ export default function JoinFlow({ token, name, owner, hasKey, signedIn }:
 
       {step === 2 && (
         <>
-          <h2>Connect your Kalshi account</h2>
+          <h2>Connect Your Kalshi Account</h2>
           <p className="sub">The office needs a Kalshi API key to bet for you. It takes a minute (easiest on a computer):</p>
           <ol className="howto">
             <li>No account yet? Sign up at <a href="https://kalshi.com" target="_blank" rel="noreferrer">kalshi.com</a> first. Use this account for the desk only: the office checks every bet against Kalshi, and your own bets would confuse it.</li>
@@ -103,7 +103,7 @@ export default function JoinFlow({ token, name, owner, hasKey, signedIn }:
 
       {step === 3 && (
         <>
-          <h2>You&apos;re in! 🎉</h2>
+          <h2>You&apos;re In!</h2>
           {balance != null && <p>Kalshi says your account has <strong>${balance.toFixed(2)}</strong>.</p>}
           <p>
             Your office opens within a couple of minutes. Whenever you like, put money in on Kalshi (say $50): the

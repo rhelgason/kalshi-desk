@@ -13,8 +13,8 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
   const signedIn = !!user && !!invite?.userId && user.id === invite.userId;
   if (!invite || invite.expired || (invite.used && !signedIn)) {
     return (
-      <div className="card narrow stack">
-        <h2>This invite link doesn&apos;t work</h2>
+      <div className="card narrow stack auth">
+        <h2>This Invite Link Doesn&apos;t Work</h2>
         <p className="sub">{!invite ? "It isn't one we know." : invite.expired ? "It has expired (they last a week)." : "It has been used already."} Ask for a new one.</p>
         <Link href="/login">Already joined? Sign in</Link>
       </div>

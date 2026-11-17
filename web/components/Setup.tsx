@@ -1,7 +1,7 @@
 export default function Setup({ error }: { error: string }) {
   return (
     <div className="card">
-      <h2>Not connected yet</h2>
+      <h2>Not Connected Yet</h2>
       <p className="notice">
         The dashboard reads from the bot&apos;s Postgres database. Set <code>DATABASE_URL</code> (Supabase
         transaction-pooler string) in the Vercel project settings, then redeploy.

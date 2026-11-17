@@ -10,7 +10,7 @@ import { BOOK_COOKIE, getOffice, viewedBook } from "@/lib/book";
 import { bookTag, db, home, isOffice, type Book } from "@/lib/db";
 import { checkLogin, loginOptions, registrationOptions, saveRegistration } from "@/lib/passkeys";
 import { currentUser, endSession, inviteHash, officeOf, setSigned, startSession, takeSigned } from "@/lib/session";
-import { THEME_COOKIE, parseTheme } from "@/lib/theme";
+import { MODE_COOKIE, MODE_PREF, THEME_COOKIE, THEME_PREF, parseMode, parseTheme } from "@/lib/theme";
 import { kalshiBalance, lockKey, tidyPem } from "@/lib/vault";
 
 // Logins, joining, friends' offices (lib/session.ts). Every action returns { error } for the page to show
@@ -33,10 +33,11 @@ function device(ua: string | null): string | null {
 
 async function remember(userId: number) {
   await startSession(userId, await agent());
-  // Their look follows them to a new device
+  // Their look and colours follow them to a new device
   const rows = await home()`SELECT prefs FROM public.users WHERE id = ${userId}`;
-  const theme = rows[0]?.prefs?.theme;
-  if (theme) (await cookies()).set(THEME_COOKIE, parseTheme(theme), { path: "/", maxAge: 365 * 86_400, sameSite: "lax" });
+  const prefs = rows[0]?.prefs ?? {}, jar = await cookies(), year = { path: "/", maxAge: 365 * 86_400, sameSite: "lax" as const };
+  if (prefs[THEME_PREF]) jar.set(THEME_COOKIE, parseTheme(prefs[THEME_PREF]), year);
+  if (prefs[MODE_PREF]) jar.set(MODE_COOKIE, parseMode(prefs[MODE_PREF]), year);
 }
 
 // ---- signing in --------------------------------------------------------------------------------------------
@@ -207,12 +208,24 @@ export async function viewOffice(book: Book | null) {
   if (!(await isAdmin())) return;
   const jar = await cookies();
   if (book && isOffice(book) && (await getOffice(book))) {
-    jar.set(BOOK_COOKIE, book, { path: "/", maxAge: 86_400, sameSite: "lax", httpOnly: true, secure: true });
+    // An hour: the app opens on the owner's own office (11-16)
+    jar.set(BOOK_COOKIE, book, { path: "/", maxAge: 3600, sameSite: "lax", httpOnly: true, secure: true });
   } else {
     jar.delete(BOOK_COOKIE);
   }
-  revalidatePath("/", "layout");
+  // No revalidatePath here: in Next 15 it also marks every cached database read made while drawing a page as stale
+  // (unstable_cache's implicit path tags), so each switch threw the whole cache away (11-17). The page reads the
+  // cookie afresh on the refresh that follows.
   redirect("/");
+}
+
+/** Leave a friend's office for the manager's own view (11-16: any click in the header does this). */
+export async function leaveOffice() {
+  const jar = await cookies();
+  if (isOffice(jar.get(BOOK_COOKIE)?.value)) jar.delete(BOOK_COOKIE);
+  // No revalidatePath here: in Next 15 it also marks every cached database read made while drawing a page as stale
+  // (unstable_cache's implicit path tags), so each switch threw the whole cache away (11-17). The page reads the
+  // cookie afresh on the refresh that follows.
 }
 
 /** A friend's own pause button (the owner can press it too, from their office page). */

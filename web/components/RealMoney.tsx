@@ -29,7 +29,7 @@ export default function RealMoney({ trading, killSwitch, admin }: {
 
   return (
     <section className="card">
-      <h2>💵 Real money</h2>
+      <h2>Real Money</h2>
       <p className="sub">
         {live
           ? `Real orders go to Kalshi${trading.env === "demo" ? "'s demo exchange (practice money)" : ""}. `

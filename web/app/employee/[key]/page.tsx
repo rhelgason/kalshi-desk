@@ -1,286 +1,131 @@
-import { Fragment } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import AdminPanel from "@/components/AdminPanel";
-import Avatar from "@/components/Avatar";
 import AutoRefresh from "@/components/AutoRefresh";
-import { LevelBadge, StatusBadge, Trophies } from "@/components/Badges";
-import NewsFeed from "@/components/NewsFeed";
-import { RealityCheck, SkillCheck } from "@/components/Evidence";
-import CalibrationChart from "@/components/CalibrationChart";
-import AdviceCard from "@/components/AdviceCard";
-import CompareChart from "@/components/CompareChart";
-import RangeTabs from "@/components/RangeTabs";
 import Setup from "@/components/Setup";
-import ManagerBar from "@/components/ManagerBar";
-import { DailyBars, MoneySplit, WinDonut } from "@/components/MiniCharts";
-import TradeFeed from "@/components/TradeFeed";
 import PlayerCard from "@/components/PlayerCard";
+import { StatusBadge, Trophies } from "@/components/Badges";
+import { DailyBars, WinDonut } from "@/components/MiniCharts";
+import LatestBets from "@/components/LatestBets";
+import PortfolioChart from "@/components/PortfolioChart";
+import RaceTrack from "@/components/RaceTrack";
+import SkillGauge from "@/components/SkillGauge";
+import Card from "@/components/ui/Card";
+import { teamNotes } from "@/lib/records";
 import { isAdmin } from "@/lib/admin";
-import { advise, betsPerDay, light } from "@/lib/advice";
-import { HOW_THEY_BET, quip } from "@/lib/voice";
-import { getAnalysis, getHistory, getLive, getNews, getPolicy, getRecentFills, getRoster, getSeasonStart, getSettlementStats, getTuningRuns, getCoinStats, getBets, getMoneyMoves, isOffice, withRoster } from "@/lib/db";
+import { HOW_THEY_BET } from "@/lib/voice";
+import { getAnalysis, getLive, getPolicy, getRecentFills, getRoster, getSeasonStart, getSettlementStats, getBetsSince, getDays, isOffice, withRoster } from "@/lib/db";
+import { betWindow, rateOf, totalsOf } from "@/lib/season";
 import { viewedBook, requireViewer } from "@/lib/book";
-import { cents, dollars, money, pct, tone } from "@/lib/format";
-import { parseRange, poolKeys, profitSeries } from "@/lib/portfolio";
-import { poolShare } from "@/lib/hr";
+import { parseRange, poolKeys, RANGES } from "@/lib/portfolio";
+import RangeTabs from "@/components/RangeTabs";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * One employee (11-16): who they are and how they're doing at the top, their profit line, won / skill or luck / by
+ * day, their bets riding now and their latest bets, then (for the manager) the controls. Every number is from
+ * finished bets, so the page only moves when a bet is decided; the riding card is the exception.
+ */
 export default async function EmployeePage({ params, searchParams }: {
-  params: Promise<{ key: string }>;
-  searchParams: Promise<Record<string, string | undefined>>;
+  params: Promise<{ key: string }>; searchParams: Promise<Record<string, string | undefined>>;
 }) {
   await requireViewer();
   const { key } = await params;
-  const range = parseRange((await searchParams).range);
+  const range = parseRange((await searchParams).range, "week");
   let data;
   try {
     const book = await viewedBook();
     const policy = await getPolicy(book);
-    const [live, history, seasonStart, fills, analysis, roster, news, tuning, admin, stats, coins, bets, marks] = await Promise.all([
-      getLive(book), getHistory(book, policy.season, range), getSeasonStart(book, policy.season),
-      getRecentFills(book, policy.season, 8, key), getAnalysis(book), getRoster(book), getNews(book, 20, key),
-      getTuningRuns(key), isAdmin(), getSettlementStats(book, policy.season, key), getCoinStats(book, policy.season),
-      getBets(book, policy.season), getMoneyMoves(book, policy.season),
+    // Their own season's bets; the team's only from the last two weeks (for their caption) and as season totals.
+    // Whole days, the same as the home page's, so the days gone by come from the cache (lib/db getBetsSince)
+    const tz = policy.pool.timezone || "America/Vancouver";
+    const { since: twoWeeks, today } = betWindow(tz);
+    const [live, seasonStart, fills, analysis, roster, admin, stats, bets, recentAll, dayRows] = await Promise.all([
+      getLive(book), getSeasonStart(book, policy.season), getRecentFills(book, policy.season, 100, key), getAnalysis(book),
+      getRoster(book), isAdmin(), getSettlementStats(book, policy.season, key), getBetsSince(book, policy.season, null, today, key),
+      getBetsSince(book, policy.season, twoWeeks, today), getDays(book, policy.season, tz),
     ]);
+    const totals = totalsOf(dayRows);
     // On Training, can the manager move this employee to real money? (not when they're already there)
     let movable = false;
     if (admin && book === "pretend") {
       const [real, realPolicy] = await Promise.all([getLive("real"), getPolicy("real")]);
       movable = !!real && !real.employees.some((x) => x.key === key) && !realPolicy.hired?.includes(key);
     }
-    data = { live, history, seasonStart, fills, accuracy: analysis.accuracy, evidence: analysis.evidence, realism: analysis.realism,
-             roster, news, tuning, policy, admin: admin && !isOffice(book), stats, coins: coins.filter((r) => r.strategy === key), bets, movable, marks };
+    data = { live, seasonStart, fills, evidence: analysis.evidence, roster, policy, admin: admin && !isOffice(book), stats, bets, recentAll, totals, movable };
   } catch (e) {
     return <Setup error={String(e)} />;
   }
   const base = data.live?.employees.find((x) => x.key === key);
   if (!base || !data.live) notFound();
   const e = withRoster([base], data.roster)[0];
-  const lastTune = data.tuning[0];
-  const acc = data.accuracy.find((a) => a.strategy === key);
   const positions = data.live.positions.filter((p) => p.strategy === key);
-
   const ev = data.evidence[key];
-  const status = light(e, ev);
-  const advice = advise(e, ev, data.realism[key], data.policy, betsPerDay(ev?.bets ?? 0, data.seasonStart));
   const everyone = withRoster(data.live.employees, data.roster);
-  const profits = profitSeries(data.history);
-  const liveT = Date.parse(data.live.updated_at);
-  const series = everyone
-    .filter((x) => profits[x.key]?.length)
-    // End each line at the live profit so the chart's "now" matches the numbers above
-    .map((x) => ({
-      key: x.key, label: x.name, emoji: x.emoji,
-      points: [...profits[x.key], { t: Math.max(liveT, profits[x.key].at(-1)!.t), v: x.pnl ?? 0 }],
-    }));
-  const pnl = e.pnl ?? 0;
-  const settled = (e.wins ?? 0) + (e.losses ?? 0);
+
+  const tz = data.live.pool?.settings?.timezone || "America/Vancouver";
+  const team = poolKeys(data.live);
+  const mine = data.bets;
+  // Their caption, worded against the whole team so it matches the home page's list
+  const caption = teamNotes(team.map((k) => {
+    const x = everyone.find((y) => y.key === k);
+    return { key: k, benched: x?.status === "suspended" || x?.status === "fired", benchedUntil: x?.suspended_until };
+  }), data.recentAll.filter((b) => team.includes(b.strategy)), tz, Date.now(), data.totals)[key];
+  // Their running profit from finished bets over the range picked, drawn like the home chart (break-even dashed),
+  // from their first bet at the earliest so a mid-season hire's line doesn't sit flat before they joined
+  const days = RANGES[range].days;
+  const from = Math.max(mine.length ? mine[0].t - 60_000 : data.seasonStart ?? 0, days == null ? 0 : Date.now() - days * 86_400_000);
+  let run = 0;
+  for (const b of mine) if (b.t < from) run += b.pnl;
+  const profitPoints = [{ t: from, worth: run, putIn: 0 },
+    ...mine.filter((b) => b.t >= from).map((b) => ({ t: b.t, worth: (run += b.pnl), putIn: 0 })), { t: Date.now(), worth: run, putIn: 0 }];
+  // When each open bet filled, for the race
+  const started: Record<string, number> = {};
+  for (const f of data.fills) if (f.yes_value == null) {
+    const k2 = `${f.strategy}|${f.ticker}`, t = Date.parse(f.ts);
+    started[k2] = Math.min(started[k2] ?? t, t);
+  }
+  const dayAgo = Date.now() - 86_400_000;
+  const recent = mine.filter((b) => b.t >= dayAgo);
 
   return (
     <div className="stack">
       <AutoRefresh seconds={60} />
-      <Link href="/" className="muted">← Home</Link>
-      <PlayerCard e={e} bets={data.bets.filter((b) => b.strategy === key)} tz={data.live.pool?.settings?.timezone || "America/Vancouver"}
-        team={poolKeys(data.live).map((k) => ({ key: k, bets: data.bets.filter((b) => b.strategy === k) }))}
-        quote={quip(e)}
-        badges={<>
-          <span className={`light ${status.key}`}>{status.icon} {status.label}</span>
-          <LevelBadge level={e.level} title={e.level_title} />
-          <StatusBadge e={e} />
-          <Trophies n={e.awards} />
-        </>} />
-      <p className="how-they-bet">{HOW_THEY_BET[e.key] ?? e.blurb}</p>
-      {e.note && <div className="notice">📝 {e.note}</div>}
+      <Link href="/" className="muted">← My Office</Link>
+      <PlayerCard e={e} bets={mine} tz={tz} caption={caption} blurb={HOW_THEY_BET[e.key] ?? e.blurb}
+        team={team.map((k) => ({ key: k, n: data.totals[k]?.n ?? 0, perDollar: rateOf(data.totals[k]) }))}
+        badges={<><StatusBadge e={e} /><Trophies n={e.awards} /></>} />
+      {e.note && <div className="notice">{e.note}</div>}
 
-      <div className="money-row">
-        <div className="card tile">
-          <div className="label">{e.control ? "Money given" : "Pool share"}</div>
-          <div className="value">{dollars(e.starting_cash)}</div>
-        </div>
-        <div className="card tile">
-          <div className="label">Worth now</div>
-          <div className="value">{dollars(e.equity)}</div>
-        </div>
-        <div className="card tile">
-          <div className="label">{pnl >= 0 ? "Gained" : "Lost"}</div>
-          <div className={`value ${tone(pnl)}`}>{dollars(pnl, true)}</div>
-          <div className={`note ${tone(pnl)}`}>{pct(e.roi, true)}</div>
-        </div>
-      </div>
-
-      <AdviceCard k={key} name={e.name} advice={advice} admin={data.admin} />
-      {data.admin && <ManagerBar e={e} movable={data.movable} />}
-
-      <section className="card">
-        <h2>Profit over time</h2>
-        <RangeTabs value={range} path={`/employee/${key}`} />
-        <CompareChart series={series} marks={data.marks} focus={key} given={Object.fromEntries(everyone.map((x) => [x.key, x.starting_cash ?? 1000]))}
-          members={poolKeys(data.live)} />
-      </section>
+      <Card title="Profit Over Time" className="employee-chart">
+        <div className="hero-chart-head"><RangeTabs value={range} path={`/employee/${key}`} /></div>
+        <PortfolioChart points={profitPoints} profitOnly="Profit" checked={data.live.updated_at} smooth />
+      </Card>
 
       <div className="grid three">
-        <section className="card">
-          <h2>Bets won</h2>
+        <Card title="Bets Won">
           <WinDonut wins={data.stats.wins} losses={data.stats.losses} open={positions.length} />
-          {data.coins.length > 1 && (
-            <ul className="coin-split small">
-              {data.coins.sort((a, b) => a.coin.localeCompare(b.coin)).map((c) => (
-                <li key={c.coin}>
-                  <span>{c.coin === "BTC" ? "Bitcoin" : c.coin === "ETH" ? "Ether" : c.coin}</span>
-                  <span className="muted">{c.won}/{c.n} won</span>
-                  <strong className={c.pnl >= 0 ? "up" : "down"}>{dollars(c.pnl, true)}</strong>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-        <section className="card">
-          <h2>Where the money went</h2>
-          <MoneySplit won={data.stats.won} lost={data.stats.lost} fees={e.fees ?? 0} />
-        </section>
-        <section className="card">
-          <h2>Profit by day</h2>
+        </Card>
+        <Card title="Skill or Luck?">
+          <SkillGauge e={ev} />
+        </Card>
+        <Card title="Profit by Day">
           <DailyBars days={data.stats.days} />
-        </section>
+        </Card>
       </div>
 
-      <section className="card">
-        <h2>Skill or luck?</h2>
-        <SkillCheck e={ev} />
-      </section>
+      {positions.length > 0
+        ? <RaceTrack positions={positions} employees={everyone} started={started} now={Date.now()} />
+        : <Card title="Riding Now"><div className="empty">Nothing open right now.</div></Card>}
 
-      <div className="grid two">
-        <section className="card">
-          <h2>Bets still open ({positions.length})</h2>
-          {positions.length ? (
-            <div className="table-wrap">
-              <table>
-                <thead><tr><th>Market</th><th className="num">Bet on</th><th className="num">Paid</th><th className="num">Now</th></tr></thead>
-                <tbody>
-                  {positions.slice(0, 5).map((p) => {
-                    const yes = p.yes >= p.no;
-                    const now = p.mark == null ? null : (yes ? p.yes * p.mark : p.no * (1 - p.mark));
-                    return (
-                      <tr key={p.ticker}>
-                        <td className="market"><div>{p.title || p.ticker}</div><div className="muted" style={{ fontSize: 12 }}>{p.subtitle}</div></td>
-                        <td className="num">{(yes ? p.yes : p.no).toFixed(0)} {yes ? "YES" : "NO"}</td>
-                        <td className="num">{money(p.cost, false)}</td>
-                        <td className={`num ${now == null ? "" : tone(now - p.cost)}`}>{now == null ? "–" : money(now, false)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ) : null}
-          {positions.length > 5 && <p className="muted small" style={{ margin: "8px 0 0" }}>…and {positions.length - 5} more.</p>}
-          {positions.length ? null : (
-            <div className="empty">Nothing open right now.</div>
-          )}
-        </section>
-        <section className="card">
-        <h2>Recent bets</h2>
-        <TradeFeed fills={data.fills} employees={data.live.employees} />
-      </section>
-      </div>
-
-      <details className="card fold">
-        <summary><h2>Behind the scenes</h2><span className="muted small">fill check, accuracy, settings, HR file</span></summary>
-        <section className="card" style={{ marginTop: 12 }}>
-          <h2>Would this work with real money?</h2>
-          <p className="sub">Compares each pretend trade with what was really for sale at that moment.</p>
-          <RealityCheck r={data.realism[key]} />
-        </section>
-        <div className="grid two" style={{ marginTop: 12 }}>
-          <section className="card">
-            <h2>Accuracy</h2>
-            <p className="sub">
-              Are this employee&apos;s odds right? Dots below the diagonal mean overconfident. Orange dots show how
-              accurate the market&apos;s own prices were on the same bets.
-            </p>
-            {acc ? (
-              <>
-                <CalibrationChart model={acc.model_bins} market={acc.market_bins} />
-                <div className="table-wrap" style={{ marginTop: 12 }}>
-                  <table>
-                    <tbody>
-                      <tr><td>Settled bets</td><td className="num">{acc.n}</td></tr>
-                      <tr><td>Expected edge / contract</td><td className="num">{cents(acc.expected_edge)}</td></tr>
-                      <tr><td>Realized edge / contract</td><td className={`num ${tone(acc.realized_edge)}`}>{cents(acc.realized_edge)}</td></tr>
-                      <tr><td>Skill vs. market (above 0 = better than the price)</td><td className={`num ${tone(acc.skill)}`}>{pct(acc.skill, true)}</td></tr>
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            ) : (
-              <div className="empty">No settled bets yet.</div>
-            )}
-          </section>
-          <section className="card">
-            <h2>HR file</h2>
-            <dl className="kv" style={{ marginBottom: 12 }}>
-              <dt>Level</dt><dd>{e.level_title} (each bet {poolShare(e.multiplier ?? 1)} of the office pool)</dd>
-              <dt>Awards</dt><dd>{e.awards ?? 0}</dd>
-              <dt>Strikes</dt><dd>{e.strikes ?? 0}</dd>
-              <dt>{e.control ? "Bankroll given" : "Share of the pool at the start"}</dt><dd>{money(e.starting_cash, false)}</dd>
-            </dl>
-            <NewsFeed items={data.news} employees={[e]} />
-          </section>
-        </div>
-        <div style={{ marginTop: 16 }}>
-          <section className="card">
-            <h2>Settings & tuning</h2>
-            <p className="sub">
-              {e.backtestable === false
-                ? "Can't be replayed from price history; the performance reviews judge this employee."
-                : e.autotune
-                  ? `Autotune is on: the background job retests these every ${data.policy.autotune.every_hours}h and switches only when a tested improvement is found.`
-                  : "Autotune is off: these settings only change when the manager changes them."}
-            </p>
-            <dl className="kv">
-              {Object.entries(e.params ?? {}).map(([k, v]) => (
-                <Fragment key={k}><dt>{k}{e.overrides && k in e.overrides ? " ✎" : ""}</dt><dd>{String(v)}</dd></Fragment>
-              ))}
-            </dl>
-            {lastTune && (
-              <>
-                <div className="section-title">Last retune · {new Date(lastTune.created_at).toLocaleDateString()}</div>
-                <p style={{ margin: 0 }}>
-                  {lastTune.summary.applied ? "🔧 Switched settings" : "🔍 Kept settings"}: {lastTune.summary.why}. Tried{" "}
-                  {lastTune.summary.tried} combinations.
-                </p>
-                <div className="table-wrap" style={{ marginTop: 8 }}>
-                  <table>
-                    <thead><tr><th>Settings</th><th className="num">Train P&amp;L</th><th className="num">Test P&amp;L</th><th className="num">Test bets</th></tr></thead>
-                    <tbody>
-                      <tr>
-                        <td><strong>current</strong></td>
-                        <td className={`num ${tone(lastTune.summary.current.train.pnl)}`}>{money(lastTune.summary.current.train.pnl)}</td>
-                        <td className={`num ${tone(lastTune.summary.current.test.pnl)}`}>{money(lastTune.summary.current.test.pnl)}</td>
-                        <td className="num">{lastTune.summary.current.test.bets}</td>
-                      </tr>
-                      {lastTune.summary.top.slice(0, 5).map((r, i) => (
-                        <tr key={i}>
-                          <td className="muted" style={{ fontSize: 12 }}>{Object.entries(r.params).map(([k, v]) => `${k}=${v}`).join(", ")}{r.holds_up ? " ✓" : ""}</td>
-                          <td className={`num ${tone(r.train.pnl)}`}>{money(r.train.pnl)}</td>
-                          <td className={`num ${tone(r.test.pnl)}`}>{money(r.test.pnl)}</td>
-                          <td className="num">{r.test.bets}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            )}
-          </section>
-        </div>
-      </details>
+      <LatestBets fills={data.fills.filter((f) => f.yes_value != null)} employees={everyone}
+                  day={{ n: recent.length, won: recent.filter((b) => b.pnl > 0).length, pnl: recent.reduce((t, b) => t + b.pnl, 0) }} />
 
       {data.admin && (
         <div id="manager">
-          <AdminPanel e={e} roster={data.roster[key] ?? null} reserve={data.policy.reserve} />
+          <AdminPanel e={e} roster={data.roster[key] ?? null} reserve={data.policy.reserve} betPct={data.policy.pool.bet_pct}
+                      movable={data.movable} />
         </div>
       )}
     </div>

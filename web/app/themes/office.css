@@ -1,0 +1,102 @@
+/* ==========================================================================
+   Office (11-17 on the shared look): the pixel office. The same pages and pieces as Studio (base.css), with arcade
+   type for headings, numbers and buttons, square corners, 2px edges and hard pixel shadows. Dark (a dim arcade) or
+   light (the office by day).
+   ========================================================================== */
+html[data-theme="office"] {
+  color-scheme: light;
+  --page: #f4f0ff;
+  --surface-1: #ffffff;
+  --surface-2: #ebe4ff;
+  --text-primary: #1b1440;
+  --text-secondary: #4a3f7a;
+  --text-muted: #7a70a8;
+  --grid: #e2dbfa;
+  --axis: #b9addf;
+  --border: #c7bcef;
+  --series-1: #0b8fc2;
+  --series-2: #e07b00;
+  --deemph: #d6cdf5;
+  --up: #0c9a52;
+  --down: #e0245e;
+  --good: #0c9a52;
+  --warning: #c98a00;
+  --critical: #e0245e;
+  --coin: #c98a00;
+  --wash: rgba(11, 143, 194, 0.08);
+  --shadow: rgba(27, 20, 64, 0.12);
+  --hard: #1b1440;
+  --r-pill: 3px; --r-xl: 4px; --r-lg: 4px; --r-md: 3px; --r-sm: 2px;
+  --pixel: var(--font-pixel), "Courier New", monospace;
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+}
+html[data-theme="office"]:not([data-mode="light"]) {
+  color-scheme: dark;
+  --page: #0f0d1f;
+  --surface-1: #1b1733;
+  --surface-2: #26203f;
+  --text-primary: #f4f1ff;
+  --text-secondary: #c2bbe0;
+  --text-muted: #8a82ad;
+  --grid: #2d2750;
+  --axis: #4a4275;
+  --border: #3a3263;
+  --series-1: #4cc9f0;
+  --series-2: #ff9f1c;
+  --deemph: #3d3566;
+  --up: #3ddc84;
+  --down: #ff5c7a;
+  --good: #3ddc84;
+  --warning: #ffd23f;
+  --critical: #ff5c7a;
+  --coin: #ffd23f;
+  --wash: rgba(76, 201, 240, 0.12);
+  --shadow: rgba(0, 0, 0, 0.4);
+  --hard: #07060f;
+}
+
+/* Square corners and 2px edges with a hard shadow: one recipe for every raised piece */
+html[data-theme="office"] .card, html[data-theme="office"] .player-card {
+  border: 2px solid var(--border); border-radius: 4px; box-shadow: 4px 4px 0 var(--hard); }
+html[data-theme="office"] .btn, html[data-theme="office"] .chip, html[data-theme="office"] .theme-tile,
+html[data-theme="office"] .settings-rows, html[data-theme="office"] .control, html[data-theme="office"] .segmented,
+html[data-theme="office"] .seg, html[data-theme="office"] .views, html[data-theme="office"] .menu-list {
+  border-radius: 3px; }
+html[data-theme="office"] .btn { border: 2px solid var(--border); box-shadow: 0 3px 0 var(--hard); }
+html[data-theme="office"] .btn:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--hard); }
+html[data-theme="office"] .btn.primary { background: var(--series-1); color: #0b0820; border-color: var(--series-1); }
+
+/* Arcade type where it counts: the wordmark, card titles, the big number, buttons and tabs */
+html[data-theme="office"] .brand-name, html[data-theme="office"] .card h2, html[data-theme="office"] .card-head h2,
+html[data-theme="office"] .office-title, html[data-theme="office"] .player-name, html[data-theme="office"] .auth h2 {
+  font-family: var(--pixel); font-weight: 400; letter-spacing: 0; text-transform: uppercase; }
+html[data-theme="office"] .brand-name { font-size: 15px; }
+html[data-theme="office"] .card h2, html[data-theme="office"] .card-head h2 { font-size: 12px; line-height: 1.5; }
+html[data-theme="office"] .office-title { font-size: 15px; line-height: 1.5; }
+html[data-theme="office"] .player-name { font-size: 18px; line-height: 1.4; }
+html[data-theme="office"] .money-hero .big-number { font-family: var(--pixel); font-weight: 400; font-size: 34px; letter-spacing: 0;
+  background: none; -webkit-background-clip: border-box; background-clip: border-box; text-shadow: 3px 3px 0 var(--hard); }
+html[data-theme="office"] .money-hero .big-number.up { color: var(--up); background-image: none; }
+html[data-theme="office"] .money-hero .big-number.down { color: var(--down); background-image: none; }
+@media (max-width: 420px) { html[data-theme="office"] .money-hero .big-number { font-size: 26px; } }
+html[data-theme="office"] .nav-btn, html[data-theme="office"] .seg a, html[data-theme="office"] .btn,
+html[data-theme="office"] .segmented button, html[data-theme="office"] .stat-label {
+  font-family: var(--pixel); font-weight: 400; font-size: 9px; letter-spacing: 0; text-transform: uppercase; }
+@media (max-width: 600px) { html[data-theme="office"] .nav-btn { font-size: 8px; } }
+
+/* The header: the switcher stays one joined strip, the picked tab lit in the accent */
+html[data-theme="office"] .views { border: 2px solid var(--border); box-shadow: 3px 3px 0 var(--hard); }
+html[data-theme="office"] .nav-btn { border-radius: 2px; }
+html[data-theme="office"] .nav-btn[aria-current="page"], html[data-theme="office"] .seg a[aria-current="true"],
+html[data-theme="office"] .segmented button[aria-checked="true"] {
+  background: var(--series-1); color: #0b0820; box-shadow: none; }
+html[data-theme="office"] .menu > summary { border-radius: 3px; border: 2px solid var(--border); }
+html[data-theme="office"] .menu[open] > summary { border-width: 2px 2px 0; border-radius: 3px 3px 0 0; height: 36px; margin-bottom: -2px; }
+html[data-theme="office"] .menu[open] .menu-list { border-width: 2px; border-radius: 3px 0 3px 3px; box-shadow: 4px 4px 0 var(--hard); }
+
+/* The 8-bit staff stay crisp pixels */
+html[data-theme="office"] .avatar { border-radius: 3px; image-rendering: pixelated; }
+html[data-theme="office"] .brand-mark { border-radius: 4px; box-shadow: 3px 3px 0 var(--hard); }
+html[data-theme="office"] .lvl { border-radius: 2px; font-family: var(--pixel); font-size: 7px; font-weight: 400; padding: 4px 5px 3px; }
+html[data-theme="office"] .day { border-radius: 2px; }
+html[data-theme="office"] .theme-tile[aria-checked="true"] { box-shadow: 4px 4px 0 var(--hard); }

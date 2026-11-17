@@ -1,36 +1,57 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { pickBook } from "@/app/actions";
+import HeaderLink from "./HeaderLink";
 import type { Book } from "@/lib/db";
 
 /**
- * The two books: Live (the Kalshi account) and Training (pretend money).
- * Live only appears once the live book has reported; the current view lights up.
+ * The main sections (11-16). The manager: My Office (the real book, where the app always opens), Cockpit (every
+ * office side by side) and Training (pretend money). A friend: their office and the cockpit's light version.
  */
-export default function NavButtons({ book, hasLive }: { book: Book; hasLive: boolean }) {
+export default function NavButtons({ book, hasLive, manager, inOffice = false }: {
+  book: Book; hasLive: boolean; manager: boolean;
+  /** the manager is looking at a friend's office: Cockpit goes back to their own view too */
+  inOffice?: boolean;
+}) {
   const path = usePathname();
   const router = useRouter();
   const [picked, setPicked] = useState(book);
   const [pending, start] = useTransition();
   useEffect(() => setPicked(book), [book]);
+  // The loading bar across the top (NavProgress) while the office switches
+  useEffect(() => {
+    if (pending) document.documentElement.dataset.navigating = "";
+    else delete document.documentElement.dataset.navigating;
+  }, [pending]);
 
   const choose = (b: Book) => {
     setPicked(b);
     start(async () => {
       await pickBook(b);
-      if (path.startsWith("/settings") || path.startsWith("/backtests") || path.startsWith("/admin")) router.push("/");
-      else router.refresh();
+      // Always the plain office page, which opens on the week (a longer range from before would load far more)
+      if (path === "/" && !window.location.search) router.refresh();
+      else router.push("/");
     });
   };
-  const lit = (b: Book) => (picked === b ? "page" : undefined);
+  const onCockpit = path.startsWith("/cockpit");
+  const lit = (b: Book) => (!onCockpit && path === "/" && picked === b ? "page" : undefined);
   return (
     <span className="views" data-pending={pending || undefined}>
-      {hasLive && (
-        <button className="nav-btn view-live" aria-current={lit("real")} onClick={() => choose("real")}>Live</button>
+      {manager ? (
+        <>
+          {hasLive && <button className="nav-btn" aria-current={lit("real")} onClick={() => choose("real")}>My Office</button>}
+          <HeaderLink className="nav-btn" href="/cockpit" leave={inOffice} aria-current={onCockpit ? "page" : undefined}>Cockpit</HeaderLink>
+          <button className="nav-btn" aria-current={lit("pretend")} onClick={() => choose("pretend")}>Training</button>
+        </>
+      ) : (
+        <>
+          <Link className="nav-btn" href="/" aria-current={!onCockpit && path === "/" ? "page" : undefined}>My Office</Link>
+          <Link className="nav-btn" href="/cockpit" aria-current={onCockpit ? "page" : undefined}>Cockpit</Link>
+        </>
       )}
-      <button className="nav-btn" aria-current={lit("pretend")} onClick={() => choose("pretend")}>Training</button>
     </span>
   );
 }

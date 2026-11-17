@@ -6,7 +6,6 @@ export const LEVELS = [
   { title: "Associate", multiplier: 1 },
   { title: "Senior", multiplier: 1.5 },
   { title: "VP", multiplier: 2 },
-  { title: "Partner", multiplier: 2 },
 ];
 
 export const DEFAULT_POLICY: Policy = {

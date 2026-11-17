@@ -342,6 +342,9 @@ class Ledger:
                 self._add_column("fills", col, decl)
             # Portfolio charts read one season's equity over a time range
             self.db.execute("CREATE INDEX IF NOT EXISTS equity_season_ts ON equity(season, ts)")
+            # The website reads recent bets and fills by date (11-16: a season-long scan made Training slow)
+            self.db.execute("CREATE INDEX IF NOT EXISTS settlements_season_ts ON settlements(season, ts)")
+            self.db.execute("CREATE INDEX IF NOT EXISTS fills_season_ts ON fills(season, ts)")
             if self.is_postgres:
                 # Supabase exposes the public schema through its auto-generated REST
                 # API. Row-level security with no policies blocks that API entirely;

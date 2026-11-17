@@ -227,36 +227,6 @@ export type Fill = {
 export type Point = { t: number; v: number };
 export type Series = { key: string; label: string; emoji: string; points: Point[] };
 
-export type BacktestRow = {
-  strategy: string;
-  starting_cash: number;
-  equity: number;
-  pnl: number;
-  roi: number;
-  realized_pnl: number;
-  fills: number;
-  wins: number;
-  losses: number;
-  win_rate: number | null;
-  fees: number;
-  max_drawdown: number;
-  brier: number | null;
-};
-
-export type BacktestSummary = {
-  id: string;
-  days: number;
-  series: string[];
-  fill_delay: number;
-  depth: number;
-  settled_markets: number;
-  stats: { minutes: number; intents: number; fills: number; skipped: number };
-  scoreboard: BacktestRow[];
-  accuracy: Accuracy[];
-  equity?: Record<string, [string, number][]>;
-  employees?: { key: string; name: string; emoji: string }[];
-};
-
 export type Evidence = {
   strategy: string;
   bets: number;

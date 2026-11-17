@@ -9,6 +9,8 @@ export const RANGES = {
   season: { label: "Season", days: null },
 } as const;
 export type RangeKey = keyof typeof RANGES;
+/** A range as words in a sentence or a heading ("This Week"). */
+export const RANGE_WORDS: Record<RangeKey, string> = { day: "Today", week: "This Week", month: "This Month", quarter: "Last 3 Months", season: "All Time" };
 
 export const parseRange = (v: unknown, fallback: RangeKey = "season"): RangeKey =>
   typeof v === "string" && v in RANGES ? (v as RangeKey) : fallback;

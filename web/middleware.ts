@@ -30,5 +30,5 @@ export function middleware(req: NextRequest) {
   });
 }
 
-// The home-screen widget (/api/widget, /widget/*) checks its own key instead
-export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico|api/widget|widget/).*)"] };
+// The home-screen widget (/api/widget, /widget/*) checks its own key instead; /api/warm only fills caches
+export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico|api/widget|api/warm|widget/).*)"] };

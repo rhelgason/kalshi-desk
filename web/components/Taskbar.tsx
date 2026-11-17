@@ -16,7 +16,7 @@ export default function Taskbar() {
       <Link href="/" className="start-btn"><span aria-hidden>🪟</span> Start</Link>
       <span className="task-sep" />
       <Link href="/" className="task-item">📈 Kalshi Desk</Link>
-      <Link href="/settings" className="task-item task-extra">📜 Desk rules</Link>
+      <Link href="/rules" className="task-item task-extra">📜 Office Rules</Link>
       <span className="task-clock">{now ? now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : ""}</span>
     </div>
   );

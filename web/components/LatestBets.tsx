@@ -1,65 +1,37 @@
-import type { Employee, Fill, Position } from "@/lib/types";
-import { coinOfTicker } from "@/lib/coin";
-import { dollars, money, shortName } from "@/lib/format";
-import Avatar from "./Avatar";
-import TradeFeed from "./TradeFeed";
+"use client";
 
-const SHOWN = 8;
+import { useState } from "react";
+import type { Employee, Fill } from "@/lib/types";
+import { dollars } from "@/lib/format";
+import TradeFeed from "./TradeFeed";
+import Card from "./ui/Card";
+
+const STEP = 10;
 
 /**
- * The latest bets, up near the top and open: the part of the page that gets read every visit. A line on the last
- * 24 hours heads it, bets still riding sit above the list (only when there are any), and the rest of the
- * recent bets fold away under the first eight.
+ * Finished and riding bets, newest first (11-16): ten at a time, "Show 10 more" under the last row (so it moves down
+ * with the list), and "Show fewer" folds it back to ten. A line on the last 24 hours heads it.
  */
-export default function LatestBets({ fills, employees, positions, day, held }: {
-  fills: Fill[]; employees: Employee[]; positions: Position[];
+export default function LatestBets({ fills, employees, day }: {
+  fills: Fill[]; employees: Employee[];
   day: { n: number; won: number; pnl: number };
-  /** what the headline counts the open bets as worth (Kalshi's figure on real money), so the two always tie */
-  held?: number | null;
 }) {
-  const who = Object.fromEntries(employees.map((e) => [e.key, e]));
-  const now = Date.now();
-  const riding = positions
-    .map((p) => ({ ...p, mins: p.closes ? Math.max(0, Math.round((Date.parse(p.closes) - now) / 60_000)) : null }))
-    .sort((a, b) => (a.mins ?? 1e9) - (b.mins ?? 1e9));
-  // The chart and the top figure count riding bets at what they're worth now: say so, with the same number
-  const cost = riding.reduce((s, p) => s + p.cost, 0);
-  const worthNow = held ?? riding.reduce((s, p) => s + (p.mark == null ? p.cost : p.yes * p.mark + p.no * (1 - p.mark)), 0);
+  const [shown, setShown] = useState(STEP);
   return (
-    <section className="card latest">
-      <div className="latest-head">
-        <h2>Latest bets</h2>
-        <span className="latest-day">
-          Last 24h: {day.n ? <><strong>{day.won}</strong> of {day.n} won · <strong className={day.pnl >= 0 ? "up" : "down"}>{dollars(day.pnl, true)}</strong></> : "nothing settled"}
-        </span>
-      </div>
-      {riding.length > 0 && (
-        <div className="riding" aria-label="Bets riding now">
-          <span className="riding-label">
-            🎲 Riding now: {money(cost, false)} in, worth {money(worthNow, false)} at today&apos;s prices
-            (<strong className={worthNow >= cost ? "up" : "down"}>{dollars(worthNow - cost, true)}</strong>)
-          </span>
-          {riding.map((p) => {
-            const e = who[p.strategy];
-            const side = p.yes > p.no ? "YES" : "NO";
-            const pays = Math.max(p.yes, p.no);
-            return (
-              <span key={`${p.strategy}-${p.ticker}`} className="riding-bet">
-                {e && <Avatar k={e.key} emoji={e.emoji} size={18} />}
-                <span><strong>{e ? shortName(e.name) : p.strategy}</strong> {coinOfTicker(p.ticker)} {side} · {money(p.cost, false)} to win {money(pays - p.cost)}</span>
-                {p.mins != null && <span className="riding-clock">{p.mins ? `${p.mins}m` : "settling"}</span>}
-              </span>
-            );
-          })}
+    <Card title="Latest Bets" className="latest" aside={<>
+      Last 24h: {day.n
+        ? <>{day.won} of {day.n} won · <strong className={day.pnl >= 0 ? "up" : "down"}>{dollars(day.pnl, true)}</strong></>
+        : "nothing finished"}
+    </>}>
+      <TradeFeed fills={fills.slice(0, shown)} employees={employees} />
+      {(fills.length > shown || shown > STEP) && (
+        <div className="more-row">
+          {fills.length > shown && (
+            <button className="btn small" onClick={() => setShown((n) => n + STEP)}>Show {Math.min(STEP, fills.length - shown)} more</button>
+          )}
+          {shown > STEP && <button className="btn small ghost" onClick={() => setShown(STEP)}>Show fewer</button>}
         </div>
       )}
-      <TradeFeed fills={fills.slice(0, SHOWN)} employees={employees} />
-      {fills.length > SHOWN && (
-        <details className="more-bets">
-          <summary>Show {fills.length - SHOWN} more</summary>
-          <TradeFeed fills={fills.slice(SHOWN)} employees={employees} />
-        </details>
-      )}
-    </section>
+    </Card>
   );
 }

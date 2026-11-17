@@ -24,10 +24,39 @@ html[data-theme="desktop"] {
   --coin: #000080;
   --wash: rgba(0, 0, 128, 0.08);
   --shadow: #000;
-  --raised: inset -1px -1px #0a0a0a, inset 1px 1px #ffffff, inset -2px -2px #808080, inset 2px 2px #dfdfdf;
-  --sunken: inset -1px -1px #ffffff, inset 1px 1px #808080, inset -2px -2px #dfdfdf, inset 2px 2px #0a0a0a;
+  --r-pill: 0px; --r-xl: 0px; --r-lg: 0px; --r-md: 0px; --r-sm: 0px;
+  /* The bevel's four edges, the colour of text on a window, a white field, the checked "pressed" pattern */
+  --edge-dark: #0a0a0a; --edge-light: #ffffff; --edge-mid: #808080; --edge-soft: #dfdfdf;
+  --win-text: #000000; --field: #ffffff; --check-a: #c0c0c0; --check-b: #dfdfdf; --note: #ffffe1;
+  --raised: inset -1px -1px var(--edge-dark), inset 1px 1px var(--edge-light), inset -2px -2px var(--edge-mid), inset 2px 2px var(--edge-soft);
+  --sunken: inset -1px -1px var(--edge-light), inset 1px 1px var(--edge-mid), inset -2px -2px var(--edge-soft), inset 2px 2px var(--edge-dark);
   --pixel: Tahoma, "MS Sans Serif", Verdana, "Segoe UI", sans-serif;
   font-family: Tahoma, "MS Sans Serif", Verdana, "Segoe UI", sans-serif;
+}
+/* Dark (11-17): a navy desktop at night, charcoal windows with the same bevels, the title bars still blue */
+html[data-theme="desktop"]:not([data-mode="light"]) {
+  color-scheme: dark;
+  --page: #0b2238;
+  --surface-1: #2b2d31;
+  --surface-2: #34373c;
+  --text-primary: #eceef1;
+  --text-secondary: #c9ccd2;
+  --text-muted: #9a9ea6;
+  --grid: #45484e;
+  --axis: #6b6f77;
+  --border: #5a5d63;
+  --series-1: #6ea8ff;
+  --series-2: #ffa94d;
+  --deemph: #4a4d53;
+  --up: #4ade80;
+  --down: #ff6b6b;
+  --good: #4ade80;
+  --warning: #ffd43b;
+  --critical: #ff6b6b;
+  --coin: #6ea8ff;
+  --wash: rgba(110, 168, 255, 0.1);
+  --edge-dark: #000000; --edge-light: #5c6068; --edge-mid: #17181a; --edge-soft: #44474d;
+  --win-text: #eceef1; --field: #1b1c1f; --check-a: #2b2d31; --check-b: #3a3d42; --note: #3a3420;
 }
 html[data-theme="desktop"] body { background: var(--page); font-size: 13px; }
 html[data-theme="desktop"] .shell { padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
@@ -39,36 +68,38 @@ html[data-theme="desktop"] .brand-name { font-family: var(--pixel); font-size: 1
   background: none; letter-spacing: 0; text-transform: none; padding: 0 2px; }
 html[data-theme="desktop"] .brand-name::after { content: ".exe"; }
 html[data-theme="desktop"] .brand:hover .brand-name { background: #000080; text-decoration: none; }
-html[data-theme="desktop"] .views { gap: 4px; }
+/* The switcher is one toolbar: a raised strip holding the buttons, the picked one pressed in */
+html[data-theme="desktop"] .views { gap: 2px; padding: 3px; border-radius: 0; background: var(--surface-1); box-shadow: var(--raised); }
 
 /* Bevelled buttons everywhere */
 html[data-theme="desktop"] .nav-btn, html[data-theme="desktop"] .menu > summary, html[data-theme="desktop"] .btn,
 html[data-theme="desktop"] .chip, html[data-theme="desktop"] .theme-opt, html[data-theme="desktop"] .compare-pick select {
-  font-family: var(--pixel); font-size: 13px; font-weight: 400; color: #000; background: var(--surface-1); border: 0; border-radius: 0;
+  font-family: var(--pixel); font-size: 13px; font-weight: 400; color: var(--win-text); background: var(--surface-1); border: 0; border-radius: 0;
   box-shadow: var(--raised); text-transform: none; letter-spacing: 0; padding: 6px 12px; }
 html[data-theme="desktop"] .nav-btn:active, html[data-theme="desktop"] .btn:active, html[data-theme="desktop"] .chip:active {
   box-shadow: var(--sunken); transform: none; }
 html[data-theme="desktop"] .nav-btn[aria-current="page"], html[data-theme="desktop"] .chip.on,
 html[data-theme="desktop"] .menu-list .theme-opt[aria-pressed="true"] {
-  box-shadow: var(--sunken); background: repeating-conic-gradient(#c0c0c0 0 25%, #dfdfdf 0 50%) 0 0 / 2px 2px; font-weight: 700; color: #000; }
+  box-shadow: var(--sunken); background: repeating-conic-gradient(var(--check-a) 0 25%, var(--check-b) 0 50%) 0 0 / 2px 2px; font-weight: 700; color: var(--win-text); }
 html[data-theme="desktop"] .nav-btn.view-live[aria-current="page"] { color: #006b00; }
 html[data-theme="desktop"] .menu-list { background: var(--surface-1); border: 0; border-radius: 0; box-shadow: var(--raised), 2px 2px 0 #000; padding: 3px; }
 html[data-theme="desktop"] .menu-list a:hover, html[data-theme="desktop"] .menu-list button:not(.theme-opt):hover { background: #000080; color: #fff; }
 
 /* Windows */
 html[data-theme="desktop"] .card { background: var(--surface-1); border: 0; border-radius: 0; box-shadow: var(--raised), 3px 3px 0 rgba(0,0,0,0.35);
-  padding: 14px; padding-top: 34px; position: relative; color: #000; }
+  padding: 14px; padding-top: 34px; position: relative; color: var(--win-text); }
+html[data-theme="desktop"] .card h2 { color: #fff; }
 html[data-theme="desktop"] .card > h2:first-child, html[data-theme="desktop"] .fold > summary {
   position: absolute; left: 3px; right: 3px; top: 3px; height: 22px; margin: 0; padding: 0 6px; display: flex; align-items: center;
   background: linear-gradient(90deg, #000080, #1084d0); }
 html[data-theme="desktop"] .card h2, html[data-theme="desktop"] .section-title, html[data-theme="desktop"] .pixel {
   font-family: var(--pixel); font-size: 13px; font-weight: 700; text-transform: none; letter-spacing: 0; color: #fff; line-height: 1; }
-html[data-theme="desktop"] .card .section-title, html[data-theme="desktop"] .card h2:not(:first-child) { color: #000; }
+html[data-theme="desktop"] .card .section-title, html[data-theme="desktop"] .card h2:not(:first-child) { color: var(--win-text); }
 html[data-theme="desktop"] .fold > summary h2 { color: #fff; }
 /* title-bar buttons, drawn */
 html[data-theme="desktop"] .card > h2:first-child::after, html[data-theme="desktop"] .fold > summary::after,
 html[data-theme="desktop"] .money-hero::after {
-  content: "✕"; margin-left: auto; width: 16px; height: 14px; font-size: 10px; line-height: 14px; text-align: center; color: #000;
+  content: "✕"; margin-left: auto; width: 16px; height: 14px; font-size: 10px; line-height: 14px; text-align: center; color: var(--win-text);
   background: var(--surface-1); box-shadow: var(--raised); font-weight: 700; font-family: var(--pixel); }
 html[data-theme="desktop"] .fold:not([open]) > summary::after { content: "□"; }
 html[data-theme="desktop"] .fold:not([open]) { padding-bottom: 6px; padding-top: 28px; }
@@ -83,12 +114,12 @@ html[data-theme="desktop"] .money-hero .big-number { font-family: "Courier New",
   color: #00ff66; background: #001a00; text-shadow: 0 0 6px rgba(0, 255, 102, 0.5); box-shadow: var(--sunken); padding: 8px 12px;
   display: inline-block; letter-spacing: 0; margin: 6px 0 8px; }
 @media (max-width: 420px) { html[data-theme="desktop"] .money-hero .big-number { font-size: 32px; } }
-html[data-theme="desktop"] .chart svg { background: #fff; box-shadow: var(--sunken); }
+html[data-theme="desktop"] .chart svg { background: var(--field); box-shadow: var(--sunken); }
 html[data-theme="desktop"] .stat-row { border: 0; border-radius: 0; background: transparent; gap: 4px; }
 html[data-theme="desktop"] .stat-row > div { background: var(--surface-1); box-shadow: var(--sunken); }
 html[data-theme="desktop"] .tile .value, html[data-theme="desktop"] .money-row .value { font-family: var(--pixel); font-size: 18px; font-weight: 700; }
-html[data-theme="desktop"] .hero h1 { font-family: var(--pixel); font-size: 22px; color: #000; text-shadow: none; }
-html[data-theme="desktop"] .team, html[data-theme="desktop"] .feed { background: #fff; box-shadow: var(--sunken); padding: 2px 8px; }
+html[data-theme="desktop"] .hero h1 { font-family: var(--pixel); font-size: 22px; color: var(--win-text); text-shadow: none; }
+html[data-theme="desktop"] .team, html[data-theme="desktop"] .feed { background: var(--field); box-shadow: var(--sunken); padding: 2px 8px; }
 html[data-theme="desktop"] .team a:hover { background: #000080; color: #fff; }
 html[data-theme="desktop"] .team a:hover .muted, html[data-theme="desktop"] .team a:hover .up,
 html[data-theme="desktop"] .team a:hover .down, html[data-theme="desktop"] .team a:hover .quip { color: #fff; }
@@ -96,26 +127,26 @@ html[data-theme="desktop"] .card > .spotlight { background: var(--surface-1); bo
 html[data-theme="desktop"] .card .muted, html[data-theme="desktop"] .card .label { color: var(--text-muted); }
 
 /* Tabs like a properties dialog */
-html[data-theme="desktop"] .seg { background: transparent; border: 0; border-radius: 0; padding: 0; gap: 2px; border-bottom: 1px solid #fff; }
-html[data-theme="desktop"] .seg a { font-family: var(--pixel); font-size: 12.5px; border-radius: 0; background: var(--surface-1); color: #000;
-  box-shadow: inset 1px 1px #fff, inset -1px 0 #0a0a0a, inset -2px 0 #808080; padding: 6px 2px; }
-html[data-theme="desktop"] .seg a[aria-current="true"] { font-weight: 700; background: var(--surface-1); box-shadow: inset 1px 1px #fff, inset -1px 0 #0a0a0a, inset -2px 0 #808080, 0 -2px 0 var(--surface-1); }
-html[data-theme="desktop"] .badge { border-radius: 0; border: 0; box-shadow: var(--sunken); background: #fff; }
+html[data-theme="desktop"] .seg { background: transparent; border: 0; border-radius: 0; padding: 0; gap: 2px; border-bottom: 1px solid var(--edge-light); }
+html[data-theme="desktop"] .seg a { font-family: var(--pixel); font-size: 12.5px; border-radius: 0; background: var(--surface-1); color: var(--win-text);
+  box-shadow: inset 1px 1px var(--edge-light), inset -1px 0 var(--edge-dark), inset -2px 0 var(--edge-mid); padding: 6px 2px; }
+html[data-theme="desktop"] .seg a[aria-current="true"] { font-weight: 700; background: var(--surface-1); box-shadow: inset 1px 1px var(--edge-light), inset -1px 0 var(--edge-dark), inset -2px 0 var(--edge-mid), 0 -2px 0 var(--surface-1); }
+html[data-theme="desktop"] .badge { border-radius: 0; border: 0; box-shadow: var(--sunken); background: var(--field); }
 html[data-theme="desktop"] .lvl { font-family: var(--pixel); font-size: 10px; border-radius: 0; text-transform: none; letter-spacing: 0; }
 html[data-theme="desktop"] .lvl-2 { background: #000080; border-color: #000080; color: #fff; }
 
 /* The taskbar */
 html[data-theme="desktop"] .taskbar { display: flex; position: fixed; z-index: 40; left: 0; right: 0; bottom: 0; gap: 4px; align-items: center;
-  padding: 3px 3px calc(3px + env(safe-area-inset-bottom)); background: var(--surface-1); box-shadow: inset 0 1px #dfdfdf, inset 0 2px #fff; }
+  padding: 3px 3px calc(3px + env(safe-area-inset-bottom)); background: var(--surface-1); box-shadow: inset 0 1px var(--edge-soft), inset 0 2px var(--edge-light); }
 html[data-theme="desktop"] .start-btn, html[data-theme="desktop"] .task-item { display: flex; align-items: center; gap: 4px; height: 30px; padding: 0 8px;
-  background: var(--surface-1); box-shadow: var(--raised); color: #000; font-size: 13px; white-space: nowrap; }
+  background: var(--surface-1); box-shadow: var(--raised); color: var(--win-text); font-size: 13px; white-space: nowrap; }
 html[data-theme="desktop"] .start-btn { font-weight: 700; }
-html[data-theme="desktop"] .task-item { box-shadow: var(--sunken); background: repeating-conic-gradient(#c0c0c0 0 25%, #dfdfdf 0 50%) 0 0 / 2px 2px;
+html[data-theme="desktop"] .task-item { box-shadow: var(--sunken); background: repeating-conic-gradient(var(--check-a) 0 25%, var(--check-b) 0 50%) 0 0 / 2px 2px;
   min-width: 0; overflow: hidden; }
 html[data-theme="desktop"] .start-btn:hover, html[data-theme="desktop"] .task-item:hover { text-decoration: none; }
 html[data-theme="desktop"] .task-clock { margin-left: auto; height: 30px; padding: 0 10px; display: flex; align-items: center; box-shadow: var(--sunken); font-size: 12px; }
 @media (max-width: 480px) { html[data-theme="desktop"] .task-extra { display: none; } }
-html[data-theme="desktop"] .ptr { font-family: var(--pixel); font-size: 12px; border-radius: 0; background: #ffffe1; color: #000; box-shadow: 1px 1px 0 #000; border: 1px solid #000; }
+html[data-theme="desktop"] .ptr { font-family: var(--pixel); font-size: 12px; border-radius: 0; background: var(--note); color: var(--win-text); box-shadow: 1px 1px 0 #000; border: 1px solid #000; }
 
 /* New pieces: the player card is a Properties dialog */
 html[data-theme="desktop"] .player-card { border: 0; border-radius: 0; background: var(--surface-1); box-shadow: var(--raised), 3px 3px 0 rgba(0,0,0,0.35);
@@ -123,15 +154,15 @@ html[data-theme="desktop"] .player-card { border: 0; border-radius: 0; backgroun
 html[data-theme="desktop"] .player-card::before { content: "Employee Properties"; position: absolute; left: 3px; right: 3px; top: 3px; height: 22px;
   padding: 0 6px; display: flex; align-items: center; color: #fff; font-weight: 700; font-size: 13px; background: linear-gradient(90deg, #000080, #1084d0); }
 html[data-theme="desktop"] .player-front { background: var(--surface-1); padding: 10px; }
-html[data-theme="desktop"] .player-portrait { border: 0; border-radius: 0; background: #fff; box-shadow: var(--sunken); }
+html[data-theme="desktop"] .player-portrait { border: 0; border-radius: 0; background: var(--field); box-shadow: var(--sunken); }
 html[data-theme="desktop"] .player-name { font-family: var(--pixel); font-size: 20px; }
 html[data-theme="desktop"] .player-stats { background: transparent; gap: 4px; border: 0; padding: 4px; }
-html[data-theme="desktop"] .player-stats > div { background: #fff; box-shadow: var(--sunken); }
+html[data-theme="desktop"] .player-stats > div { background: var(--field); box-shadow: var(--sunken); }
 html[data-theme="desktop"] .player-stats dd:not(.player-note) { font-size: 16px; font-weight: 700; }
 html[data-theme="desktop"] .form-pip { border-radius: 0; box-shadow: var(--raised); }
 html[data-theme="desktop"] .record-grid { border: 0; border-radius: 0; background: transparent; gap: 4px; }
-html[data-theme="desktop"] .record { background: #fff; box-shadow: var(--sunken); }
-html[data-theme="desktop"] .record-hot { background: #ffffe1; }
+html[data-theme="desktop"] .record { background: var(--field); box-shadow: var(--sunken); }
+html[data-theme="desktop"] .record-hot { background: var(--note); }
 html[data-theme="desktop"] .record-value { font-size: 17px; font-weight: 700; }
 html[data-theme="desktop"] .day { border-radius: 0; }
 html[data-theme="desktop"] .day-up { background: #008000; }
@@ -140,14 +171,44 @@ html[data-theme="desktop"] .latest .latest-head { position: absolute; left: 3px;
   background: linear-gradient(90deg, #000080, #1084d0); color: #fff; flex-wrap: nowrap; align-items: center; }
 html[data-theme="desktop"] .latest .latest-head h2 { color: #fff; }
 html[data-theme="desktop"] .latest-day, html[data-theme="desktop"] .latest-day .up, html[data-theme="desktop"] .latest-day .down { color: #fff; font-size: 12px; white-space: nowrap; }
-html[data-theme="desktop"] .riding { border-radius: 0; background: #ffffe1; box-shadow: 1px 1px 0 #000; border: 1px solid #000; }
+html[data-theme="desktop"] .riding { border-radius: 0; background: var(--note); box-shadow: 1px 1px 0 #000; border: 1px solid #000; }
 html[data-theme="desktop"] .riding-bet { border-radius: 0; background: var(--surface-1); box-shadow: var(--raised); border: 0; }
-html[data-theme="desktop"] .readout-reset { border-radius: 0; border: 0; box-shadow: var(--raised); background: var(--surface-1); color: #000; }
+html[data-theme="desktop"] .readout-reset { border-radius: 0; border: 0; box-shadow: var(--raised); background: var(--surface-1); color: var(--win-text); }
 html[data-theme="desktop"] .records > h2:first-child::after { content: "✕"; }
 /* Text sitting straight on the wallpaper: white like desktop icon labels, or a yellow note */
 html[data-theme="desktop"] .stack > a.muted { color: #fff; text-shadow: 1px 1px #000; }
-html[data-theme="desktop"] .stack > .how-they-bet { max-width: none; background: #ffffe1; color: #000; border: 1px solid #000;
+html[data-theme="desktop"] .stack > .how-they-bet { max-width: none; background: var(--note); color: var(--win-text); border: 1px solid #000;
   box-shadow: 2px 2px 0 rgba(0,0,0,0.4); padding: 8px 10px; }
 html[data-theme="desktop"] .fold > summary .muted, html[data-theme="desktop"] .fold > summary .sub { color: #c8d4ff; }
 html[data-theme="desktop"] input[type="text"], html[data-theme="desktop"] input[type="number"], html[data-theme="desktop"] input[type="password"],
-html[data-theme="desktop"] textarea, html[data-theme="desktop"] select { border: 0; border-radius: 0; background: #fff; color: #000; box-shadow: var(--sunken); }
+html[data-theme="desktop"] textarea, html[data-theme="desktop"] select { border: 0; border-radius: 0; background: var(--field); color: var(--win-text); box-shadow: var(--sunken); }
+
+/* The newer pieces (11-17) in bevels: the attached menu, settings rows, theme tiles, the switches, controls */
+html[data-theme="desktop"] .menu > summary { border-radius: 0; }
+html[data-theme="desktop"] .menu[open] > summary { box-shadow: var(--sunken); border: 0; background: var(--surface-1); margin-bottom: 0; height: 34px; }
+html[data-theme="desktop"] .menu[open] .menu-list { top: 100%; border-radius: 0; }
+html[data-theme="desktop"] .menu-list a, html[data-theme="desktop"] .menu-list button { border-radius: 0; color: var(--win-text); }
+html[data-theme="desktop"] .settings-rows, html[data-theme="desktop"] .control { border: 0; border-radius: 0; background: var(--field); box-shadow: var(--sunken); }
+html[data-theme="desktop"] .settings-row + .settings-row { border-top-color: var(--grid); }
+html[data-theme="desktop"] .theme-tile { border: 0; border-radius: 0; background: var(--surface-1); box-shadow: var(--raised); color: var(--win-text); }
+html[data-theme="desktop"] .theme-tile[aria-checked="true"] { box-shadow: var(--sunken); outline: 1px dotted var(--win-text); outline-offset: -5px; }
+html[data-theme="desktop"] .theme-preview { border-radius: 0; }
+html[data-theme="desktop"] .segmented { border: 0; border-radius: 0; background: transparent; padding: 0; gap: 2px; }
+html[data-theme="desktop"] .segmented button { border-radius: 0; background: var(--surface-1); box-shadow: var(--raised); color: var(--win-text); }
+html[data-theme="desktop"] .segmented button[aria-checked="true"] { box-shadow: var(--sunken); font-weight: 700;
+  background: repeating-conic-gradient(var(--check-a) 0 25%, var(--check-b) 0 50%) 0 0 / 2px 2px; }
+html[data-theme="desktop"] .account-initial { border-radius: 0; box-shadow: var(--raised); background: var(--surface-1); }
+html[data-theme="desktop"] .money-hero .big-number, html[data-theme="desktop"] .money-hero .big-number.up,
+html[data-theme="desktop"] .money-hero .big-number.down { -webkit-background-clip: border-box; background-clip: border-box; background-image: none; color: #00ff66; }
+/* Every shared Card's header is the window's title bar (11-17), whatever page it's on */
+html[data-theme="desktop"] .card > .card-head:first-child { position: absolute; left: 3px; right: 3px; top: 3px; height: 22px; margin: 0;
+  padding: 0 4px 0 6px; display: flex; flex-wrap: nowrap; align-items: center; gap: 8px; background: linear-gradient(90deg, #000080, #1084d0); }
+html[data-theme="desktop"] .card > .card-head:first-child h2 { color: #fff; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html[data-theme="desktop"] .card > .card-head:first-child .card-aside,
+html[data-theme="desktop"] .card > .card-head:first-child .card-aside * { color: #dfe6ff; font-size: 12px; white-space: nowrap; }
+html[data-theme="desktop"] .card > .card-head:first-child::after { content: "✕"; margin-left: auto; flex: none; width: 16px; height: 14px;
+  font-size: 10px; line-height: 14px; text-align: center; color: #000; background: #c0c0c0; box-shadow: var(--raised); font-weight: 700; }
+html[data-theme="desktop"] .card > .card-head:first-child .card-aside { margin-left: auto; }
+html[data-theme="desktop"] .card > .card-head:first-child .card-aside + * { margin-left: 0; }
+html[data-theme="desktop"] input:not([type]) { border: 0; border-radius: 0; background: var(--field); color: var(--win-text); box-shadow: var(--sunken); }
+html[data-theme="desktop"] .menu[open] .menu-list { box-shadow: var(--raised), 2px 2px 0 #000; padding: 3px; }

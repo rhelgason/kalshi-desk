@@ -1,102 +1,73 @@
-import PolicyForm from "@/components/PolicyForm";
-import RealMoney from "@/components/RealMoney";
-import Setup from "@/components/Setup";
+import SubmitButton from "@/components/SubmitButton";
+import ThemePicker from "@/components/ThemePicker";
+import Card from "@/components/ui/Card";
+import { AddPasskey } from "@/components/PasskeyButtons";
 import { isAdmin } from "@/lib/admin";
-import { viewedBook, requireViewer } from "@/lib/book";
-import { getCoverage, getJobs, getKillSwitch, getLive, getPolicy, isOffice } from "@/lib/db";
-import { ago } from "@/lib/format";
-import { LEVELS, awardName, poolShare } from "@/lib/hr";
+import { requireViewer } from "@/lib/book";
+import { home } from "@/lib/db";
+import { readLook } from "@/lib/look";
+import { currentUser } from "@/lib/session";
+import { signOut } from "../account";
 
 export const dynamic = "force-dynamic";
 
-export default async function Handbook() {
+const day = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+
+/**
+ * Your own settings (11-17), the same page for everyone: who you're signed in as and how, your passkeys (or, for
+ * the manager by password, remembering this device), signing out, and the theme. The office's rules are on /rules.
+ */
+export default async function SettingsPage() {
   await requireViewer();
-  let data;
-  try {
-    const book = await viewedBook();
-    // The rules are the viewed book's; the real-money panel is the real book's (a friend's: their office's)
-    const money = isOffice(book) ? book : "real";
-    const [policy, jobs, coverage, admin, live, killSwitch] = await Promise.all([
-      getPolicy(book), getJobs(), getCoverage(), isAdmin(), getLive(money).catch(() => null), getKillSwitch(money).catch(() => ({ halted: false })),
-    ]);
-    // A friend's office follows the owner's real-book rules: nobody changes them here
-    data = { policy, jobs, coverage, admin: admin && !isOffice(book), office: isOffice(book),
-             trading: live?.trading ?? { mode: "paper" as const }, killSwitch };
-  } catch (e) {
-    return <Setup error={String(e)} />;
-  }
-  const { policy, jobs, coverage, admin, office, trading, killSwitch } = data;
-  const at = policy.autotune;
+  const [user, admin, look] = await Promise.all([currentUser(), isAdmin(), readLook()]);
+  const keys = user
+    ? await home()`SELECT device, created_at FROM public.passkeys WHERE user_id = ${user.id} ORDER BY created_at`.catch(() => [])
+    : [];
+  const manager = user?.role === "owner" || (!user && admin);
+  const name = user?.name ?? "Manager";
   return (
-    <div className="stack">
-      <section className="card">
-        <h2>📘 Employee handbook</h2>
-        <p className="sub">
-          How the desk runs itself. Every {policy.review_days} days a performance review crowns the{" "}
-          {awardName(policy.review_days)} (most profit per dollar bet, not most dollars: a busy coin shouldn't win just for
-          betting more), promotes strong performers to bigger bets, and benches the ones who keep
-          losing. {admin ? "You can change any rule below." : office ? "Your office follows the same rules as the manager's own." : "Only the manager can change these rules."}
-        </p>
-        <div className="table-wrap">
-          <table>
-            <thead><tr><th>Level</th><th className="num">Each bet</th><th>How to get there</th></tr></thead>
-            <tbody>
-              {LEVELS.map((l, i) => (
-                <tr key={l.title}>
-                  <td>{l.title}</td>
-                  <td className="num">{poolShare(l.multiplier, policy.pool.bet_pct)} of the pool</td>
-                  <td className="muted">{i === 0 ? "New hires and demoted employees" : `One promotion above ${LEVELS[i - 1].title}`}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <RealMoney trading={trading} killSwitch={killSwitch} admin={admin} />
-
-      <section className="card">
-        <h2>Desk rules</h2>
-        <PolicyForm policy={policy} admin={admin} />
-      </section>
-
-      {!office && <section className="card">
-        <h2>Background jobs</h2>
-        <p className="sub">
-          Every 6 hours GitHub Actions syncs new market history, backfills Kalshi&apos;s archive, and retunes employees
-          when due (every {at.every_hours}h{at.enabled ? "" : ", currently paused"}).
-        </p>
-        <dl className="kv">
-          <dt>Backtests assume</dt>
-          <dd>
-            {policy.realism.depth} contracts available at the best price
-            {policy.realism.samples
-              ? ` (measured from ${policy.realism.samples} live trades)`
-              : " (default until enough live trades are measured)"}
-          </dd>
-          <dt>Last job</dt><dd>{jobs ? `${ago(jobs.finished_at)} (${jobs.seconds}s)` : "hasn't run yet"}</dd>
-          <dt>Last retune</dt><dd>{at.last_run ? ago(at.last_run) : "never"}</dd>
-          <dt>Retune requested</dt><dd>{at.requested_at ? `yes, ${ago(at.requested_at)}` : "no"}</dd>
-        </dl>
-        <div className="section-title">History stored for backtests</div>
-        {coverage.length ? (
-          <div className="table-wrap">
-            <table>
-              <thead><tr><th>Series</th><th className="num">Settled markets</th><th>From</th><th>To</th></tr></thead>
-              <tbody>
-                {coverage.map((c) => (
-                  <tr key={c.series}>
-                    <td>{c.series}</td>
-                    <td className="num">{c.markets.toLocaleString()}</td>
-                    <td>{new Date(c.oldest * 1000).toLocaleDateString()}</td>
-                    <td>{new Date(c.newest * 1000).toLocaleDateString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+    <div className="stack settings">
+      <Card title="Account">
+        <div className="account-head">
+          <span className="account-initial" aria-hidden>{name.slice(0, 1).toUpperCase()}</span>
+          <div>
+            <div className="account-name">{name}</div>
+            <div className="muted small">
+              {manager ? "Manager · sees every office" : "Sees their own office and the cockpit"}
+              {" · "}{user ? "signed in with a passkey" : "signed in with the password"}
+            </div>
           </div>
-        ) : <div className="empty">Nothing stored yet; the first background job fills this in.</div>}
-      </section>}
+        </div>
+
+        <div className="settings-rows">
+          {user ? (
+            <>
+              {keys.map((k, i) => (
+                <div key={i} className="settings-row">
+                  <span aria-hidden>🔑</span>
+                  <span className="grow">{k.device ?? "A device"}</span>
+                  <span className="muted small">Added {day(k.created_at)}</span>
+                </div>
+              ))}
+              <div className="settings-row settings-action"><AddPasskey label="Add a passkey on this device" /></div>
+            </>
+          ) : (
+            <div className="settings-row settings-block">
+              <div>
+                <div className="settings-row-title">🔑 Remember this device</div>
+                <div className="muted small">Save a passkey and this device never asks for the password again.</div>
+              </div>
+              <AddPasskey askName label="Save a passkey" />
+            </div>
+          )}
+        </div>
+
+        <form action={signOut} className="account-out"><SubmitButton className="btn quiet-danger">Sign out</SubmitButton></form>
+      </Card>
+
+      <Card title="Theme">
+        <ThemePicker current={look.theme} mode={look.mode} />
+      </Card>
     </div>
   );
 }

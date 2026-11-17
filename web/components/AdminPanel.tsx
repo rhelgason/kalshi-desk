@@ -2,168 +2,206 @@
 
 import { useState, useTransition } from "react";
 import {
-  fireEmployee, grantBonus, rehireEmployee, reinstateEmployee, saveSettings, setAutotune, setLevel, setNote,
+  fireEmployee, grantBonus, hireOnReal, rehireEmployee, reinstateEmployee, saveSettings, setAutotune, setLevel, setNote,
   suspendEmployee,
 } from "@/app/actions";
 import { LEVELS, poolShare } from "@/lib/hr";
 import type { Employee, RosterRow } from "@/lib/types";
+import Card from "./ui/Card";
 
 type Params = NonNullable<Employee["params"]>;
+type Status = "keep" | "bench1" | "bench3" | "bench7" | "bench" | "reinstate" | "fire" | "rehire";
 
-/** Manager controls for one employee. Only rendered for the logged-in admin. */
-export default function AdminPanel({ e, roster, reserve }: { e: Employee; roster: RosterRow | null; reserve: number }) {
+const BENCH: Record<string, number | null> = { bench1: 1, bench3: 3, bench7: 7, bench: null };
+
+/**
+ * Manager controls for one employee (11-16): every change is a draft until Save, which lists what it will do and
+ * applies it all at once (Discard drops it). Only the logged-in manager sees this, at the bottom of the page.
+ */
+export default function AdminPanel({ e, roster, reserve, betPct, movable = false }: {
+  e: Employee; roster: RosterRow | null; reserve: number; betPct: number; movable?: boolean;
+}) {
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
   const status = roster?.status ?? e.status ?? "active";
-  const level = roster?.level ?? e.level ?? 1;
-  const autotune = roster?.autotune ?? e.autotune ?? true;
+  const level0 = roster?.level ?? e.level ?? 1;
+  const auto0 = roster?.autotune ?? e.autotune ?? true;
+  const note0 = roster?.note ?? e.note ?? "";
+  const params = e.params ?? {};
+  const overrides = (roster?.params ?? e.overrides ?? {}) as Params;
 
-  const run = (fn: () => Promise<unknown>, ok: string) =>
-    start(async () => {
-      try {
-        const r = (await fn()) as { error?: string } | undefined;
-        setMsg(r?.error ? `⚠ ${r.error}` : `✓ ${ok}. The desk picks this up on its next run (~2 min).`);
-      } catch (err) {
-        setMsg(`⚠ ${String(err)}`);
-      }
-    });
-
-  return (
-    <section className="card">
-      <h2>Manager controls</h2>
-      <p className="sub">Only you can see this. Changes are logged in the office news.</p>
-
-      <div className="section-title">Employment</div>
-      <div className="row-btns">
-        {status === "fired" ? (
-          <button className="btn" disabled={pending} onClick={() => run(() => rehireEmployee(e.key), "Rehired as an Intern")}>🔄 Rehire as Intern</button>
-        ) : (
-          <>
-            {status === "suspended" ? (
-              <button className="btn" disabled={pending} onClick={() => run(() => reinstateEmployee(e.key), "Reinstated")}>▶️ Reinstate now</button>
-            ) : (
-              [1, 3, 7].map((d) => (
-                <button key={d} className="btn" disabled={pending}
-                  onClick={() => run(() => suspendEmployee(e.key, d, ""), `Suspended for ${d} day${d > 1 ? "s" : ""}`)}>
-                  ⏸ Suspend {d}d
-                </button>
-              ))
-            )}
-            {status !== "suspended" && (
-              <button className="btn" disabled={pending} onClick={() => run(() => suspendEmployee(e.key, null, ""), "Suspended indefinitely")}>⏸ Until further notice</button>
-            )}
-            <button className="btn danger" disabled={pending}
-              onClick={() => {
-                const why = prompt(`Fire ${e.name}? They'll stop trading for good (you can rehire later). Reason:`);
-                if (why !== null) run(() => fireEmployee(e.key, why), "Fired");
-              }}>🚪 Fire</button>
-          </>
-        )}
-      </div>
-
-      <div className="section-title">Level (bet size)</div>
-      <div className="row-btns">
-        {LEVELS.map((l, i) => (
-          <button key={l.title} className={`btn ${i === level ? "on" : ""}`} disabled={pending || i === level}
-            onClick={() => run(() => setLevel(e.key, i), `Now ${l.title}`)}>
-            {l.title} <span className="muted">{poolShare(l.multiplier)}</span>
-          </button>
-        ))}
-      </div>
-
-      <div className="section-title">Bonus from the reserve <span className="muted">(${reserve.toFixed(0)} left)</span></div>
-      <BonusForm onGrant={(amt, why) => run(() => grantBonus(e.key, amt, why), amt > 0 ? `Gave $${amt}` : `Took $${-amt}`)} pending={pending} />
-
-      <div className="section-title">Autotune</div>
-      <label className="row-btns">
-        <input type="checkbox" checked={autotune} disabled={pending || e.backtestable === false}
-          onChange={(ev) => run(() => setAutotune(e.key, ev.target.checked), ev.target.checked ? "Autotune on" : "Autotune off")} />
-        {e.backtestable === false
-          ? "This employee can't be replayed from price history, so reviews (not autotune) judge them."
-          : "Let the daily job adjust these settings when a tested improvement is found."}
-      </label>
-
-      <div className="section-title">Settings</div>
-      <SettingsEditor params={e.params ?? {}} overrides={(roster?.params ?? e.overrides ?? {}) as Params} pending={pending}
-        onSave={(changes, reset) => run(() => saveSettings(e.key, changes, reset), reset ? "Settings reset" : "Settings saved")} />
-
-      <div className="section-title">Manager&apos;s note</div>
-      <NoteForm note={roster?.note ?? e.note ?? ""} pending={pending} onSave={(n) => run(() => setNote(e.key, n), "Note saved")} />
-
-      {msg && <p className="notice" style={{ marginTop: 12 }}>{msg}</p>}
-    </section>
-  );
-}
-
-function BonusForm({ onGrant, pending }: { onGrant: (amount: number, why: string) => void; pending: boolean }) {
-  const [amount, setAmount] = useState("100");
+  const [employ, setEmploy] = useState<Status>("keep");
   const [why, setWhy] = useState("");
-  return (
-    <div className="row-btns">
-      <input type="number" step="10" value={amount} onChange={(e) => setAmount(e.target.value)} style={{ width: 110 }} />
-      <input type="text" placeholder="reason (optional)" value={why} onChange={(e) => setWhy(e.target.value)} style={{ width: 220 }} />
-      <button className="btn" disabled={pending} onClick={() => onGrant(Number(amount), why)}>💰 Give</button>
-      <span className="muted" style={{ fontSize: 12 }}>Negative takes money back into the reserve.</span>
-    </div>
-  );
-}
-
-function SettingsEditor({ params, overrides, onSave, pending }: {
-  params: Params; overrides: Params; pending: boolean; onSave: (changes: Params, reset: boolean) => void;
-}) {
+  const [level, setLvl] = useState(level0);
+  const [auto, setAuto] = useState(auto0);
+  const [note, setNoteText] = useState(note0);
+  const [bonus, setBonus] = useState("");
+  const [bonusWhy, setBonusWhy] = useState("");
   const [draft, setDraft] = useState<Record<string, string | boolean>>({});
-  const entries = Object.entries(params).filter(([, v]) => v === null || ["number", "boolean", "string"].includes(typeof v));
-  if (!entries.length) return <div className="muted">No adjustable settings.</div>;
+  const [resetSettings, setResetSettings] = useState(false);
+  const [move, setMove] = useState(false);
 
-  const changes = (): Params => {
+  const entries = Object.entries(params).filter(([, v]) => v === null || ["number", "boolean", "string"].includes(typeof v));
+  const changedParams = (): Params => {
     const out: Params = {};
     for (const [k, raw] of Object.entries(draft)) {
       const orig = params[k];
-      if (typeof orig === "number") {
-        const n = Number(raw);
-        if (Number.isFinite(n) && n !== orig) out[k] = n;
-      } else if (typeof orig === "boolean") {
-        if (raw !== orig) out[k] = raw as boolean;
-      } else if (raw !== String(orig ?? "")) {
-        out[k] = raw === "" ? null : (raw as string);
-      }
+      if (typeof orig === "number") { const x = Number(raw); if (Number.isFinite(x) && x !== orig) out[k] = x; }
+      else if (typeof orig === "boolean") { if (raw !== orig) out[k] = raw as boolean; }
+      else if (raw !== String(orig ?? "")) out[k] = raw === "" ? null : (raw as string);
     }
     return out;
   };
 
-  return (
-    <div className="form">
-      <div className="params">
-        {entries.map(([k, v]) => (
-          <label key={k}>
-            <span>{k}{k in overrides ? <small> · custom</small> : null}</span>
-            {typeof v === "boolean" ? (
-              <input type="checkbox" checked={(draft[k] as boolean) ?? v} onChange={(e) => setDraft({ ...draft, [k]: e.target.checked })} />
-            ) : (
-              <input type={typeof v === "number" ? "number" : "text"} step="any" value={(draft[k] as string) ?? String(v ?? "")}
-                onChange={(e) => setDraft({ ...draft, [k]: e.target.value })} />
-            )}
-          </label>
-        ))}
-      </div>
-      <div className="row-btns">
-        <button className="btn primary" disabled={pending || !Object.keys(changes()).length}
-          onClick={() => { onSave(changes(), false); setDraft({}); }}>Save changes</button>
-        <button className="btn" disabled={pending || !Object.keys(overrides).length}
-          onClick={() => { if (confirm("Drop all custom settings and go back to desk.yaml defaults?")) onSave({}, true); }}>
-          Reset to defaults
-        </button>
-      </div>
-    </div>
-  );
-}
+  // What Save will do, in words, in the order it does it
+  const plan: { say: string; act: () => Promise<unknown> }[] = [];
+  if (employ === "fire") plan.push({ say: "Fire", act: () => fireEmployee(e.key, why) });
+  else if (employ === "rehire") plan.push({ say: "Rehire as an Intern", act: () => rehireEmployee(e.key) });
+  else if (employ === "reinstate") plan.push({ say: "Bring back from the bench", act: () => reinstateEmployee(e.key) });
+  else if (employ in BENCH) {
+    const d = BENCH[employ];
+    plan.push({ say: d ? `Bench for ${d} day${d > 1 ? "s" : ""}` : "Bench until you bring them back", act: () => suspendEmployee(e.key, d, why) });
+  }
+  if (level !== level0) plan.push({ say: `Level → ${LEVELS[level].title}`, act: () => setLevel(e.key, level) });
+  if (auto !== auto0) plan.push({ say: auto ? "Autotune on" : "Autotune off", act: () => setAutotune(e.key, auto) });
+  const pc = changedParams();
+  if (resetSettings) plan.push({ say: "Settings back to defaults", act: () => saveSettings(e.key, {}, true) });
+  else if (Object.keys(pc).length) plan.push({ say: `Settings: ${Object.keys(pc).join(", ")}`, act: () => saveSettings(e.key, pc, false) });
+  if (note !== note0) plan.push({ say: note ? "New note" : "Clear the note", act: () => setNote(e.key, note) });
+  const amt = Number(bonus);
+  if (bonus && Number.isFinite(amt) && amt !== 0)
+    plan.push({ say: amt > 0 ? `Give $${amt} from the reserve` : `Take $${-amt} back`, act: () => grantBonus(e.key, amt, bonusWhy) });
+  if (move) plan.push({ say: "Move to real money as an Intern", act: () => hireOnReal(e.key) });
 
-function NoteForm({ note, onSave, pending }: { note: string; onSave: (n: string) => void; pending: boolean }) {
-  const [text, setText] = useState(note);
+  const discard = () => {
+    setEmploy("keep"); setWhy(""); setLvl(level0); setAuto(auto0); setNoteText(note0); setBonus(""); setBonusWhy("");
+    setDraft({}); setResetSettings(false); setMove(false);
+  };
+  const save = () => {
+    if (!plan.length) return;
+    if ((employ === "fire" || move) && !confirm(`Save these changes for ${e.name}?\n\n${plan.map((p) => `• ${p.say}`).join("\n")}`)) return;
+    start(async () => {
+      try {
+        for (const p of plan) {
+          const r = (await p.act()) as { error?: string } | undefined;
+          if (r?.error) { setMsg(`⚠ ${p.say}: ${r.error}`); return; }
+        }
+        setMsg(`Saved: ${plan.map((p) => p.say).join(" · ")}. The desk picks it up on its next run (~2 min).`);
+        discard();
+      } catch (err) {
+        setMsg(`⚠ ${String(err)}`);
+      }
+    });
+  };
+
+  const options: [Status, string][] = status === "fired" ? [["keep", "Fired"], ["rehire", "Rehire"]]
+    : status === "suspended" ? [["keep", "Benched"], ["reinstate", "Bring back"], ["fire", "Fire"]]
+    : [["keep", "Working"], ["bench1", "Bench 1d"], ["bench3", "Bench 3d"], ["bench7", "Bench 7d"], ["bench", "Bench ∞"], ["fire", "Fire"]];
+
   return (
-    <div className="row-btns">
-      <input type="text" value={text} onChange={(e) => setText(e.target.value)} placeholder="Shown on the employee's page" style={{ flex: 1, minWidth: 200 }} />
-      <button className="btn" disabled={pending || text === note} onClick={() => onSave(text)}>Save note</button>
-    </div>
+    <Card title="Manager Controls" aside="Only you see this" className="manager-panel">
+      <div className="mp-grid">
+        <div className="mp-field mp-wide">
+          <span className="mp-label">Status</span>
+          <div className="seg mp-seg">
+            {options.map(([k, label]) => (
+              <button key={k} type="button" aria-pressed={employ === k} className={k === "fire" ? "danger" : undefined}
+                      onClick={() => setEmploy(k)} disabled={pending}>{label}</button>
+            ))}
+          </div>
+          {(employ === "fire" || employ in BENCH) && (
+            <input type="text" placeholder={employ === "fire" ? "Why? (shown in the office news)" : "Why? (optional)"}
+                   value={why} onChange={(ev) => setWhy(ev.target.value)} />
+          )}
+        </div>
+
+        {status !== "fired" && (
+          <div className="mp-field mp-wide">
+            <span className="mp-label">Level <span className="muted">· each bet</span></span>
+            <div className="mp-levels">
+              {LEVELS.map((l, i) => (
+                <button key={l.title} type="button" className={`lvl lvl-${i} mp-level`} aria-pressed={level === i}
+                        onClick={() => setLvl(i)} disabled={pending}>
+                  {l.title} <small>{poolShare(l.multiplier, betPct)}</small>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <label className="mp-field mp-toggle">
+          <span className="mp-label">Autotune</span>
+          <span className="mp-switch-row">
+            <input type="checkbox" role="switch" checked={auto} disabled={pending || e.backtestable === false}
+                   onChange={(ev) => setAuto(ev.target.checked)} />
+            <span className="muted small">{e.backtestable === false ? "Can't be replayed, so reviews judge them" : "Retune when a tested improvement turns up"}</span>
+          </span>
+        </label>
+
+        {reserve > 0 && (
+        <div className="mp-field">
+          <span className="mp-label">Bonus <span className="muted">· ${reserve.toFixed(0)} in the reserve</span></span>
+          <div className="mp-inline">
+            <input type="text" inputMode="decimal" placeholder="$0" value={bonus} onChange={(ev) => setBonus(ev.target.value.replace(/[^\d.-]/g, ""))} />
+            <input type="text" placeholder="reason" value={bonusWhy} onChange={(ev) => setBonusWhy(ev.target.value)} />
+          </div>
+        </div>
+        )}
+
+        <label className="mp-field mp-wide">
+          <span className="mp-label">Note on their page</span>
+          <input type="text" value={note} onChange={(ev) => setNoteText(ev.target.value)} placeholder="Nothing yet" />
+        </label>
+
+        {movable && (
+          <label className="mp-field mp-wide mp-toggle">
+            <span className="mp-label">Real money</span>
+            <span className="mp-switch-row">
+              <input type="checkbox" role="switch" checked={move} onChange={(ev) => setMove(ev.target.checked)} />
+              <span className="muted small">Move them to the real book as an Intern (half-size bets), no new season</span>
+            </span>
+          </label>
+        )}
+      </div>
+
+      {entries.length > 0 && (
+        <details className="mp-settings">
+          <summary>Strategy settings <span className="muted">({entries.length}{Object.keys(overrides).length ? `, ${Object.keys(overrides).length} custom` : ""})</span></summary>
+          <div className="params">
+            {entries.map(([k, v]) => (
+              <label key={k}>
+                <span>{k}{k in overrides ? <small> · custom</small> : null}</span>
+                {typeof v === "boolean" ? (
+                  <input type="checkbox" checked={(draft[k] as boolean) ?? v} disabled={resetSettings}
+                         onChange={(ev) => setDraft({ ...draft, [k]: ev.target.checked })} />
+                ) : (
+                  <input type="text" inputMode={typeof v === "number" ? "decimal" : undefined} value={(draft[k] as string) ?? String(v ?? "")}
+                         disabled={resetSettings} onChange={(ev) => setDraft({ ...draft, [k]: ev.target.value })} />
+                )}
+              </label>
+            ))}
+          </div>
+          {Object.keys(overrides).length > 0 && (
+            <label className="mp-switch-row small">
+              <input type="checkbox" checked={resetSettings} onChange={(ev) => { setResetSettings(ev.target.checked); setDraft({}); }} />
+              Put every setting back to the desk&apos;s defaults
+            </label>
+          )}
+        </details>
+      )}
+
+      <div className={`mp-bar ${plan.length ? "dirty" : ""}`}>
+        <span className="small">
+          {plan.length ? <><strong>{plan.length} unsaved:</strong> {plan.map((p) => p.say).join(" · ")}</> : <span className="muted">No changes</span>}
+        </span>
+        <span className="row-btns">
+          <button type="button" className="btn small ghost" disabled={pending || !plan.length} onClick={discard}>Discard</button>
+          <button type="button" className="btn small primary" disabled={pending || !plan.length || (employ === "fire" && !why.trim())} onClick={save}>
+            {pending ? "Saving…" : "Save"}
+          </button>
+        </span>
+      </div>
+      {msg && <p className="mp-msg small">{msg}</p>}
+    </Card>
   );
 }

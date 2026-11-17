@@ -1,11 +1,13 @@
 import { unstable_cache } from "next/cache";
+import { cache } from "react";
 import postgres from "postgres";
 import { LEVELS, mergePolicy } from "./hr";
 import { coinOfTicker } from "./coin";
 import type { Bet } from "./records";
+import type { DayRow } from "./season";
 import { binFor, RANGES, type History, type RangeKey, type Settlement } from "./portfolio";
 import type {
-  Accuracy, BacktestSummary, Evidence, Fill, LiveStatus, MoneyMove, NewsItem, Point, Policy, Realism, RosterRow, TuningRun,
+  Accuracy, Evidence, Fill, LiveStatus, MoneyMove, NewsItem, Point, Policy, Realism, RosterRow, TuningRun,
 } from "./types";
 
 // Use Supabase's SESSION pooler (port 5432) for the dashboard. Through the
@@ -70,6 +72,8 @@ export function db(book: Book = "pretend"): Tag {
  *  - an older copy: ask the database again, but if it's down or slow, show the old copy
  *    instead of an error page.
  * Manager changes (app/actions.ts) clear the copies straight away (revalidateTag).
+ * A book's reads are also keyed by when its bot last reported (11-16, `reported`): one tiny query per page load,
+ * so a refresh after the bot's run reads everything afresh, and between runs the copies serve.
  */
 const FRESH_MS = 60_000;
 const TRY_MS = 3_000;
@@ -77,13 +81,29 @@ const REST_MS = 30_000; // after the database fails to answer, don't wait on it 
 let downUntil = 0;
 export const bookTag = (book: Book | "shared") => `db:${book}`;
 
+/** When the book's bot last wrote its status (once per page load); null if the database doesn't answer quickly. */
+const reported = cache(async (book: Book): Promise<string | null> => {
+  if (Date.now() < downUntil) return null;
+  try {
+    const rows = await Promise.race([
+      db(book)`SELECT updated_at FROM status WHERE key = 'live'`,
+      new Promise<never>((_, no) => setTimeout(() => no(new Error("database slow")), TRY_MS)),
+    ]);
+    return rows.length ? String(rows[0].updated_at) : null;
+  } catch {
+    return null;
+  }
+});
+
 function sturdy<A extends unknown[], R>(name: string, query: (...a: A) => Promise<R>): (...a: A) => Promise<R> {
   return async (...a: A) => {
     const book = isBook(a[0]) ? a[0] : "shared";
-    const kept = unstable_cache(async () => ({ at: Date.now(), v: await query(...a) }), [name, JSON.stringify(a)],
-      { revalidate: 30, tags: [bookTag(book)] });
+    const stamp = book === "shared" ? null : await reported(book);
+    const kept = unstable_cache(async () => ({ at: Date.now(), v: await query(...a) }), [name, JSON.stringify(a), stamp ?? ""],
+      { revalidate: stamp ? 600 : 30, tags: [bookTag(book)] });
     const copy = await kept();
-    if (Date.now() - copy.at < FRESH_MS || Date.now() < downUntil) return copy.v;
+    // Nothing new since the bot's last report: this copy is the latest there is
+    if (stamp || Date.now() - copy.at < FRESH_MS || Date.now() < downUntil) return copy.v;
     try {
       return await Promise.race([
         query(...a),
@@ -256,6 +276,10 @@ async function getRecentFillsQuery(book: Book, season: number, limit = 30, strat
     FROM fills f
     LEFT JOIN settlements s ON s.strategy = f.strategy AND s.ticker = f.ticker AND s.season = f.season
     WHERE f.season = ${season} ${strategy ? db(book)`AND f.strategy = ${strategy}` : db(book)``}
+      -- Only the newest fills (a few per bet at most), not the whole season's (11-16: 2.7 s on Training)
+      AND f.id >= (SELECT coalesce(min(id), 0) FROM (
+        SELECT id FROM fills WHERE season = ${season} ${strategy ? db(book)`AND strategy = ${strategy}` : db(book)``}
+        ORDER BY id DESC LIMIT ${limit * 4}) newest)
     GROUP BY f.strategy, f.ticker, f.side, s.yes_value, s.pnl
     ORDER BY max(f.id) DESC LIMIT ${limit}`;
   return rows.map((r) => ({ ...r, count: Number(r.count), price: Number(r.price), fee: Number(r.fee) })) as Fill[];
@@ -291,16 +315,25 @@ async function getSettlementStatsQuery(book: Book, season: number, strategy: str
   };
 }
 
-/** Every settled bet this season with what it cost (fills joined by employee and market): records and player cards. */
-async function getBetsQuery(book: Book, season: number): Promise<Bet[]> {
+/**
+ * Settled bets this season with what they cost (fills joined by employee and market): records and player cards.
+ * With `since` (ISO), only bets settled from then (11-16: Training's season is ~40,000 bets, 5 MB, far too much to
+ * send for a week's page); their fills are looked for from a few days earlier (weather bets fill a day or so ahead).
+ */
+async function getBetsQuery(book: Book, season: number, since?: string | null, strategy?: string, until?: string): Promise<Bet[]> {
+  const fillsFrom = since ? new Date(Date.parse(since) - 4 * 86_400_000).toISOString() : null;
   const rows = await db(book)`
     SELECT s.ts, s.strategy, s.ticker, s.pnl, f.cost, f.price
     FROM settlements s
     LEFT JOIN (
       SELECT strategy, ticker, sum(count * price + fee) AS cost, max(price) AS price
-      FROM fills WHERE season = ${season} GROUP BY strategy, ticker
+      FROM fills WHERE season = ${season} ${fillsFrom ? db(book)`AND ts >= ${fillsFrom}` : db(book)``}
+        ${strategy ? db(book)`AND strategy = ${strategy}` : db(book)``}
+      GROUP BY strategy, ticker
     ) f ON f.strategy = s.strategy AND f.ticker = s.ticker
-    WHERE s.season = ${season}
+    WHERE s.season = ${season} ${since ? db(book)`AND s.ts >= ${since}` : db(book)``}
+      ${until ? db(book)`AND s.ts < ${until}` : db(book)``}
+      ${strategy ? db(book)`AND s.strategy = ${strategy}` : db(book)``}
     ORDER BY s.ts`;
   return rows.map((r) => ({
     t: Date.parse(r.ts), strategy: r.strategy, coin: coinOfTicker(r.ticker), pnl: Number(r.pnl),
@@ -346,15 +379,6 @@ async function getSettledCountQuery(book: Book, season: number): Promise<number>
   return rows[0].n;
 }
 
-async function listBacktestsQuery(): Promise<{ id: string; created_at: string; summary: BacktestSummary }[]> {
-  const rows = await db()`SELECT id, created_at, summary FROM backtests ORDER BY id DESC LIMIT 50`;
-  return rows.map((r) => ({ id: r.id, created_at: r.created_at, summary: JSON.parse(r.summary) }));
-}
-
-async function getBacktestQuery(id: string): Promise<BacktestSummary | null> {
-  const rows = await db()`SELECT summary FROM backtests WHERE id = ${id}`;
-  return rows.length ? JSON.parse(rows[0].summary) : null;
-}
 
 /** Live employee stats with the latest HR fields from the table (admin edits show immediately). */
 export function withRoster<T extends { key: string }>(employees: T[], roster: Record<string, RosterRow>) {
@@ -448,13 +472,78 @@ export const getRecentFills = sturdy("getRecentFills", getRecentFillsQuery);
 export const getSettlementStats = sturdy("getSettlementStats", getSettlementStatsQuery);
 export const getActivity = sturdy("getActivity", getActivityQuery);
 export const getSettledCount = sturdy("getSettledCount", getSettledCountQuery);
-export const listBacktests = sturdy("listBacktests", listBacktestsQuery);
-export const getBacktest = sturdy("getBacktest", getBacktestQuery);
 export const getBtcSeries = sturdy("getBtcSeries", getBtcSeriesQuery);
 export const getPoolRecord = sturdy("getPoolRecord", getPoolRecordQuery);
 export const getCoinStats = sturdy("getCoinStats", getCoinStatsQuery);
 export const getSettlements = sturdy("getSettlements", getSettlementsQuery);
 export const getBets = sturdy("getBets", getBetsQuery);
+
+/**
+ * Kept until it expires, whatever the bot reports since (sturdy() starts afresh after every report): for what's
+ * already settled and won't change, like the bets of days gone by. Keys must repeat (whole days, not "now").
+ */
+function lasting<A extends unknown[], R>(name: string, query: (...a: A) => Promise<R>, seconds: number): (...a: A) => Promise<R> {
+  return (...a: A) => unstable_cache(() => query(...a), [name, JSON.stringify(a)],
+    { revalidate: seconds, tags: [bookTag(isBook(a[0]) ? a[0] : "shared")] })();
+}
+const getPastBets = lasting("getPastBets", (book: Book, season: number, since: string | null, strategy: string | undefined, until: string) =>
+  getBetsQuery(book, season, since, strategy, until), 6 * 3600);
+
+/**
+ * Settled bets from `since` (null: the season's start), from two caches (11-16): the days before today, kept for
+ * hours since they're done, and today's, fetched again after each bot run. `today` is when today started.
+ */
+export async function getBetsSince(book: Book, season: number, since: string | null, today: string, strategy?: string): Promise<Bet[]> {
+  const [past, now] = await Promise.all([
+    since && since >= today ? [] : getPastBets(book, season, since, strategy, today),
+    getBets(book, season, since && since > today ? since : today, strategy),
+  ]);
+  return [...past, ...now];
+}
+
+async function getDaysQuery(book: Book, season: number, tz: string): Promise<DayRow[]> {
+  const rows = await db(book)`
+    SELECT to_char(s.ts::timestamptz AT TIME ZONE ${tz}, 'YYYY-MM-DD') AS d, s.strategy, count(*)::int AS n,
+           count(*) FILTER (WHERE s.pnl > 0)::int AS won, sum(s.pnl) AS pnl, coalesce(sum(f.cost), 0) AS cost,
+           max(s.pnl) AS best, min(s.pnl) AS worst, max(s.ts) AS last
+    FROM settlements s
+    LEFT JOIN (SELECT strategy, ticker, sum(count * price + fee) AS cost FROM fills WHERE season = ${season}
+               GROUP BY strategy, ticker) f ON f.strategy = s.strategy AND f.ticker = s.ticker
+    WHERE s.season = ${season}
+    GROUP BY 1, 2 ORDER BY 1, 2`;
+  return rows.map((r) => [r.d, r.strategy, r.n, r.won, Number(r.pnl), Number(r.cost), Number(r.best), Number(r.worst), Date.parse(r.last)]);
+}
+const getDaysSql = sturdy("getDays", getDaysQuery);
+
+/**
+ * Each employee's season by day (lib/season.ts): what the bot wrote after its last run, or (before a bot has
+ * written one for this season and time zone) the same added up here.
+ */
+export async function getDays(book: Book, season: number, tz: string): Promise<DayRow[]> {
+  const page = await status<{ season: number; tz: string; days: DayRow[] }>(book, "_page");
+  return page && page.season === season && page.tz === tz ? page.days : getDaysSql(book, season, tz);
+}
+
+/**
+ * What the charts need about money put in, without anyone's value over time (11-16: Training's year of values took
+ * ~6 s): the season's start, each employee's starting money and every bonus or deposit since.
+ */
+async function getMoneyInQuery(book: Book, season: number): Promise<History> {
+  const [start, accounts, transfers, staffRows] = await Promise.all([
+    getSeasonStart(book, season),
+    db(book)`SELECT strategy, starting_cash FROM accounts`,
+    db(book)`SELECT ts, strategy, amount FROM transfers WHERE season = ${season} ORDER BY ts`,
+    db(book)`SELECT e->>'key' AS key FROM status, jsonb_array_elements(data::jsonb -> 'employees') e WHERE status.key = 'live'`,
+  ]);
+  const staff = new Set(staffRows.map((r) => r.key as string));
+  const onStaff = (k: string) => !staff.size || staff.has(k);
+  return {
+    since: start ?? Date.now() - 86_400_000, points: {}, seeds: {},
+    starting: Object.fromEntries(accounts.filter((r) => onStaff(r.strategy)).map((r) => [r.strategy, Number(r.starting_cash)])),
+    transfers: transfers.filter((r) => onStaff(r.strategy)).map((r) => ({ t: Date.parse(r.ts), strategy: r.strategy, amount: Number(r.amount) })),
+  };
+}
+export const getMoneyIn = sturdy("getMoneyIn", getMoneyInQuery);
 export const getMoneyMoves = sturdy("getMoneyMoves", getMoneyMovesQuery);
 export const getSettlementsSince = sturdy("getSettlementsSince", getSettlementsSinceQuery);
 

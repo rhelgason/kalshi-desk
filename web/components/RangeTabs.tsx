@@ -16,6 +16,11 @@ export default function RangeTabs({ value, path, params = {} }: { value: RangeKe
   const [pending, start] = useTransition();
   const [picked, setPicked] = useState(value);
   useEffect(() => setPicked(value), [value]);
+  // While the new range loads, the page greys out the chart and its numbers and says it's updating (globals.css)
+  useEffect(() => {
+    document.documentElement.toggleAttribute("data-range-loading", pending);
+    return () => document.documentElement.removeAttribute("data-range-loading");
+  }, [pending]);
   return (
     <nav className="seg" aria-label="Time range" data-pending={pending || undefined}>
       {(Object.keys(SHORT) as RangeKey[]).map((k) => {
