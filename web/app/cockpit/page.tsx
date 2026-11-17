@@ -1,13 +1,13 @@
 import AutoRefresh from "@/components/AutoRefresh";
 import Card from "@/components/ui/Card";
 import StatRow, { toneOf } from "@/components/ui/StatRow";
-import OfficesChart, { type OfficeLine } from "@/components/OfficesChart";
+import ReturnsChart, { type ReturnLine } from "@/components/ReturnsChart";
 import { isAdmin } from "@/lib/admin";
 import { requireViewer } from "@/lib/book";
-import { getAnalysis, getBets, getKillSwitch, getLive, getMoneyMoves, getPolicy, getRoster, getSeasonStart, home, withRoster, type Book } from "@/lib/db";
+import { getAnalysis, getBets, getKillSwitch, getLive, getPolicy, getRoster, getSeasonStart, home, withRoster, type Book } from "@/lib/db";
 import NeedsAttention from "@/components/NeedsAttention";
 import { advise, betsPerDay, type Advice } from "@/lib/advice";
-import type { Employee, MoneyMove } from "@/lib/types";
+import type { Employee } from "@/lib/types";
 import { dollars, pct } from "@/lib/format";
 import { headline, parseRange, poolKeys, RANGES, RANGE_WORDS } from "@/lib/portfolio";
 import RangeTabs from "@/components/RangeTabs";
@@ -21,7 +21,7 @@ export const dynamic = "force-dynamic";
 
 type Office = {
   book: Book; name: string; since: number; worth: number; putIn: number; bets: Bet[]; paused: boolean;
-  updated: string; moves: MoneyMove[];
+  updated: string;
 };
 
 // One colour per office, the same on the chart and in the table
@@ -38,8 +38,8 @@ async function loadOffices(): Promise<Office[]> {
   const out = await Promise.all(books.map(async ({ book, name }) => {
     try {
       const policy = await getPolicy(book);
-      const [live, start, bets, kill, moves] = await Promise.all([getLive(book), getSeasonStart(book, policy.season), getBets(book, policy.season),
-        getKillSwitch(book), getMoneyMoves(book, policy.season)]);
+      const [live, start, bets, kill] = await Promise.all([getLive(book), getSeasonStart(book, policy.season), getBets(book, policy.season),
+        getKillSwitch(book)]);
       if (!live) return null;
       const since = start ?? Date.now();
       const top = headline(live, true, since);
@@ -47,7 +47,7 @@ async function loadOffices(): Promise<Office[]> {
       return {
         book, name, since, worth: top.worth, putIn: top.putIn,
         bets: bets.filter((b) => members.has(b.strategy)).sort((a, b) => a.t - b.t),
-        paused: !!kill.halted, updated: live.updated_at, moves,
+        paused: !!kill.halted, updated: live.updated_at,
       } satisfies Office;
     } catch {
       return null;
@@ -58,12 +58,10 @@ async function loadOffices(): Promise<Office[]> {
 
 const won = (bs: Bet[]) => bs.filter((b) => b.pnl > 0).length;
 
-/** An office's value after each deposit or withdrawal and each finished bet (the chart moves only when a bet is decided). */
-function officeLine(o: Office, color: string): OfficeLine {
-  const moved = o.moves.reduce((s, m) => s + m.amount, 0);
-  const events = [...o.moves.map((m) => [m.t, m.amount] as const), ...o.bets.map((b) => [b.t, b.pnl] as const)].sort((a, b) => a[0] - b[0]);
-  let v = o.putIn - moved;
-  return { key: o.book, label: o.name, color, since: o.since, worth: [[o.since, v], ...events.map(([t, d]) => [t, (v += d)] as [number, number])] };
+/** An office's running profit after each finished bet, for the chart. */
+function returnLine(o: Office, color: string): ReturnLine {
+  let sum = 0;
+  return { key: o.book, label: o.name, color, putIn: o.putIn, since: o.since, pnl: o.bets.map((b) => [b.t, (sum += b.pnl)]) };
 }
 
 /**
@@ -94,7 +92,7 @@ export default async function CockpitPage({ searchParams }: { searchParams: Prom
   const now = Date.now();
   const rangeDays = RANGES[range].days;
   const from = rangeDays == null ? 0 : now - rangeDays * 86_400_000;
-  const lines = offices.map((o, i) => officeLine(o, COLORS[i % COLORS.length]));
+  const lines = offices.map((o, i) => returnLine(o, COLORS[i % COLORS.length]));
   const rows: OfficeRow[] = offices.map((o, i) => ({
     key: o.book, name: o.name, color: COLORS[i % COLORS.length], paused: o.paused, since: o.since, putIn: o.putIn, worth: o.worth,
     week: o.bets.filter((b) => b.t >= Math.max(from, o.since)).reduce((s, b) => s + b.pnl, 0), bets: o.bets.length, won: won(o.bets),
@@ -109,9 +107,9 @@ export default async function CockpitPage({ searchParams }: { searchParams: Prom
   const start = Math.min(...offices.map((o) => o.since));
   const stripDays = Math.min(Math.min(30, Math.max(7, rangeDays ?? 30)), Math.ceil((now - start) / 86_400_000));
 
-  // What a newcomer asks, in order: is it real, what did a dollar turn into, does it win most days, is it skill?
+  // What a newcomer asks: what did a dollar turn into, does it win most days, is it skill?
   const working = (
-    <Card title="Is It Working?" aside={`Real money · ${offices.length} Kalshi accounts`}>
+    <Card title="Is It Working?">
       <div className="working">
         <SkillGauge e={odds} />
         <div className="working-facts">
@@ -136,7 +134,7 @@ export default async function CockpitPage({ searchParams }: { searchParams: Prom
       <AutoRefresh seconds={120} />
       <Card title="Cockpit" className="cockpit-main">
         <div className="hero-chart-head"><RangeTabs value={range} path="/cockpit" /></div>
-        <OfficesChart lines={lines} from={from} now={now} checked={offices[0]?.updated} />
+        <ReturnsChart lines={lines} from={from} now={now} checked={offices[0]?.updated} />
         <OfficeTable rows={rows} money={admin} now={now} period={RANGE_WORDS[range]} />
       </Card>
       {admin ? <div className="grid two cockpit-under">{working}<NeedsAttention todo={todo} /></div> : working}

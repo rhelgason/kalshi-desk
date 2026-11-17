@@ -20,12 +20,15 @@ const ret = (r: OfficeRow) => (r.worth - r.putIn) / (r.putIn || 1);
 
 /**
  * Every office in one table under the cockpit chart (11-16): its colour is the chart's legend, any column sorts
- * (tap again to flip), biggest office first. The chart shows each office's value, the table the percentages. The
- * manager sees dollars; a friend sees only % and rates, the same offices, the same staff.
+ * (tap again to flip), biggest office first. The manager sees dollars; a friend sees only % and rates, the same
+ * offices, the same staff.
  */
 export default function OfficeTable({ rows, money, now, period }: { rows: OfficeRow[]; money: boolean; now: number; period: string }) {
   const cols: Col[] = [
-    ...(money ? [{ key: "putIn", label: "Put in", value: (r: OfficeRow) => r.putIn, show: (r: OfficeRow) => dollars(r.putIn) }] : []),
+    ...(money ? [
+      { key: "worth", label: "Worth now", value: (r: OfficeRow) => r.worth, show: (r: OfficeRow) => <strong>{dollars(r.worth)}</strong> },
+      { key: "putIn", label: "Put in", value: (r: OfficeRow) => r.putIn, show: (r: OfficeRow) => dollars(r.putIn) },
+    ] : []),
     { key: "week", label: period, value: (r) => r.week / (r.putIn || 1),
       show: (r) => <span className={money ? tone(r.week) : tone(r.week / (r.putIn || 1), 0.001)}>{money ? dollars(r.week, true) : pct(r.week / (r.putIn || 1), true, 1)}</span> },
     { key: "return", label: "Return", value: ret, show: (r) => <span className={tone(ret(r), 0.001)}>{pct(ret(r), true, 1)}</span> },
@@ -35,8 +38,7 @@ export default function OfficeTable({ rows, money, now, period }: { rows: Office
     { key: "days", label: "Days in", value: (r) => now - r.since, show: (r) => Math.max(1, Math.ceil((now - r.since) / 86_400_000)) },
   ];
   const [sort, setSort] = useState<{ key: string; desc: boolean }>({ key: money ? "worth" : "return", desc: true });
-  // Biggest office first by default (its value isn't a column: the chart above shows it)
-  const col = cols.find((c) => c.key === sort.key) ?? { value: (r: OfficeRow) => r.worth };
+  const col = cols.find((c) => c.key === sort.key) ?? cols[0];
   const sorted = [...rows].sort((a, b) => (col.value(a) - col.value(b)) * (sort.desc ? -1 : 1));
   const by = (key: string) => setSort((s) => ({ key, desc: s.key === key ? !s.desc : true }));
 
@@ -65,7 +67,7 @@ export default function OfficeTable({ rows, money, now, period }: { rows: Office
               </td>
               {cols.map((c) => <td key={c.key} className="num">{c.show(r)}</td>)}
               {money && (
-                <td>{r.visit && <form action={r.visit}><button className="btn small">Open</button></form>}</td>
+                <td className="num">{r.visit && <form action={r.visit}><button className="btn small">Open</button></form>}</td>
               )}
             </tr>
           ))}
