@@ -24,11 +24,10 @@ import {
 import { currentUser, officeOf } from "@/lib/session";
 import { dollars, pct } from "@/lib/format";
 import { perDollar, teamNotes } from "@/lib/records";
-import { headline, only, parseRange, poolKeys, profitSeries, RANGES, settledSeries } from "@/lib/portfolio";
+import { headline, only, parseRange, poolKeys, profitSeries, RANGES, RANGE_WORDS, settledSeries } from "@/lib/portfolio";
 
 export const dynamic = "force-dynamic";
 
-const RANGE_WORDS = { day: "Today", week: "This Week", month: "This Month", quarter: "Last 3 Months", season: "All Time" };
 
 /** The day (in the office's time zone) a moment falls on, as YYYY-MM-DD. */
 const dayOf = (t: number, tz: string) => new Date(t).toLocaleDateString("en-CA", { timeZone: tz });

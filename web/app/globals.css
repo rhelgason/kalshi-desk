@@ -508,7 +508,6 @@ textarea.pem { width: 100%; min-height: 90px; font-family: ui-monospace, monospa
 .legend-item { display: inline-flex; align-items: center; gap: 6px; }
 .legend-swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
 .cockpit-table td, .cockpit-table th { white-space: nowrap; }
-.cockpit-table tr.is-mine td { background: var(--wash); }
 .cockpit-table form { margin: 0; }
 
 /* 11-16 feedback round: office heading, sign-in cards, chart checked line */
@@ -720,3 +719,20 @@ html[data-range-loading] .employee-chart .chart::after { content: "Updating…";
   transform: translate(-50%, -50%); padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 600;
   background: var(--surface-1); color: var(--text-primary); border: 1px solid var(--border); box-shadow: 0 6px 20px var(--shadow); }
 .feed li { align-items: center; }
+
+/* Cockpit (11-16): chart and office table in one card; to-do and "Is it working?" side by side under it */
+.returns-chart svg { display: block; width: 100%; }
+.returns-chart .readout-item { display: inline-flex; align-items: center; gap: 5px; }
+.cockpit-main .table-wrap { margin-top: 14px; border-top: 1px solid var(--grid); padding-top: 6px; }
+.cockpit-table th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-weight: 700; }
+.sort-btn { font: inherit; color: inherit; text-transform: inherit; letter-spacing: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+.sort-btn:hover { color: var(--text-primary); }
+th[aria-sort] .sort-btn { color: var(--text-primary); }
+.sort-mark { display: inline-block; width: 10px; text-align: left; margin-left: 2px; }
+.office-name { display: inline-flex; align-items: center; gap: 8px; }
+.office-name .legend-swatch { width: 12px; height: 12px; border-radius: 50%; }
+.paused-badge { margin-left: 8px; background: color-mix(in srgb, var(--down) 18%, transparent); color: var(--down); }
+.working { display: grid; grid-template-columns: minmax(150px, 220px) minmax(0, 1fr); gap: 16px; align-items: center; }
+.working .stat-cells.flat { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 600px) { .working { grid-template-columns: 1fr; } }
+.cockpit-under { align-items: start; }

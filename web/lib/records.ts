@@ -14,6 +14,25 @@ export function perDollar(bets: Bet[]): number | null {
   return cost ? pnl / cost : null;
 }
 
+/**
+ * How sure we can be that bets make money by skill, not luck (11-16, the cockpit's "Is it working?"): each bet's
+ * return per $1, then the chance its average is really above zero (a one-sided t-test, normal approximation).
+ * Simpler than the desk's own evidence (desk/evidence), which the employee pages use, but the same idea.
+ */
+export function skillOdds(bets: Bet[]) {
+  const r = bets.filter((b) => b.cost).map((b) => b.pnl / b.cost!);
+  const n = r.length;
+  if (n < 2) return { confidence: 0.5, verdict_key: "too_early" as const, bets: n };
+  const mean = r.reduce((s, v) => s + v, 0) / n;
+  const sd = Math.sqrt(r.reduce((s, v) => s + (v - mean) ** 2, 0) / (n - 1)) || 1e-9;
+  const t = mean / (sd / Math.sqrt(n));
+  // The normal curve's area below t (Abramowitz & Stegun 7.1.26, good to 1e-7)
+  const z = Math.abs(t) / Math.SQRT2, k = 1 / (1 + 0.3275911 * z);
+  const erf = 1 - (((((1.061405429 * k - 1.453152027) * k) + 1.421413741) * k - 0.284496736) * k + 0.254829592) * k * Math.exp(-z * z);
+  const confidence = t >= 0 ? (1 + erf) / 2 : (1 - erf) / 2;
+  return { confidence, verdict_key: t < -2 ? ("losing" as const) : ("luck" as const), bets: n };
+}
+
 /** Wins in a row: the current run (from the newest bet back) and the season's longest, with when it ended. */
 export function streaks(bets: Bet[]) {
   let run = 0, best = 0, bestEnd: number | null = null;

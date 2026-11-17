@@ -1,57 +1,116 @@
 "use client";
 
+import { useState } from "react";
 import { pct } from "@/lib/format";
-import type { Point } from "@/lib/types";
-import { niceTicks, useWidth } from "./useWidth";
+import { fmtWhen, updatedAgo } from "./PortfolioChart";
+import { niceTicks, smoothPath, useWidth } from "./useWidth";
 
-export type ReturnLine = { key: string; label: string; points: Point[]; mine?: boolean };
+/** One office for the chart: its colour, money put in, start, and running profit after each finished bet. */
+export type ReturnLine = { key: string; label: string; color: string; putIn: number; since: number; pnl: [t: number, sum: number][] };
 
-const COLORS = ["var(--series-1)", "var(--series-2)", "#8b5cf6", "#14b8a6", "#ec4899"];
+/** Profit so far at time t (the last finished bet at or before it). */
+const sumAt = (l: ReturnLine, t: number) => {
+  let v = 0;
+  for (const [ts, s] of l.pnl) { if (ts > t) break; v = s; }
+  return v;
+};
 
 /**
- * Each office's return since it started, in % (11-16, the cockpit): offices of different sizes on one scale.
- * Steps at each finished bet, like the office chart.
+ * Each office's return in % over the range picked (11-16, the cockpit), drawn like the office chart: smoothed lines,
+ * the scale on the right, the readout above, drag to read any moment. Offices of different sizes and ages share
+ * one scale the standard way (a stock site's "compare"): each line starts at 0% where the range starts (or where
+ * the office started, if later), and measures profit since then over what the office was worth then.
  */
-export default function ReturnsChart({ lines, height = 220 }: { lines: ReturnLine[]; height?: number }) {
-  const [ref, width] = useWidth<HTMLDivElement>(640);
-  const all = lines.flatMap((l) => l.points);
-  if (all.length < 2) return <div className="empty">Not enough finished bets to draw yet.</div>;
-  const t0 = Math.min(...all.map((p) => p.t)), t1 = Math.max(Date.now(), ...all.map((p) => p.t));
-  const ticks = niceTicks(Math.min(0, ...all.map((p) => p.v)), Math.max(0, ...all.map((p) => p.v)), 4);
-  const lo = ticks[0], hi = ticks[ticks.length - 1];
-  const pad = { l: 44, r: 8, t: 8, b: 20 };
-  const x = (t: number) => pad.l + ((t - t0) / (t1 - t0 || 1)) * (width - pad.l - pad.r);
-  const y = (v: number) => pad.t + (1 - (v - lo) / (hi - lo || 1)) * (height - pad.t - pad.b);
-  const path = (pts: Point[]) => {
-    if (!pts.length) return "";
-    let d = `M${x(pts[0].t)},${y(pts[0].v)}`;
-    for (let i = 1; i < pts.length; i++) d += `H${x(pts[i].t)}V${y(pts[i].v)}`;
-    return d + `H${x(t1)}`;
+export default function ReturnsChart({ lines, from, now, checked, height = 240 }: {
+  lines: ReturnLine[]; from: number; now: number; checked?: string | null; height?: number;
+}) {
+  const [ref, width] = useWidth<HTMLDivElement>(360);
+  const [hover, setHover] = useState<number | null>(null);
+  const pad = { l: 8, r: 52, t: 8, b: 24 };
+  const w = width - pad.l - pad.r, h = height - pad.t - pad.b;
+
+  const series = lines.map((l) => {
+    const start = Math.max(from, l.since), s0 = sumAt(l, start), base = (l.putIn + s0) || 1;
+    const pts: [number, number][] = [[start, 0], ...l.pnl.filter(([t]) => t > start).map(([t, s]) => [t, (s - s0) / base] as [number, number])];
+    pts.push([now, pts[pts.length - 1][1]]);
+    return { l, pts };
+  });
+  const vs = series.flatMap((s) => s.pts.map((p) => p[1]));
+  if (!lines.length) return <div className="empty">No offices trading yet.</div>;
+  const x0 = Math.min(...series.map((s) => s.pts[0][0])), x1 = now;
+  let lo = Math.min(0, ...vs), hi = Math.max(0, ...vs);
+  const padY = Math.max((hi - lo) * 0.15, 0.002);
+  lo -= padY;
+  hi += padY;
+  const ticks = niceTicks(lo, hi, 4).filter((v) => v >= lo && v <= hi);
+  const X = (t: number) => pad.l + ((t - x0) / (x1 - x0 || 1)) * w;
+  const Y = (v: number) => pad.t + h - ((v - lo) / (hi - lo || 1)) * h;
+  const spanDays = (x1 - x0) / 86_400_000;
+  const step = ticks.length > 1 ? ticks[1] - ticks[0] : 0.01;
+  // Each line's value at the moment read (none for an office that hadn't started yet)
+  const valueAt = (pts: [number, number][], t: number) => {
+    if (t < pts[0][0]) return null;
+    let v = pts[0][1];
+    for (const p of pts) { if (p[0] > t) break; v = p[1]; }
+    return v;
   };
-  const day = (t: number) => new Date(t).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const ht = hover ?? x1;
+  const pick = (clientX: number, box: DOMRect) => {
+    const frac = Math.max(0, Math.min(1, (clientX - box.left - pad.l) / w));
+    setHover(x0 + frac * (x1 - x0));
+  };
+
   return (
-    <div ref={ref} className="returns-chart">
-      <svg width={width} height={height} role="img" aria-label="Return since each office started">
+    <div className="chart returns-chart" ref={ref}>
+      <div className="readout" aria-live="polite">
+        <span className="muted">{hover == null ? "Now" : fmtWhen(ht, spanDays)}</span>
+        {series.map(({ l, pts }) => {
+          const v = valueAt(pts, ht);
+          return v == null ? null : (
+            <span key={l.key} className="readout-item">
+              <span className="swatch" style={{ background: l.color }} /> {l.label}{" "}
+              <strong className={v >= 0 ? "up" : "down"}>{pct(v, true, 1)}</strong>
+            </span>
+          );
+        })}
+        {checked && <span className="readout-checked" suppressHydrationWarning>Updated {updatedAgo(checked)}</span>}
+      </div>
+      <svg height={height} role="img" aria-label="Each office's return over the range" style={{ touchAction: "pan-y" }}
+           onPointerMove={(e) => { if (e.pointerType === "mouse" || e.buttons) pick(e.clientX, e.currentTarget.getBoundingClientRect()); }}
+           onPointerDown={(e) => { e.currentTarget.setPointerCapture?.(e.pointerId); pick(e.clientX, e.currentTarget.getBoundingClientRect()); }}
+           onPointerUp={(e) => { if (e.pointerType !== "mouse") setHover(null); }}
+           onPointerCancel={() => setHover(null)}
+           onPointerLeave={(e) => { if (e.pointerType === "mouse") setHover(null); }}>
+        <defs>
+          <clipPath id="rc-plot"><rect x={pad.l} y={pad.t - 4} width={w} height={h + 8} /></clipPath>
+        </defs>
         {ticks.map((v) => (
           <g key={v}>
-            <line x1={pad.l} x2={width - pad.r} y1={y(v)} y2={y(v)} stroke={v === 0 ? "var(--axis)" : "var(--grid)"} />
-            <text x={pad.l - 6} y={y(v) + 4} textAnchor="end" fontSize="11" fill="var(--text-muted)">{pct(v, v !== 0, 0)}</text>
+            <line x1={pad.l} x2={pad.l + w} y1={Y(v)} y2={Y(v)} stroke="var(--grid)" />
+            <text x={pad.l + w + 6} y={Y(v)} dy="0.32em" fontSize={11} fill="var(--text-muted)" style={{ fontVariantNumeric: "tabular-nums" }}>
+              {pct(v, v !== 0, step < 0.01 ? 1 : 0)}
+            </text>
           </g>
         ))}
-        <text x={pad.l} y={height - 4} fontSize="11" fill="var(--text-muted)">{day(t0)}</text>
-        <text x={width - pad.r} y={height - 4} fontSize="11" fill="var(--text-muted)" textAnchor="end">{day(t1)}</text>
-        {lines.map((l, i) => (
-          <path key={l.key} d={path(l.points)} fill="none" stroke={COLORS[i % COLORS.length]} strokeWidth={l.mine ? 2.5 : 1.75} />
+        <line x1={pad.l} x2={pad.l + w} y1={Y(0)} y2={Y(0)} stroke="var(--axis)" strokeDasharray="4 4" />
+        {[x0, x1].map((t, k) => (
+          <text key={k} x={X(t)} y={height - 6} textAnchor={k ? "end" : "start"} fontSize={11} fill="var(--text-muted)">
+            {k && hover == null ? "now" : fmtWhen(t, spanDays)}
+          </text>
         ))}
+        <g clipPath="url(#rc-plot)">
+          {series.map(({ l, pts }) => (
+            <path key={l.key} d={smoothPath(pts.map(([t, v]) => [X(t), Y(v)]))} fill="none" stroke={l.color} strokeWidth={2.25}
+                  strokeLinejoin="round" strokeLinecap="round" />
+          ))}
+        </g>
+        {hover != null && <line x1={X(ht)} x2={X(ht)} y1={pad.t} y2={pad.t + h} stroke="var(--axis)" strokeDasharray="3 3" />}
+        {series.map(({ l, pts }) => {
+          const v = valueAt(pts, ht);
+          return v == null ? null : <circle key={l.key} cx={X(Math.min(ht, pts[pts.length - 1][0]))} cy={Y(v)} r={4} fill={l.color}
+                                             stroke="var(--surface-1)" strokeWidth={2} />;
+        })}
       </svg>
-      <div className="legend">
-        {lines.map((l, i) => (
-          <span key={l.key} className="legend-item">
-            <span className="legend-swatch" style={{ background: COLORS[i % COLORS.length] }} />
-            {l.label} {l.points.length > 0 && <strong>{pct(l.points[l.points.length - 1].v, true, 1)}</strong>}
-          </span>
-        ))}
-      </div>
     </div>
   );
 }

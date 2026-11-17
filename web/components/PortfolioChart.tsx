@@ -5,48 +5,16 @@ import type { PortfolioPoint } from "@/lib/portfolio";
 import type { MoneyMove } from "@/lib/types";
 import MoneyMarks from "./MoneyMarks";
 import { axisMoney, dollars } from "@/lib/format";
-import { niceTicks, useWidth } from "./useWidth";
+import { niceTicks, smoothPath, useWidth } from "./useWidth";
 import { lerpAt } from "@/lib/interp";
 
-/**
- * A gently smoothed line (11-16): points closer than a few pixels are merged (the last one wins), then joined by a
- * monotone curve, which bends without overshooting, so a run of tiny wins reads as a slope instead of a staircase.
- */
-function smoothPath(xy: [number, number][], gap = 4): string {
-  // Each kept point at least `gap` px after the one before (bets that settle together share a moment); a merged
-  // point keeps its place and takes the latest value; the very last point (now) is always kept where it is
-  const pts: [number, number][] = [];
-  for (const p of xy) {
-    const last = pts[pts.length - 1];
-    if (last && p[0] - last[0] < gap) { if (pts.length > 1) last[1] = p[1]; else pts.push([last[0] + gap, p[1]]); }
-    else pts.push([p[0], p[1]]);
-  }
-  const end = xy[xy.length - 1];
-  if (end && pts[pts.length - 1][0] !== end[0]) {
-    if (end[0] - pts[pts.length - 2]?.[0] < gap) pts[pts.length - 1] = [end[0], end[1]];
-    else pts.push([end[0], end[1]]);
-  }
-  if (pts.length < 3) return pts.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join("");
-  const n = pts.length, d: number[] = [], m: number[] = [];
-  for (let i = 0; i < n - 1; i++) d.push((pts[i + 1][1] - pts[i][1]) / (pts[i + 1][0] - pts[i][0] || 1));
-  m.push(d[0]);
-  for (let i = 1; i < n - 1; i++) m.push(d[i - 1] * d[i] <= 0 ? 0 : (d[i - 1] + d[i]) / 2);
-  m.push(d[n - 2]);
-  let out = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
-  for (let i = 0; i < n - 1; i++) {
-    const [x0, y0] = pts[i], [x1, y1] = pts[i + 1], h = (x1 - x0) / 3;
-    out += `C${(x0 + h).toFixed(1)},${(y0 + m[i] * h).toFixed(1)} ${(x1 - h).toFixed(1)},${(y1 - m[i + 1] * h).toFixed(1)} ${x1.toFixed(1)},${y1.toFixed(1)}`;
-  }
-  return out;
-}
-
 /** "now", "1m ago", "3h ago": whole minutes are plenty for a bot that reports every 2 minutes. */
-const updatedAgo = (iso: string) => {
+export const updatedAgo = (iso: string) => {
   const m = Math.floor((Date.now() - Date.parse(iso)) / 60_000);
   return m < 1 ? "now" : m < 60 ? `${m}m ago` : `${Math.floor(m / 60)}h ago`;
 };
 
-const fmtWhen = (t: number, spanDays: number) =>
+export const fmtWhen = (t: number, spanDays: number) =>
   new Date(t).toLocaleString("en-US", spanDays > 2
     ? { month: "short", day: "numeric", hour: "numeric" }
     : { weekday: "short", hour: "numeric", minute: "2-digit" });

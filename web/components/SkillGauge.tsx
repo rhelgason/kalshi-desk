@@ -10,7 +10,7 @@ const say = (c: number, losing: boolean) =>
  * the employee's edge is real (desk/evidence: their record against what chance alone would do), that in a few words,
  * and how many bets it's judged on.
  */
-export default function SkillGauge({ e }: { e?: Evidence }) {
+export default function SkillGauge({ e }: { e?: Pick<Evidence, "confidence" | "verdict_key" | "bets"> }) {
   if (!e) return <div className="empty">No finished bets yet.</div>;
   const c = Math.max(0, Math.min(1, e.confidence));
   const r = 70, cx = 90, cy = 84;

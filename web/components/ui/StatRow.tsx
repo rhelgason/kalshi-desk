@@ -14,7 +14,7 @@ export type Stat = {
 };
 
 /** "up" for a gain, "down" for a loss, nothing for zero. */
-export const toneOf = (v: number | null | undefined) => (v == null || Math.abs(v) < 0.005 ? null : v > 0 ? "up" : "down");
+export const toneOf = (v: number | null | undefined): "up" | "down" | null => (v == null || Math.abs(v) < 0.005 ? null : v > 0 ? "up" : "down");
 
 /** One stat: header label, then the value and note, beside the employee's portrait when there is one. */
 export function StatCell({ s }: { s: Stat }) {
