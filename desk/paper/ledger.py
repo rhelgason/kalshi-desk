@@ -251,6 +251,11 @@ def is_postgres(url: str) -> bool:
     return str(url).startswith(("postgres://", "postgresql://"))
 
 
+
+# How long the logs stay in the database, in days (Ledger.prune_logs; older rows are archived on the server first)
+RETENTION = {"runs": 7, "decisions": 14, "market_tape": 14, "equity_full": 14, "market_history": 30}
+PRUNE_KEY = "_prune"
+
 class _Postgres:
     """Thin adapter so Ledger can speak SQLite-flavored SQL to Postgres."""
 
@@ -473,9 +478,39 @@ class Ledger:
                     (ts or _now(), self.season, summary.get("seconds"), len(summary.get("warnings") or []),
                      json.dumps(summary, default=str)))
 
-    def prune_runs(self, keep_days: float = 14) -> None:
+    def prune_runs(self, keep_days: float = RETENTION["runs"]) -> None:
         cutoff = (datetime.now(timezone.utc) - timedelta(days=keep_days)).isoformat()
         self._write("DELETE FROM runs WHERE ts < ?", (cutoff,))
+
+    def prune_logs(self, every_hours: float = 6, force: bool = False) -> bool:
+        """
+        Keep the logs from outgrowing the free database (11-17: 480 of 500 MB, growing ~10 MB a day): run journals,
+        decisions and the market tape past RETENTION days go; equity snapshots older than RETENTION["equity_full"]
+        days thin to the last one per employee per hour (plus each season's first, its start); closed-market
+        history past RETENTION["market_history"] days goes. Bets, payouts, orders and money moves are never touched.
+        At most every `every_hours` (a status row remembers when), since each owner run is a fresh process.
+        Returns whether it pruned.
+        """
+        now = datetime.now(timezone.utc)
+        last = (self.get_status(PRUNE_KEY) or {}).get("at")
+        if not force and last and datetime.fromisoformat(last) > now - timedelta(hours=every_hours):
+            return False
+        ago = lambda d: (now - timedelta(days=d)).isoformat()
+        self.prune_runs()
+        self._write("DELETE FROM decisions WHERE ts < ?", (ago(RETENTION["decisions"]),))
+        self._write("DELETE FROM market_tape WHERE ts < ?", (ago(RETENTION["market_tape"]),))
+        cut = ago(RETENTION["equity_full"])
+        self._write(
+            "DELETE FROM equity WHERE ts < ?"
+            " AND id NOT IN (SELECT MAX(id) FROM equity WHERE ts < ? GROUP BY strategy, season, substr(ts, 1, 13))"
+            " AND id NOT IN (SELECT MIN(id) FROM equity GROUP BY strategy, season)", (cut, cut))
+        try:
+            self._write("DELETE FROM market_history WHERE close_ts < ?",
+                        (int((now - timedelta(days=RETENTION["market_history"])).timestamp()),))
+        except Exception:  # only the Training schema keeps closed-market history (autocommit: nothing to undo)
+            pass
+        self.set_status(PRUNE_KEY, {"at": now.isoformat()})
+        return True
 
     def recent_runs(self, since: str, limit: int = 2000) -> list[dict]:
         rows = self._rows("SELECT ts, season, seconds, warnings, summary FROM runs WHERE ts >= ? ORDER BY ts DESC LIMIT ?",

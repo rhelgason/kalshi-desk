@@ -1126,7 +1126,7 @@ class Desk:
         now = _now()
         if self._due(self._last_prune, 3600, now):
             self._last_prune = now
-            self.ledger.prune_runs()
+            self._safely("pruning logs", self.ledger.prune_logs)  # at most every 6 h (it remembers)
 
     def _safely(self, what: str, fn) -> None:
         try:
