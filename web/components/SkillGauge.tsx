@@ -25,20 +25,23 @@ export default function SkillGauge({ e }: { e?: Evidence }) {
   const more = e.bets_needed && e.bets_needed > e.bets && e.edge > 0 ? e.bets_needed - e.bets : null;
   return (
     <div className="skill-gauge">
-      <svg viewBox="0 0 180 100" role="img" aria-label={`${Math.round(c * 100)}% sure it's skill, not luck`}>
-        <path d={arc(0, 1)} stroke="var(--grid)" strokeWidth={14} fill="none" strokeLinecap="round" />
-        <path d={arc(0, 0.5)} stroke="color-mix(in srgb, var(--text-muted) 35%, transparent)" strokeWidth={14} fill="none" strokeLinecap="round" />
-        <path d={arc(0.5, 0.95)} stroke="color-mix(in srgb, var(--up) 45%, transparent)" strokeWidth={14} fill="none" />
-        <path d={arc(0.95, 1)} stroke="var(--up)" strokeWidth={14} fill="none" strokeLinecap="round" />
+      <svg viewBox="0 0 180 104" role="img" aria-label={`${Math.round(c * 100)}% sure it's skill, not luck`}>
+        <defs>
+          <linearGradient id="skill-arc" x1="0" x2="1" y1="0" y2="0">
+            <stop offset="0" stopColor="#9ca3af" />
+            <stop offset="0.5" stopColor="#f59e0b" />
+            <stop offset="1" style={{ stopColor: "var(--up)" }} />
+          </linearGradient>
+        </defs>
+        <path d={arc(0, 1)} stroke="url(#skill-arc)" strokeWidth={14} fill="none" strokeLinecap="round" />
         <line x1={cx} y1={cy} x2={nx} y2={ny} stroke="var(--text-primary)" strokeWidth={3} strokeLinecap="round" />
         <circle cx={cx} cy={cy} r={6} fill="var(--text-primary)" />
-        <text x={cx - r} y={cy + 14} textAnchor="middle" fontSize={10} fill="var(--text-muted)">luck</text>
-        <text x={cx + r} y={cy + 14} textAnchor="middle" fontSize={10} fill="var(--text-muted)">skill</text>
+        <text x={cx - r} y={cy + 16} textAnchor="middle" fontSize={10} fill="var(--text-muted)">luck</text>
+        <text x={cx + r} y={cy + 16} textAnchor="middle" fontSize={10} fill="var(--text-muted)">skill</text>
       </svg>
+      <div className="skill-sure"><strong>{Math.round(c * 100)}%</strong> sure it&apos;s skill</div>
       <div className={`skill-verdict ${good ? "up" : bad ? "down" : ""}`}>{SHORT[e.verdict_key]}</div>
-      <div className="muted small">
-        {Math.round(c * 100)}% sure it&apos;s skill · {e.bets} bets{more ? ` · ~${more.toLocaleString()} more to be sure` : ""}
-      </div>
+      <div className="muted small">{e.bets} bets{more ? ` · ~${more.toLocaleString()} more to be sure` : ""}</div>
     </div>
   );
 }

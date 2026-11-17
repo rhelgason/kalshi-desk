@@ -16,7 +16,8 @@ import { isAdmin } from "@/lib/admin";
 import { HOW_THEY_BET } from "@/lib/voice";
 import { getAnalysis, getBets, getLive, getPolicy, getRecentFills, getRoster, getSeasonStart, getSettlementStats, isOffice, withRoster } from "@/lib/db";
 import { viewedBook, requireViewer } from "@/lib/book";
-import { poolKeys } from "@/lib/portfolio";
+import { parseRange, poolKeys, RANGES } from "@/lib/portfolio";
+import RangeTabs from "@/components/RangeTabs";
 
 export const dynamic = "force-dynamic";
 
@@ -25,9 +26,12 @@ export const dynamic = "force-dynamic";
  * day, their bets riding now and their latest bets, then (for the manager) the controls. Every number is from
  * finished bets, so the page only moves when a bet is decided; the riding card is the exception.
  */
-export default async function EmployeePage({ params }: { params: Promise<{ key: string }> }) {
+export default async function EmployeePage({ params, searchParams }: {
+  params: Promise<{ key: string }>; searchParams: Promise<Record<string, string | undefined>>;
+}) {
   await requireViewer();
   const { key } = await params;
+  const range = parseRange((await searchParams).range, "week");
   let data;
   try {
     const book = await viewedBook();
@@ -61,11 +65,14 @@ export default async function EmployeePage({ params }: { params: Promise<{ key: 
     const x = everyone.find((y) => y.key === k);
     return { key: k, benched: x?.status === "suspended" || x?.status === "fired", benchedUntil: x?.suspended_until };
   }), data.bets.filter((b) => team.includes(b.strategy)), tz)[key];
-  // Their running profit from finished bets, drawn like the home chart (break-even dashed)
+  // Their running profit from finished bets over the range picked, drawn like the home chart (break-even dashed),
+  // from their first bet at the earliest so a mid-season hire's line doesn't sit flat before they joined
+  const days = RANGES[range].days;
+  const from = Math.max(mine.length ? mine[0].t - 60_000 : data.seasonStart ?? 0, days == null ? 0 : Date.now() - days * 86_400_000);
   let run = 0;
-  // From their first bet (a mid-season hire's line doesn't sit flat before they joined)
-  const profitPoints = [{ t: mine.length ? mine[0].t - 60_000 : data.seasonStart ?? Date.now(), worth: 0, putIn: 0 },
-    ...mine.map((b) => ({ t: b.t, worth: (run += b.pnl), putIn: 0 })), { t: Date.now(), worth: run, putIn: 0 }];
+  for (const b of mine) if (b.t < from) run += b.pnl;
+  const profitPoints = [{ t: from, worth: run, putIn: 0 },
+    ...mine.filter((b) => b.t >= from).map((b) => ({ t: b.t, worth: (run += b.pnl), putIn: 0 })), { t: Date.now(), worth: run, putIn: 0 }];
   // When each open bet filled, for the race
   const started: Record<string, number> = {};
   for (const f of data.fills) if (f.yes_value == null) {
@@ -84,8 +91,9 @@ export default async function EmployeePage({ params }: { params: Promise<{ key: 
         badges={<><StatusBadge e={e} /><Trophies n={e.awards} /></>} />
       {e.note && <div className="notice">{e.note}</div>}
 
-      <Card title="Profit Over Time" aside="this season, from finished bets">
-        <PortfolioChart points={profitPoints} profitOnly="profit" checked={data.live.updated_at} />
+      <Card title="Profit Over Time" className="employee-chart">
+        <div className="hero-chart-head"><RangeTabs value={range} path={`/employee/${key}`} /></div>
+        <PortfolioChart points={profitPoints} profitOnly="Profit" checked={data.live.updated_at} smooth />
       </Card>
 
       <div className="grid three">

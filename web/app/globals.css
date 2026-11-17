@@ -691,3 +691,31 @@ input[role="switch"]::after { content: ""; position: absolute; top: 3px; left: 3
 input[role="switch"]:checked { background: var(--up); }
 input[role="switch"]:checked::after { transform: translateX(16px); }
 input[role="switch"]:disabled { opacity: 0.5; cursor: default; }
+
+/* StatRow attached: the card's footer, flush to its edges (the card clips the bottom corners) */
+.card { --card-pad: 16px; }
+.card:has(> .stat-cells.attached) { overflow: hidden; }
+.stat-cells.attached { margin: 16px calc(-1 * var(--card-pad)) calc(-1 * var(--card-pad)); border: 0; border-top: 1px solid var(--grid);
+  border-radius: 0; }
+.stat-cells.attached .stat-cell { padding: 14px var(--card-pad); }
+.skill-sure { font-size: 14px; color: var(--text-secondary); margin-top: -2px; }
+.skill-sure strong { font-size: 26px; font-weight: 750; color: var(--text-primary); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.skill-gauge .skill-verdict { font-size: 15px; }
+
+/* Last 50 bets strip: wins up, losses down, from one middle line */
+.form-strip { margin-top: 14px; }
+.form-strip-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+.form-strip-head .stat-label { margin: 0; }
+.form-bars { display: flex; gap: 2px; height: 56px; position: relative; }
+.form-bars::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px solid var(--grid); }
+.form-col { flex: 1; position: relative; }
+.form-col i { position: absolute; left: 0; right: 0; border-radius: 2px; }
+.form-col i.w { bottom: 50%; background: var(--up); }
+.form-col i.l { top: 50%; background: var(--down); }
+/* The employee chart greys out while a new range loads, like the office chart */
+.employee-chart .chart { position: relative; }
+html[data-range-loading] .employee-chart .chart svg, html[data-range-loading] .employee-chart .chart .readout { opacity: 0.35; transition: opacity 0.15s; }
+html[data-range-loading] .employee-chart .chart::after { content: "Updating…"; position: absolute; left: 50%; top: 45%;
+  transform: translate(-50%, -50%); padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 600;
+  background: var(--surface-1); color: var(--text-primary); border: 1px solid var(--border); box-shadow: 0 6px 20px var(--shadow); }
+.feed li { align-items: center; }

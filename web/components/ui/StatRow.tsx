@@ -35,11 +35,14 @@ export function StatCell({ s }: { s: Stat }) {
 /**
  * A row of stat cells (11-16): the office's three numbers, the chart's highlights, the riding totals, the cockpit
  * and the records all use it, so they read the same. Connected cells with dividers by default (four fold to two by
- * two on a phone); `flat` when the stats are the whole card: a plain grid, no boxes inside the box.
+ * two on a phone); `flat` when the stats are the whole card: a plain grid, no boxes inside the box; `attached` as
+ * the last thing in a card: flush with its edges and bottom corners, a footer rather than a box.
  */
-export default function StatRow({ stats, className, flat }: { stats: Stat[]; className?: string; flat?: boolean }) {
+export default function StatRow({ stats, className, flat, attached }: {
+  stats: Stat[]; className?: string; flat?: boolean; attached?: boolean;
+}) {
   return (
-    <div className={`stat-cells n${stats.length} ${flat ? "flat" : ""} ${className ?? ""}`}>
+    <div className={`stat-cells n${stats.length} ${flat ? "flat" : ""} ${attached ? "attached" : ""} ${className ?? ""}`}>
       {stats.map((s, i) => <StatCell key={i} s={s} />)}
     </div>
   );

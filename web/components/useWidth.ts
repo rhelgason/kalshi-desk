@@ -8,7 +8,7 @@ export function useWidth<T extends HTMLElement>(initial = 640) {
   const [width, setWidth] = useState(initial);
   useEffect(() => {
     if (!ref.current) return;
-    const ro = new ResizeObserver(([entry]) => setWidth(Math.max(280, entry.contentRect.width)));
+    const ro = new ResizeObserver(([entry]) => setWidth(Math.max(160, entry.contentRect.width)));
     ro.observe(ref.current);
     return () => ro.disconnect();
   }, []);

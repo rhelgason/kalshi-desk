@@ -3,6 +3,7 @@ import type { Employee } from "@/lib/types";
 import { dollars } from "@/lib/format";
 import { biggest, days, perDollar, streaks, winsToRecover, type Bet } from "@/lib/records";
 import Avatar from "./Avatar";
+import FormStrip from "./FormStrip";
 import LevelChip from "./ui/LevelChip";
 import StatRow, { toneOf } from "./ui/StatRow";
 
@@ -29,7 +30,6 @@ export default function PlayerCard({ e, bets, team, tz, badges, caption, blurb }
   const best = ds.length ? ds.reduce((a, b) => (b.pnl > a.pnl ? b : a)) : null;
   const big = biggest(bets);
   const recover = big.loss ? winsToRecover(big.loss.pnl, bets) : null;
-  const form = bets.slice(-10);
 
   return (
     <section className={`card player ${e.control ? "player-yard" : ""}`}>
@@ -51,14 +51,9 @@ export default function PlayerCard({ e, bets, team, tz, badges, caption, blurb }
           <div className="muted small">{n ? `${wins} of ${n} bets` : ""}</div>
         </div>
       </div>
-      {form.length > 0 && (
-        <div className="player-form" aria-label={`Last ${form.length} results`}>
-          <span className="muted small">Last {form.length}</span>
-          {form.map((b, i) => <span key={i} className={`form-pip ${b.pnl > 0 ? "w" : "l"}`} title={dollars(b.pnl, true)}>{b.pnl > 0 ? "W" : "L"}</span>)}
-        </div>
-      )}
       {blurb && <p className="player-blurb">{blurb}</p>}
-      <StatRow stats={[
+      <FormStrip bets={bets} />
+      <StatRow attached stats={[
         { label: "Per $1 Bet", value: pd == null ? "–" : `${pd >= 0 ? "+" : ""}${(pd * 100).toFixed(1)}¢`, tone: toneOf(pd),
           note: rank >= 0 ? `#${rank + 1} of ${ranked.length} on the team` : "needs 10 bets to rank" },
         { label: "Win Streak", value: s.current, hot: s.currentIsBest, note: s.currentIsBest ? "a personal best, still going" : `best ${s.best}` },

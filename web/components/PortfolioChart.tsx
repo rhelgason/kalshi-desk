@@ -8,6 +8,38 @@ import { axisMoney, dollars } from "@/lib/format";
 import { niceTicks, useWidth } from "./useWidth";
 import { lerpAt } from "@/lib/interp";
 
+/**
+ * A gently smoothed line (11-16): points closer than a few pixels are merged (the last one wins), then joined by a
+ * monotone curve, which bends without overshooting, so a run of tiny wins reads as a slope instead of a staircase.
+ */
+function smoothPath(xy: [number, number][], gap = 4): string {
+  // Each kept point at least `gap` px after the one before (bets that settle together share a moment); a merged
+  // point keeps its place and takes the latest value; the very last point (now) is always kept where it is
+  const pts: [number, number][] = [];
+  for (const p of xy) {
+    const last = pts[pts.length - 1];
+    if (last && p[0] - last[0] < gap) { if (pts.length > 1) last[1] = p[1]; else pts.push([last[0] + gap, p[1]]); }
+    else pts.push([p[0], p[1]]);
+  }
+  const end = xy[xy.length - 1];
+  if (end && pts[pts.length - 1][0] !== end[0]) {
+    if (end[0] - pts[pts.length - 2]?.[0] < gap) pts[pts.length - 1] = [end[0], end[1]];
+    else pts.push([end[0], end[1]]);
+  }
+  if (pts.length < 3) return pts.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join("");
+  const n = pts.length, d: number[] = [], m: number[] = [];
+  for (let i = 0; i < n - 1; i++) d.push((pts[i + 1][1] - pts[i][1]) / (pts[i + 1][0] - pts[i][0] || 1));
+  m.push(d[0]);
+  for (let i = 1; i < n - 1; i++) m.push(d[i - 1] * d[i] <= 0 ? 0 : (d[i - 1] + d[i]) / 2);
+  m.push(d[n - 2]);
+  let out = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+  for (let i = 0; i < n - 1; i++) {
+    const [x0, y0] = pts[i], [x1, y1] = pts[i + 1], h = (x1 - x0) / 3;
+    out += `C${(x0 + h).toFixed(1)},${(y0 + m[i] * h).toFixed(1)} ${(x1 - h).toFixed(1)},${(y1 - m[i + 1] * h).toFixed(1)} ${x1.toFixed(1)},${y1.toFixed(1)}`;
+  }
+  return out;
+}
+
 /** "now", "1m ago", "3h ago": whole minutes are plenty for a bot that reports every 2 minutes. */
 const updatedAgo = (iso: string) => {
   const m = Math.floor((Date.now() - Date.parse(iso)) / 60_000);
@@ -28,7 +60,9 @@ const fmtWhen = (t: number, spanDays: number) =>
  * the chart so a finger never covers it, and says how much has changed since
  * that moment (the line after it fades back). Letting go (or the mouse leaving) goes back to now (11-16).
  */
-export default function PortfolioChart({ points, alt, altScale = 1, height = 220, profitOnly, marks, checked }: {
+export default function PortfolioChart({ points, alt, altScale = 1, height = 220, profitOnly, marks, checked, smooth }: {
+  /** round off the line's small steps (smoothPath) */
+  smooth?: boolean;
   /** the what-if's money put in, as a multiple of the real (its profit is measured against that) */
   altScale?: number;
   /** when the bot last looked at Kalshi, shown under the chart */
@@ -73,7 +107,7 @@ export default function PortfolioChart({ points, alt, altScale = 1, height = 220
       if (!i) return `M${px},${py}`;
       return step ? `H${px}V${py}` : `L${px},${py}`;
     }).join("");
-  const worthPath = line("worth");
+  const worthPath = smooth ? smoothPath(points.map((p) => [x(p.t), y(p.worth)])) : line("worth");
   const putInPath = line("putIn", true);
   // Area between the two lines, then clipped to above / below the put-in line
   const gap = `${worthPath}${[...points].reverse().map((p) => `L${x(p.t).toFixed(1)},${y(p.putIn).toFixed(1)}`).join("")}Z`;
