@@ -171,6 +171,12 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
   The preview cookie holds the pretend balance and gives the manager a friend's header, cockpit, rules and empty pages.
   Tour targets are CSS selectors (.money-hero, .team li a, .employee-chart, .cockpit-main, .menu > summary, menu links,
   [data-tour=pause], .theme-tiles): renaming those classes breaks the tour.
+- **11-17: free-plan housekeeping.** Database was 481 of 500 MB: Ledger.prune_logs (every 6 h) keeps runs 7 days,
+  decisions and market tape 14, equity thinned to hourly after 14, closed-market history 30 (RETENTION); the first
+  trim was archived to /home/desk/archive/2026-11-17 on the server (deploy/archive_logs.py) -> 338 MB. Kalshi 429s
+  (~16k a day, 360 skipped market lists): the client slows down after a 429 and honours Retry-After, a failed list
+  keeps the windows already known, windows are looked up every 4 min. Downloads: /api/warm skips when nobody has
+  been on the site for 20 min (public.status '_seen'), and the saved coin-price history is compact.
 - A weather day can sit unsettled for days on Kalshi's side (NY Nov 13, 2026: "closed", no result, Kalshi's deadline
   Nov 20, while every other city and day paid next morning ~7 am PT). Not a bug: settle_check asks Kalshi about every
   held ticker each run, listed or not, and books it the moment a result appears; Riding Now shows them as "settling".
