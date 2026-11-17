@@ -1,9 +1,9 @@
 import type { Employee } from "@/lib/types";
 import { dollars, shortName } from "@/lib/format";
-import { biggest, days, lastDays, type Bet } from "@/lib/records";
+import { biggest, type Bet } from "@/lib/records";
+import DayStrip from "./DayStrip";
 import StatRow, { toneOf } from "./ui/StatRow";
 
-const dayLabel = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 
 /**
  * The bottom of the office's top card (11-16): the range on the chart in four cells (its change, the biggest win,
@@ -28,9 +28,6 @@ export default function HeroFacts({ period, change, inRange, all, employees, tz,
   // The range's days, at least a week and at most a month, never from before the season started
   const want = Math.min(30, Math.max(7, rangeDays ?? 30));
   const n = Math.max(1, Math.min(want, Math.ceil((Date.now() - since) / 86_400_000)));
-  const strip = lastDays(days(all, tz), n, tz);
-  const scale = Math.max(1, ...strip.map((d) => Math.abs(d.pnl)));
-  const green = strip.filter((d) => d.n && d.pnl > 0).length, played = strip.filter((d) => d.n).length;
 
   return (
     <div className="hero-facts">
@@ -46,16 +43,7 @@ export default function HeroFacts({ period, change, inRange, all, employees, tz,
           ? { label: "Top Earner", face: face(earner[0]), value: name(earner[0]), note: <><span className={toneOf(earner[1]) ?? ""}>{dollars(earner[1], true)}</span> {range}</> }
           : { label: "Top Earner", value: "–", note: "no bets yet" },
       ]} />
-      <div className="day-strip" role="img" aria-label={`Profit by day, last ${n} days`} style={{ gridTemplateColumns: `repeat(${n}, 1fr)` }}>
-        {strip.map((d) => (
-          <span key={d.day} className={`day ${d.n ? (d.pnl >= 0 ? "day-up" : "day-down") : "day-none"}`}
-                style={{ opacity: d.n ? 0.3 + 0.7 * Math.min(1, Math.abs(d.pnl) / scale) : undefined }}
-                title={`${dayLabel(d.day)}: ${d.n ? `${dollars(d.pnl, true)}, ${d.won} of ${d.n} won` : "no bets"}`} />
-        ))}
-      </div>
-      <div className="day-strip-legend muted small">
-        <span>{dayLabel(strip[0].day)}</span><span>{green} of {played} days up</span><span>today</span>
-      </div>
+      <DayStrip bets={all} tz={tz} n={n} />
     </div>
   );
 }
