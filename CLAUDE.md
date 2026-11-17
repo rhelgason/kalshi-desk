@@ -118,6 +118,8 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
   day, added up inside Postgres; Ledger.publish_page_summary) and pages take single bets only for the latest two weeks
   (web/lib/season.ts betWindow; past days cached for hours, today's after each report) and daily rows before that. The
   bot then calls /api/warm (desk/cloud.py warm_site; `DESK_WARM_URL=off` stops it). Never pass whole-season bets to a page.
+  Don't call `revalidatePath` just to refresh the screen: in Next 15 it marks every cached database read stale
+  (unstable_cache's implicit path tags), which made every book switch slow until 11-17. Use revalidateTag(bookTag) for data.
 - **Fast Sadie trial** on the server (desk/fast.py, from 2026-10-26 07:12 UTC): always-on bid vs a 2-minute cron twin,
   pretend money from $87.63 each. `python -m desk fast-report`. So far it fills more, not better per $1.
 
