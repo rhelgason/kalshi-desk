@@ -45,8 +45,8 @@ const STEPS: Step[] = [
         <>
           The honest answer: every office&apos;s bets added up, how often they win, and the odds it&apos;s skill rather
           than luck. {d.has
-            ? <>With your {money(d.base)} deposited, our estimate puts you at about <strong>{money(d.later)}</strong> in 6 months.</>
-            : <>If you put $100 in today, our estimate puts you at about <strong>{money(d.later)}</strong> in 6 months.</>}{" "}
+            ? <>With your {money(d.base)} deposited, our prediction model&apos;s middle guess puts you at about <strong>{money(d.later)}</strong> in 6 months.</>
+            : <>If you put $100 in today, our prediction model&apos;s middle guess puts you at about <strong>{money(d.later)}</strong> in 6 months.</>}{" "}
           That&apos;s a rough guess based on our gathered data so far, <strong>not a promise</strong>.
         </>
       );

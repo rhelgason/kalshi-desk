@@ -188,7 +188,11 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
   58-65th percentile. Bad-day guard research (same session): skipping bids after fast coin moves didn't change the
   worst days; skipping crowded moments halved profit; the shared window cap is the tool. Cockpit card "Where It's
   Heading" (components/ForecastCard.tsx, manager only, the real book's fan at 1/3/6 months); options B-D were set aside.
-  **The NUX 6-month estimate (cockpit .working-estimate, Tour.tsx) should switch to this model when the card lands.**
+  Later 11-17: Training's paper bets count half a real bet in each edge; promotions need the confidence gate; the
+  owner's row carries `newcomer` (a new friend's office from $50-$5,000, made monotonic) and every row a daily `log`
+  of 7/30-day predictions (grade the model from it after a week). The NUX "Is it working?" estimate now reads the
+  model (lib/forecast.ts sixMonths: own office's 6-month p50, else the newcomer table; old pace math only before the
+  model's first run).
 - A weather day can sit unsettled for days on Kalshi's side (NY Nov 13, 2026: "closed", no result, Kalshi's deadline
   Nov 20, while every other city and day paid next morning ~7 am PT). Not a bug: settle_check asks Kalshi about every
   held ticker each run, listed or not, and books it the moment a result appears; Riding Now shows them as "settling".

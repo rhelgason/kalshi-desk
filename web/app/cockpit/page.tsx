@@ -21,6 +21,7 @@ import DayStrip from "@/components/DayStrip";
 import { viewOffice } from "../account";
 import { currentUser, officeOf } from "@/lib/session";
 import { previewFresh } from "@/lib/fresh";
+import { sixMonths } from "@/lib/forecast";
 
 export const dynamic = "force-dynamic";
 
@@ -82,7 +83,7 @@ export default async function CockpitPage({ searchParams }: { searchParams: Prom
   // The manager previewing the new-user tour sees a friend's cockpit: percentages, no manager cards
   const fresh = await previewFresh(manager);
   const admin = manager && fresh == null;
-  const [offices, forecast] = await Promise.all([loadOffices(), admin ? getForecast("real").catch(() => null) : null]);
+  const [offices, forecast] = await Promise.all([loadOffices(), getForecast("real").catch(() => null)]);
   // The manager's to-do list for their real-money office (moved here from the old Team page, 11-16)
   let todo: { e: Employee; advice: Advice }[] = [];
   if (admin) {
@@ -115,18 +116,18 @@ export default async function CockpitPage({ searchParams }: { searchParams: Prom
   const start = Math.min(...offices.map((o) => o.since));
   const stripDays = Math.min(Math.min(30, Math.max(7, rangeDays ?? 30)), Math.ceil((now - start) / 86_400_000));
 
-  // What it might do for the person looking (the new-user tour's selling point, 11-17): the pace of every office
-  // together so far, as profit per dollar per day (money-weighted, no compounding), for six months. Their own
-  // office's money, or $100 if they have none in yet. TODO: replace with the prediction model (ebb, flow and taper
-  // as a pool grows) once it's built; the tour quotes this number (components/Tour.tsx).
-  // Their office's money once it's open; before that, what Kalshi said when they connected (prefs.kalshi_balance)
+  // What it might do for the person looking (the new-user tour's selling point; the tour quotes it,
+  // components/Tour.tsx): the prediction model's 6-month middle guess (desk/forecast.py, lib/forecast.ts) for their
+  // office's money once it's open; before that, what Kalshi said when they connected (prefs.kalshi_balance), or $100.
   const mineBook = manager ? "real" : officeOf(user);
   const saved = Number(user?.prefs?.kalshi_balance ?? 0) || 0;
   const theirs = fresh != null ? fresh : offices.find((o) => o.book === mineBook)?.worth ?? saved;
+  const base = theirs >= 1 ? theirs : 100;
+  const own = fresh == null && mineBook ? (mineBook === "real" ? forecast : await getForecast(mineBook as Book).catch(() => null)) : null;
+  // Before the model's first run: the pace of every office so far (profit per dollar per day, no compounding)
   const moneyDays = offices.reduce((s, o) => s + ((o.putIn + o.worth) / 2) * Math.max(0, (now - o.since) / 86_400_000), 0);
   const pace = moneyDays > 0 ? profit / moneyDays : 0;
-  const base = theirs >= 1 ? theirs : 100;
-  const later6 = base * (1 + Math.max(0, pace) * 182);
+  const later6 = sixMonths(base, own, forecast) ?? base * (1 + Math.max(0, pace) * 182);
 
   // What a newcomer asks: what did a dollar turn into, does it win most days, is it skill?
   const working = (
