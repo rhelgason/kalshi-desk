@@ -4,7 +4,7 @@ bets out of, the way one real Kalshi account would be.
 
 Bet sizes follow the pool, not a fixed dollar amount:
 
-  bet = pool equity x bet_pct x level multiplier (Intern 0.5x ... VP/Partner 2x)
+  bet = pool equity x bet_pct x level multiplier (Intern 0.5x ... VP 2x)
 
 so when the pool grows every bet grows with it, and when it shrinks they shrink.
 Three guardrails keep one bad day from sinking the office:
