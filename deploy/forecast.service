@@ -11,5 +11,5 @@ EnvironmentFile=/etc/kalshi-desk.env
 ExecStart=/home/desk/kalshi-desk/.venv/bin/python -u -m desk forecast
 # Low priority: the trading runs come first on this one small server
 Nice=15
-TimeoutStartSec=900
+TimeoutStartSec=3600
 MemoryMax=300M
