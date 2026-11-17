@@ -130,6 +130,8 @@ class Guard:
         daily one (11-17): it lifts itself when a new day starts, and a manager's resume the same day sticks (the
         pool's own daily stop still holds new bets until midnight). Without `day`: halt until resumed, as before.
         """
+        if day:
+            self.refresh()  # the switch as it is now: a resume from the site mid-run must not be written over
         if self.halted:
             if day and str(self.state.get("reason", "")).startswith(LOSS_HALT):
                 if not self.state.get("day"):
@@ -152,5 +154,10 @@ class Guard:
                 self._mark_day(day)
 
     def _mark_day(self, day: str) -> None:
+        """Note the day on the switch, unless someone flipped it since we read it (then theirs stands)."""
+        now = self.ledger.get_setting(SETTING) or {"halted": False}
+        if now.get("at") != self.state.get("at") or bool(now.get("halted")) != self.halted:
+            self.state = now
+            return
         self.state["day"] = day
         self.ledger.set_setting(SETTING, self.state)
