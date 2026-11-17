@@ -273,9 +273,19 @@ html .tour-card .btn { justify-self: end; }
 html .tour-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 html .tour-tap { color: var(--series-1) !important; font-weight: 600; }
 html .nux a:not(.btn) { color: var(--series-1); text-decoration: underline; text-underline-offset: 2px; }
-html .nux-agree { margin: 4px 0 18px; }
+html .nux-agree { margin: 14px 0; }
 html .nux-choice { display: grid; gap: 10px; }
 html .nux-choice .btn { width: 100%; text-align: center; }
 html .nux-preview-pick { display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
 html .nux h2 .muted { font-size: 0.7em; font-weight: 500; }
 html .nux-preview-pick .chip[aria-pressed="true"] { background: var(--series-1); color: var(--page); border-color: var(--series-1); }
+html .nux-sheet-wrap { position: fixed; inset: 0; z-index: 1000; background: rgba(5, 6, 12, 0.6); display: flex;
+  align-items: flex-end; justify-content: center; padding: 16px; }
+@media (min-width: 600px) { html .nux-sheet-wrap { align-items: center; } }
+html .nux-sheet { width: min(400px, 100%); background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--r-xl);
+  padding: 20px; display: grid; gap: 10px; text-align: center; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4); }
+html .nux-sheet h3 { margin: 0; font-size: 18px; }
+html .nux-sheet p { margin: 0; line-height: 1.5; }
+html .nux-sheet-icon { font-size: 34px; }
+html .nux-sheet-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+html .nux-sheet-btns .btn { width: 100%; }

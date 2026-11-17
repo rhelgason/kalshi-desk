@@ -53,6 +53,7 @@ export default function JoinFlow({ token, name, owner, hasKey, signedIn, preview
   const [balance, setBalance] = useState<number | null>(null);
   const [pretendBalance, setPretendBalance] = useState(0);
   const [deposited, setDeposited] = useState(false);
+  const [sheet, setSheet] = useState(false);
 
   // Back where they left off (only between the Kalshi screens; the key itself is never kept)
   useEffect(() => {
@@ -66,7 +67,7 @@ export default function JoinFlow({ token, name, owner, hasKey, signedIn, preview
 
   const passkey = () => start(async () => {
     setMsg(null);
-    if (preview) return go(1);
+    if (preview) return setSheet(true);
     if (!browserSupportsWebAuthn()) return setMsg("This browser can't make passkeys. Open the link in Safari, Chrome, Edge or Firefox.");
     const begun = await joinStart(token, agreed);
     if (!begun.ok) return setMsg(begun.error);
@@ -130,14 +131,14 @@ export default function JoinFlow({ token, name, owner, hasKey, signedIn, preview
 
       {step === 0 && (
         <>
-          <h2>Hi {name}! 👋</h2>
+          <h2>Welcome {name}! 👋</h2>
           <p>
             {owner} invited you to <strong>Kalshi Desk</strong>, an office full of your own trading bots that bet on
             Kalshi markets.
           </p>
           <ul className="howto">
-            <li>💵 Real money, yours: it stays in your Kalshi account. The bots can&apos;t withdraw it (Kalshi keys can&apos;t).</li>
-            <li>📉 It can lose. It has made money so far, but that&apos;s no promise. Only put in what you&apos;re fine losing.</li>
+            <li>💵 Real money that stays in your own Kalshi account. Your bots can only trade on it, not withdraw it.</li>
+            <li>📉 It can lose. Although results have made money so far, that&apos;s no promise. Only put in money that you are fine with fully losing.</li>
             <li>👀 {owner} sees every office&apos;s numbers (balance, bets, staff) to keep them all running well. That&apos;s part of joining.</li>
             <li>⏸ You can pause your office on the site whenever you like, for as long as you like, and resume when you&apos;re ready.</li>
           </ul>
@@ -145,9 +146,9 @@ export default function JoinFlow({ token, name, owner, hasKey, signedIn, preview
             <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
             <span>I&apos;ve read this, and I&apos;m in.</span>
           </label>
-          <p className="sub">Next, save a passkey: your face, fingerprint or device PIN signs you in from now on. No password.</p>
+          <p className="sub">Next, create a passkey: your face, fingerprint or device PIN signs you in from now on. No password.</p>
           <button className="btn primary big" disabled={!agreed || pending} onClick={passkey}>
-            {pending ? "Waiting for your device…" : preview ? "Save my passkey (skipped in preview)" : "Save my passkey"}
+            {pending ? "Waiting for your device…" : "Create my passkey"}
           </button>
         </>
       )}
@@ -310,6 +311,22 @@ export default function JoinFlow({ token, name, owner, hasKey, signedIn, preview
       )}
 
       {msg && <div className="down">{msg}</div>}
+
+      {/* The preview's stand-in for the device's own passkey prompt (a real one would save a passkey for nothing) */}
+      {sheet && (
+        <div className="nux-sheet-wrap" role="dialog" aria-modal="true" aria-label="Create a passkey">
+          <div className="nux-sheet">
+            <div className="nux-sheet-icon" aria-hidden>🔑</div>
+            <h3>Create a passkey?</h3>
+            <p>Save a passkey for <strong>{name}</strong> on <strong>kalshi-desk-nu.vercel.app</strong>. You&apos;ll sign in with Face ID, Touch ID or your device PIN.</p>
+            <div className="nux-sheet-btns">
+              <button type="button" className="btn" onClick={() => setSheet(false)}>Cancel</button>
+              <button type="button" className="btn primary" onClick={() => { setSheet(false); go(1); }}>Continue</button>
+            </div>
+            <p className="muted small">Preview: roughly what your friend&apos;s phone or computer shows here. It looks a little different on each device, and nothing is saved.</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
