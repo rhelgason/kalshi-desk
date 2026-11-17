@@ -18,7 +18,6 @@ import { currentUser } from "@/lib/session";
 import { viewOffice } from "./account";
 import Menu from "@/components/Menu";
 import "./globals.css";
-import "./themes/clean.css";
 import "./themes/studio.css";
 import "./themes/broadcast.css";
 import "./themes/desktop.css";

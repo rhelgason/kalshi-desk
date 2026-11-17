@@ -7,6 +7,7 @@ import { requireViewer } from "@/lib/book";
 import { getAnalysis, getBets, getKillSwitch, getLive, getPolicy, getRoster, getSeasonStart, home, withRoster, type Book } from "@/lib/db";
 import NeedsAttention from "@/components/NeedsAttention";
 import InviteCard from "@/components/InviteCard";
+import SystemAlert from "@/components/SystemAlert";
 import { advise, betsPerDay, type Advice } from "@/lib/advice";
 import type { Employee } from "@/lib/types";
 import { dollars, pct } from "@/lib/format";
@@ -133,6 +134,7 @@ export default async function CockpitPage({ searchParams }: { searchParams: Prom
   return (
     <div className="stack">
       <AutoRefresh seconds={120} />
+      {admin && <SystemAlert />}
       <Card title="Cockpit" className="cockpit-main">
         <div className="hero-chart-head"><RangeTabs value={range} path="/cockpit" /></div>
         <ReturnsChart lines={lines} from={from} now={now} checked={offices[0]?.updated} />

@@ -310,7 +310,7 @@ body { background: radial-gradient(ellipse at top, #1d1840 0%, var(--page) 60%) 
 .lvl-0 { opacity: 0.75; }
 .lvl-1 { color: var(--text-primary); }
 .lvl-2 { background: var(--coin); border-color: var(--coin); color: #1b1733; }
-.lvl-3, .lvl-4 { background: var(--text-primary); border-color: var(--text-primary); color: var(--page); }
+.lvl-3 { background: var(--text-primary); border-color: var(--text-primary); color: var(--page); }
 .lvl-yard { border-style: dashed; }
 
 /* Coin tabs on the team list: small, inline with the heading */
@@ -771,9 +771,7 @@ html[data-navigating] body { cursor: progress; }
 .menu-list > *, .menu-list form, .menu-list form button { display: block; width: 100%; box-sizing: border-box; }
 .menu-list a, .menu-list button { white-space: nowrap; }
 
-/* Settings: the account card */
 .plain-list { list-style: none; margin: 4px 0 10px; padding: 0; display: grid; gap: 6px; }
-.account-out { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
 
 /* The cockpit's Invite a Friend card: full width, the two forms side by side on a wide screen */
 .invite-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
@@ -789,3 +787,51 @@ html[data-navigating] body { cursor: progress; }
 .whatif-input .stepper button + button { border-top: 1px solid var(--border); }
 .whatif-input .stepper button:hover { color: var(--text-primary); }
 .whatif-input .stepper button:active { background: var(--series-1); color: #fff; }
+
+/* Office Rules: the manager's two buttons, each a row with its explanation */
+.controls { display: grid; gap: 12px; }
+.control { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 14px; }
+.control p { margin: 4px 0 0; }
+.control .btn { flex: none; }
+.control-danger { border-color: color-mix(in srgb, var(--down) 45%, var(--border)); }
+.notice-bad { border-color: var(--down); display: grid; gap: 6px; }
+
+/* The header menu as one piece (11-17): a hamburger button, and when open the list hangs from it, sharing its edge */
+.menu > summary { display: grid; place-items: center; line-height: 0; }
+.menu-icon { display: block; }
+.menu[open] > summary { position: relative; z-index: 21; border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.menu[open] .menu-list { top: calc(100% - 2px); border-top-right-radius: 0; }
+
+/* Settings (11-17): who you are on top, then rows (passkeys, an action), then a quiet sign-out */
+.account-head { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+.account-initial { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 18px;
+  background: color-mix(in srgb, var(--series-1) 18%, var(--surface-2)); color: var(--text-primary); flex: none; }
+.account-name { font-size: 17px; font-weight: 650; }
+.settings-rows { border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+.settings-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
+.settings-row + .settings-row { border-top: 1px solid var(--border); }
+.settings-row .grow { flex: 1; min-width: 0; }
+.settings-action .stack-tight { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; }
+.settings-action .btn { margin-left: auto; }
+.account-out { margin-top: 16px; display: flex; justify-content: flex-end; }
+.btn.quiet-danger { background: none; border-color: var(--border); color: var(--down); box-shadow: none; }
+.btn.quiet-danger:hover { border-color: var(--down); }
+
+/* Theme tiles: a little preview of each, the picked one ringed and ticked */
+.theme-picker { display: grid; gap: 14px; }
+.theme-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.theme-tile { display: grid; gap: 6px; text-align: left; padding: 8px 8px 10px; border-radius: 14px; border: 1px solid var(--border);
+  background: var(--surface-2); color: var(--text-primary); cursor: pointer; font: inherit; transition: border-color .15s, box-shadow .15s, transform .15s; }
+.theme-tile:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--series-1) 50%, var(--border)); }
+.theme-tile[aria-checked="true"] { border-color: var(--series-1); box-shadow: 0 0 0 2px color-mix(in srgb, var(--series-1) 45%, transparent); }
+.theme-preview { position: relative; display: block; height: 72px; border-radius: 9px; overflow: hidden; }
+.tp-bar { position: absolute; left: 0; right: 0; top: 0; height: 14px; }
+.tp-card { position: absolute; left: 10px; right: 10px; top: 22px; bottom: 8px; border: 1px solid; border-radius: 6px; padding: 8px; display: grid; gap: 6px; align-content: start; }
+.tp-line { display: block; height: 6px; border-radius: 3px; width: 70%; }
+.tp-line.short { width: 45%; }
+.theme-name { font-weight: 650; display: flex; align-items: center; justify-content: space-between; padding: 0 2px; }
+.theme-check { color: var(--series-1); }
+.theme-blurb { font-size: 12px; color: var(--text-muted); padding: 0 2px; line-height: 1.35; }
+.segmented { display: inline-flex; justify-self: start; padding: 3px; gap: 2px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); }
+.segmented button { font: inherit; font-size: 13px; padding: 6px 14px; border: 0; border-radius: 999px; background: none; color: var(--text-secondary); cursor: pointer; }
+.segmented button[aria-checked="true"] { background: var(--surface-1); color: var(--text-primary); box-shadow: 0 1px 3px var(--shadow); }

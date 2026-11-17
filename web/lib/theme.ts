@@ -6,7 +6,6 @@
 export const THEMES = {
   studio: { label: "Studio", icon: "◐", blurb: "The default: plain and clear, dark or light", color: "#0b0d12" },
   office: { label: "Office", icon: "🕹️", blurb: "The pixel office: arcade fonts and 8-bit staff", color: "#0f0d1f" },
-  clean: { label: "Clean", icon: "✨", blurb: "A calm money app: big numbers, soft cards", color: "#f6f7f9" },
   broadcast: { label: "Broadcast", icon: "📺", blurb: "Sports TV: scoreboard, ticker, play-by-play", color: "#070b18" },
   desktop: { label: "Desktop", icon: "💾", blurb: "A 1995 desktop: windows, bevels, a taskbar", color: "#008080" },
 } as const;
