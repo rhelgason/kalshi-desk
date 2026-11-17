@@ -323,7 +323,7 @@ def cmd_new_season(cfg: DeskConfig, pool: float | None, levels: list[str], why: 
     for item in levels:
         key, _, title = item.partition("=")
         if key not in REGISTRY or title.lower() not in titles:
-            raise SystemExit(f"Can't read --level {item!r}: use employee_key=Intern|Associate|Senior|VP|Partner")
+            raise SystemExit(f"Can't read --level {item!r}: use employee_key=Intern|Associate|Senior|VP")
         wanted[key] = titles[title.lower()]
     roster = hr.load_roster(ledger, list(REGISTRY))
     config = hr.effective_strategy_config(cfg.strategies, roster, hr.load_policy(ledger).get("hired") or ())

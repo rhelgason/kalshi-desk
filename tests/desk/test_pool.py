@@ -30,7 +30,7 @@ def test_bets_are_a_share_of_the_pool_scaled_by_level():
     assert pool.equity == 1000  # the control group's money isn't the office's
     assert pool.bet_dollars(1.0) == pytest.approx(10)  # Associate: 1%
     assert pool.bet_dollars(0.5) == pytest.approx(5)  # Intern
-    assert pool.bet_dollars(2.0) == pytest.approx(20)  # VP / Partner
+    assert pool.bet_dollars(2.0) == pytest.approx(20)  # VP
 
 
 def test_max_bet_stops_bets_outgrowing_the_market():

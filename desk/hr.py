@@ -11,7 +11,7 @@ Everything here is driven by two tables the website can edit:
 Everyone except the control group trades out of one office pool, and every bet
 is a share of it (`pool.bet_pct`, 1% for an Associate) times their level:
 
-  0 Intern 0.5x · 1 Associate 1x · 2 Senior 1.5x · 3 VP 2x · 4 Partner 2x
+  0 Intern 0.5x · 1 Associate 1x · 2 Senior 1.5x · 3 VP 2x (Partner, also 2x, was dropped 11-17: nobody had reached it)
 
 So a promotion means bigger bets with the same strategy, and as the pool grows
 or shrinks every bet grows or shrinks with it. Desk-wide guardrails (runner.py):
@@ -48,7 +48,7 @@ from desk.paper.ledger import Ledger
 
 logger = logging.getLogger(__name__)
 
-LEVELS = [("Intern", 0.5), ("Associate", 1.0), ("Senior", 1.5), ("VP", 2.0), ("Partner", 2.0)]
+LEVELS = [("Intern", 0.5), ("Associate", 1.0), ("Senior", 1.5), ("VP", 2.0)]
 CONTROL_GROUP = {"dart_monkey", "longshot_buy"}
 # The patient twins: same picks as a sibling, but they post a bid and wait instead
 # of paying the ask. They follow the sibling's settings (including autotune's
@@ -83,7 +83,7 @@ DEFAULT_POLICY: dict[str, Any] = {
     "reserve": 0.0,  # paper money the desk can hand out as bonuses
     # The office pool: how much of it each bet and each window may use
     "pool": {
-        "bet_pct": 0.01,  # an Associate's bet; levels scale it (Intern 0.5%, VP/Partner 2%)
+        "bet_pct": 0.01,  # an Associate's bet; levels scale it (Intern 0.5%, VP 2%)
         "window_cap": 0.03,  # all employees together, in any one 15-minute window
         "daily_stop": 0.10,  # no new bets once the pool is down this much since midnight
         "brake_drawdown": 0.25,  # this far below the pool's high...

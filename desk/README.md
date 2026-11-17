@@ -41,7 +41,7 @@ The desk is meant to be hands-off. Three loops keep improving it:
 - **Performance reviews** (inside the bot, every `review_days`): crown the
   Employee of the Week/Month (no cash bonus: the office pool is one pot), promote
   employees who beat the promotion threshold, with at least 30 bets of evidence, to bigger bet sizes (Intern 0.5x
-  → Associate 1x → Senior 1.5x → VP 2x → Partner 2x), demote losers, and
+  → Associate 1x → Senior 1.5x → VP 2x), demote losers, and
   suspend repeat offenders. Rules live in the database and are editable on the
   site's **Handbook** page.
 - **Autotuning** (GitHub Actions, `.github/workflows/jobs.yml`, every 3h):
