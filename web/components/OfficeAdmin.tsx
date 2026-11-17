@@ -31,16 +31,19 @@ export function InviteForm({ forUser, name: fixed }: { forUser?: number; name?: 
 
 /** A fresh sign-in link for one of the friends (picked from a list): for a new phone without their passkey. */
 export function SignInLink({ friends }: { friends: { id: number; name: string }[] }) {
-  const [who, setWho] = useState(friends[0]?.id ?? 0);
-  const name = friends.find((f) => f.id === who)?.name ?? "";
+  // Ids compared as text: the database hands them over as strings, the picker as whatever it was given (11-17: a
+  // number never matched, so switching friends fell back to a new-invite form)
+  const [who, setWho] = useState(String(friends[0]?.id ?? ""));
+  const friend = friends.find((f) => String(f.id) === who) ?? friends[0];
+  if (!friend) return null;
   return (
     <div className="stack-tight">
       <label className="form">Friend
-        <select value={who} onChange={(e) => setWho(Number(e.target.value))}>
-          {friends.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+        <select value={who} onChange={(e) => setWho(e.target.value)}>
+          {friends.map((f) => <option key={f.id} value={String(f.id)}>{f.name}</option>)}
         </select>
       </label>
-      <InviteForm key={who} forUser={who} name={name} />
+      <InviteForm key={String(friend.id)} forUser={Number(friend.id)} name={friend.name} />
     </div>
   );
 }
