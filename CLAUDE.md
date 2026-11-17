@@ -177,6 +177,17 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
   (~16k a day, 360 skipped market lists): the client slows down after a 429 and honours Retry-After, a failed list
   keeps the windows already known, windows are looked up every 4 min. Downloads: /api/warm skips when nobody has
   been on the site for 20 min (public.status '_seen'), and the saved coin-price history is compact.
+- **11-17: the prediction model** (desk/forecast.py; `python -m desk forecast`; server timer kalshi-forecast daily 3:20 am PT,
+  ~4 min per office at low priority -> each real-money office's status `_forecast`). A replay library of every coin
+  window on Kalshi's trade tape (desk/forecast_library.json.gz from research/forecast/library.py: live rule + coin check,
+  what a bid of ANY size fills and makes), sampled whole days so coins lose together. Edges = tape blended with real
+  bets (300-bet prior) plus a 0.6c "the market changes" doubt; family offices share each window and grow together;
+  window cap, daily stop, brake, weekly reviews. Bids above `tested` (the family's biggest real bids that filled, >= $60)
+  get an uncertain extra fill penalty: almost all future growth is in untested sizes. Hourly Hazel and Wendell have no
+  tape library (assumed size limits, marked). Self-check: started at $300 on 11-05 the real value on 11-17 sat at the
+  58-65th percentile. Bad-day guard research (same session): skipping bids after fast coin moves didn't change the
+  worst days; skipping crowded moments halved profit; the shared window cap is the tool. Cockpit card: not built yet.
+  **The NUX 6-month estimate (cockpit .working-estimate, Tour.tsx) should switch to this model when the card lands.**
 - A weather day can sit unsettled for days on Kalshi's side (NY Nov 13, 2026: "closed", no result, Kalshi's deadline
   Nov 20, while every other city and day paid next morning ~7 am PT). Not a bug: settle_check asks Kalshi about every
   held ticker each run, listed or not, and books it the moment a result appears; Riding Now shows them as "settling".
