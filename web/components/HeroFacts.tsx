@@ -1,6 +1,6 @@
 import type { Employee } from "@/lib/types";
 import { dollars, shortName } from "@/lib/format";
-import { biggest, type Bet } from "@/lib/records";
+import { biggest, countOf, type Bet } from "@/lib/records";
 import DayStrip from "./DayStrip";
 import StatRow, { toneOf } from "./ui/StatRow";
 
@@ -16,7 +16,7 @@ export default function HeroFacts({ period, change, inRange, all, employees, tz,
 }) {
   const who = Object.fromEntries(employees.map((e) => [e.key, e]));
   const count: Record<string, number> = {}, made: Record<string, number> = {};
-  for (const b of inRange) { count[b.strategy] = (count[b.strategy] ?? 0) + 1; made[b.strategy] = (made[b.strategy] ?? 0) + b.pnl; }
+  for (const b of inRange) { count[b.strategy] = (count[b.strategy] ?? 0) + (b.n ?? 1); made[b.strategy] = (made[b.strategy] ?? 0) + b.pnl; }
   const topOf = (m: Record<string, number>) => Object.entries(m).sort((a, b) => b[1] - a[1])[0] ?? null;
   const busiest = topOf(count), earner = topOf(made);
   const win = biggest(inRange).win;
@@ -32,7 +32,7 @@ export default function HeroFacts({ period, change, inRange, all, employees, tz,
   return (
     <div className="hero-facts">
       <StatRow stats={[
-        { label: period, value: dollars(change, true), tone: toneOf(change), note: `${inRange.length} bets finished` },
+        { label: period, value: dollars(change, true), tone: toneOf(change), note: `${countOf(inRange)} bets finished` },
         win
           ? { label: "Biggest Win", face: face(win.strategy), value: dollars(win.pnl, true), tone: "up", note: `${name(win.strategy)} · ${when(win.t)}` }
           : { label: "Biggest Win", value: "–", note: "none yet" },

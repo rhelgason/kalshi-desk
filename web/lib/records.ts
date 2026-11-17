@@ -1,11 +1,22 @@
+import { dayOf } from "./season";
 import { dollars } from "./format";
 /**
  * Streaks and records, from every settled bet of the season (lib/db getBets). Pure functions, so the home page's
  * records card and each employee's player card read the same numbers.
  */
-export type Bet = { t: number; strategy: string; coin: string; pnl: number; cost: number | null; price: number | null };
+/**
+ * A finished bet. Or a whole day of one employee's bets rolled up (lib/season.ts, for the season before the latest
+ * weeks): then `n` bets, `won` of them won, `best` and `worst` the day's biggest win and loss, `t` its last bet.
+ */
+export type Bet = {
+  t: number; strategy: string; coin: string; pnl: number; cost: number | null; price: number | null;
+  n?: number; won?: number; best?: number; worst?: number;
+};
 
 const won = (b: Bet) => b.pnl > 0;
+/** Bets in a list, counting a rolled-up day by what it holds. */
+export const countOf = (bets: Bet[]) => bets.reduce((s, b) => s + (b.n ?? 1), 0);
+export const wonOf = (bets: Bet[]) => bets.reduce((s, b) => s + (b.won ?? (won(b) ? 1 : 0)), 0);
 
 /** Profit per dollar bet (0.021 = +2.1c per $1); null with nothing priced. */
 export function perDollar(bets: Bet[]): number | null {
@@ -45,7 +56,7 @@ export function streaks(bets: Bet[]) {
   return { current, best, bestEnd, currentIsBest: current > 0 && current === best };
 }
 
-const dayKey = (t: number, tz: string) => new Date(t).toLocaleDateString("en-CA", { timeZone: tz }); // YYYY-MM-DD
+const dayKey = dayOf; // YYYY-MM-DD
 
 export type Day = { day: string; pnl: number; n: number; won: number };
 
@@ -55,7 +66,7 @@ export function days(bets: Bet[], tz: string): Day[] {
   for (const b of bets) {
     const k = dayKey(b.t, tz);
     const d = m.get(k) ?? { day: k, pnl: 0, n: 0, won: 0 };
-    d.pnl += b.pnl; d.n++; if (won(b)) d.won++;
+    d.pnl += b.pnl; d.n += b.n ?? 1; d.won += b.won ?? (won(b) ? 1 : 0);
     m.set(k, d);
   }
   return [...m.values()].sort((a, b) => a.day.localeCompare(b.day));
@@ -82,8 +93,10 @@ export function greenRun(all: Day[], tz: string, now = Date.now()) {
 }
 
 export const biggest = (bets: Bet[]) => ({
-  win: bets.reduce<Bet | null>((a, b) => (b.pnl > 0 && (!a || b.pnl > a.pnl) ? b : a), null),
-  loss: bets.reduce<Bet | null>((a, b) => (b.pnl < 0 && (!a || b.pnl < a.pnl) ? b : a), null),
+  win: bets.map((b) => (b.best != null ? { ...b, pnl: b.best } : b))
+    .reduce<Bet | null>((a, b) => (b.pnl > 0 && (!a || b.pnl > a.pnl) ? b : a), null),
+  loss: bets.map((b) => (b.worst != null ? { ...b, pnl: b.worst } : b))
+    .reduce<Bet | null>((a, b) => (b.pnl < 0 && (!a || b.pnl < a.pnl) ? b : a), null),
 });
 
 /** Wins it takes to earn back a loss, at this employee's (or the desk's) average win. */

@@ -4,6 +4,7 @@ import postgres from "postgres";
 import { LEVELS, mergePolicy } from "./hr";
 import { coinOfTicker } from "./coin";
 import type { Bet } from "./records";
+import type { DayRow } from "./season";
 import { binFor, RANGES, type History, type RangeKey, type Settlement } from "./portfolio";
 import type {
   Accuracy, BacktestSummary, Evidence, Fill, LiveStatus, MoneyMove, NewsItem, Point, Policy, Realism, RosterRow, TuningRun,
@@ -319,7 +320,7 @@ async function getSettlementStatsQuery(book: Book, season: number, strategy: str
  * With `since` (ISO), only bets settled from then (11-16: Training's season is ~40,000 bets, 5 MB, far too much to
  * send for a week's page); their fills are looked for from a few days earlier (weather bets fill a day or so ahead).
  */
-async function getBetsQuery(book: Book, season: number, since?: string | null, strategy?: string): Promise<Bet[]> {
+async function getBetsQuery(book: Book, season: number, since?: string | null, strategy?: string, until?: string): Promise<Bet[]> {
   const fillsFrom = since ? new Date(Date.parse(since) - 4 * 86_400_000).toISOString() : null;
   const rows = await db(book)`
     SELECT s.ts, s.strategy, s.ticker, s.pnl, f.cost, f.price
@@ -331,6 +332,7 @@ async function getBetsQuery(book: Book, season: number, since?: string | null, s
       GROUP BY strategy, ticker
     ) f ON f.strategy = s.strategy AND f.ticker = s.ticker
     WHERE s.season = ${season} ${since ? db(book)`AND s.ts >= ${since}` : db(book)``}
+      ${until ? db(book)`AND s.ts < ${until}` : db(book)``}
       ${strategy ? db(book)`AND s.strategy = ${strategy}` : db(book)``}
     ORDER BY s.ts`;
   return rows.map((r) => ({
@@ -338,23 +340,6 @@ async function getBetsQuery(book: Book, season: number, since?: string | null, s
     cost: r.cost == null ? null : Number(r.cost), price: r.price == null ? null : Number(r.price),
   }));
 }
-
-/** An employee's whole season in four numbers, added up by the database (11-16): bets, wins, profit, money bet. */
-export type Totals = { n: number; won: number; pnl: number; cost: number };
-
-async function getTotalsQuery(book: Book, season: number): Promise<Record<string, Totals>> {
-  const rows = await db(book)`
-    SELECT s.strategy, count(*)::int AS n, count(*) FILTER (WHERE s.pnl > 0)::int AS won, sum(s.pnl) AS pnl,
-           coalesce(sum(f.cost), 0) AS cost
-    FROM settlements s
-    LEFT JOIN (
-      SELECT strategy, ticker, sum(count * price + fee) AS cost FROM fills WHERE season = ${season} GROUP BY strategy, ticker
-    ) f ON f.strategy = s.strategy AND f.ticker = s.ticker
-    WHERE s.season = ${season}
-    GROUP BY s.strategy`;
-  return Object.fromEntries(rows.map((r) => [r.strategy, { n: r.n, won: r.won, pnl: Number(r.pnl), cost: Number(r.cost) }]));
-}
-export const getTotals = sturdy("getTotals", getTotalsQuery);
 
 /** Deposits and withdrawals this season (one per move: the bot writes each employee's share at the same moment). */
 async function getMoneyMovesQuery(book: Book, season: number): Promise<MoneyMove[]> {
@@ -503,6 +488,73 @@ export const getPoolRecord = sturdy("getPoolRecord", getPoolRecordQuery);
 export const getCoinStats = sturdy("getCoinStats", getCoinStatsQuery);
 export const getSettlements = sturdy("getSettlements", getSettlementsQuery);
 export const getBets = sturdy("getBets", getBetsQuery);
+
+/**
+ * Kept until it expires, whatever the bot reports since (sturdy() starts afresh after every report): for what's
+ * already settled and won't change, like the bets of days gone by. Keys must repeat (whole days, not "now").
+ */
+function lasting<A extends unknown[], R>(name: string, query: (...a: A) => Promise<R>, seconds: number): (...a: A) => Promise<R> {
+  return (...a: A) => unstable_cache(() => query(...a), [name, JSON.stringify(a)],
+    { revalidate: seconds, tags: [bookTag(isBook(a[0]) ? a[0] : "shared")] })();
+}
+const getPastBets = lasting("getPastBets", (book: Book, season: number, since: string | null, strategy: string | undefined, until: string) =>
+  getBetsQuery(book, season, since, strategy, until), 6 * 3600);
+
+/**
+ * Settled bets from `since` (null: the season's start), from two caches (11-16): the days before today, kept for
+ * hours since they're done, and today's, fetched again after each bot run. `today` is when today started.
+ */
+export async function getBetsSince(book: Book, season: number, since: string | null, today: string, strategy?: string): Promise<Bet[]> {
+  const [past, now] = await Promise.all([
+    since && since >= today ? [] : getPastBets(book, season, since, strategy, today),
+    getBets(book, season, since && since > today ? since : today, strategy),
+  ]);
+  return [...past, ...now];
+}
+
+async function getDaysQuery(book: Book, season: number, tz: string): Promise<DayRow[]> {
+  const rows = await db(book)`
+    SELECT to_char(s.ts::timestamptz AT TIME ZONE ${tz}, 'YYYY-MM-DD') AS d, s.strategy, count(*)::int AS n,
+           count(*) FILTER (WHERE s.pnl > 0)::int AS won, sum(s.pnl) AS pnl, coalesce(sum(f.cost), 0) AS cost,
+           max(s.pnl) AS best, min(s.pnl) AS worst, max(s.ts) AS last
+    FROM settlements s
+    LEFT JOIN (SELECT strategy, ticker, sum(count * price + fee) AS cost FROM fills WHERE season = ${season}
+               GROUP BY strategy, ticker) f ON f.strategy = s.strategy AND f.ticker = s.ticker
+    WHERE s.season = ${season}
+    GROUP BY 1, 2 ORDER BY 1, 2`;
+  return rows.map((r) => [r.d, r.strategy, r.n, r.won, Number(r.pnl), Number(r.cost), Number(r.best), Number(r.worst), Date.parse(r.last)]);
+}
+const getDaysSql = sturdy("getDays", getDaysQuery);
+
+/**
+ * Each employee's season by day (lib/season.ts): what the bot wrote after its last run, or (before a bot has
+ * written one for this season and time zone) the same added up here.
+ */
+export async function getDays(book: Book, season: number, tz: string): Promise<DayRow[]> {
+  const page = await status<{ season: number; tz: string; days: DayRow[] }>(book, "_page");
+  return page && page.season === season && page.tz === tz ? page.days : getDaysSql(book, season, tz);
+}
+
+/**
+ * What the charts need about money put in, without anyone's value over time (11-16: Training's year of values took
+ * ~6 s): the season's start, each employee's starting money and every bonus or deposit since.
+ */
+async function getMoneyInQuery(book: Book, season: number): Promise<History> {
+  const [start, accounts, transfers, staffRows] = await Promise.all([
+    getSeasonStart(book, season),
+    db(book)`SELECT strategy, starting_cash FROM accounts`,
+    db(book)`SELECT ts, strategy, amount FROM transfers WHERE season = ${season} ORDER BY ts`,
+    db(book)`SELECT e->>'key' AS key FROM status, jsonb_array_elements(data::jsonb -> 'employees') e WHERE status.key = 'live'`,
+  ]);
+  const staff = new Set(staffRows.map((r) => r.key as string));
+  const onStaff = (k: string) => !staff.size || staff.has(k);
+  return {
+    since: start ?? Date.now() - 86_400_000, points: {}, seeds: {},
+    starting: Object.fromEntries(accounts.filter((r) => onStaff(r.strategy)).map((r) => [r.strategy, Number(r.starting_cash)])),
+    transfers: transfers.filter((r) => onStaff(r.strategy)).map((r) => ({ t: Date.parse(r.ts), strategy: r.strategy, amount: Number(r.amount) })),
+  };
+}
+export const getMoneyIn = sturdy("getMoneyIn", getMoneyInQuery);
 export const getMoneyMoves = sturdy("getMoneyMoves", getMoneyMovesQuery);
 export const getSettlementsSince = sturdy("getSettlementsSince", getSettlementsSinceQuery);
 

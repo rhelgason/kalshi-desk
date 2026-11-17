@@ -14,7 +14,8 @@ import Card from "@/components/ui/Card";
 import { teamNotes } from "@/lib/records";
 import { isAdmin } from "@/lib/admin";
 import { HOW_THEY_BET } from "@/lib/voice";
-import { getAnalysis, getBets, getLive, getPolicy, getRecentFills, getRoster, getSeasonStart, getSettlementStats, getTotals, isOffice, withRoster } from "@/lib/db";
+import { getAnalysis, getLive, getPolicy, getRecentFills, getRoster, getSeasonStart, getSettlementStats, getBetsSince, getDays, isOffice, withRoster } from "@/lib/db";
+import { betWindow, rateOf, totalsOf } from "@/lib/season";
 import { viewedBook, requireViewer } from "@/lib/book";
 import { parseRange, poolKeys, RANGES } from "@/lib/portfolio";
 import RangeTabs from "@/components/RangeTabs";
@@ -36,13 +37,16 @@ export default async function EmployeePage({ params, searchParams }: {
   try {
     const book = await viewedBook();
     const policy = await getPolicy(book);
-    // Their own season's bets; the team's only from the last two weeks (for their caption) and as season totals
-    const twoWeeks = new Date(Date.now() - 14 * 86_400_000).toISOString();
-    const [live, seasonStart, fills, analysis, roster, admin, stats, bets, recentAll, totals] = await Promise.all([
+    // Their own season's bets; the team's only from the last two weeks (for their caption) and as season totals.
+    // Whole days, the same as the home page's, so the days gone by come from the cache (lib/db getBetsSince)
+    const tz = policy.pool.timezone || "America/Vancouver";
+    const { since: twoWeeks, today } = betWindow(tz);
+    const [live, seasonStart, fills, analysis, roster, admin, stats, bets, recentAll, dayRows] = await Promise.all([
       getLive(book), getSeasonStart(book, policy.season), getRecentFills(book, policy.season, 100, key), getAnalysis(book),
-      getRoster(book), isAdmin(), getSettlementStats(book, policy.season, key), getBets(book, policy.season, null, key),
-      getBets(book, policy.season, twoWeeks), getTotals(book, policy.season),
+      getRoster(book), isAdmin(), getSettlementStats(book, policy.season, key), getBetsSince(book, policy.season, null, today, key),
+      getBetsSince(book, policy.season, twoWeeks, today), getDays(book, policy.season, tz),
     ]);
+    const totals = totalsOf(dayRows);
     // On Training, can the manager move this employee to real money? (not when they're already there)
     let movable = false;
     if (admin && book === "pretend") {
@@ -90,7 +94,7 @@ export default async function EmployeePage({ params, searchParams }: {
       <AutoRefresh seconds={60} />
       <Link href="/" className="muted">← My Office</Link>
       <PlayerCard e={e} bets={mine} tz={tz} caption={caption} blurb={HOW_THEY_BET[e.key] ?? e.blurb}
-        team={team.map((k) => ({ key: k, n: data.totals[k]?.n ?? 0, perDollar: data.totals[k]?.cost ? data.totals[k].pnl / data.totals[k].cost : null }))}
+        team={team.map((k) => ({ key: k, n: data.totals[k]?.n ?? 0, perDollar: rateOf(data.totals[k]) }))}
         badges={<><StatusBadge e={e} /><Trophies n={e.awards} /></>} />
       {e.note && <div className="notice">{e.note}</div>}
 

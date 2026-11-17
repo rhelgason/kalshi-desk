@@ -29,11 +29,10 @@ const tidy = (v: string, decimals: boolean) => {
  * drops their bets, which also shrinks or grows everyone else's later bets. It assumes every bet would still fill at
  * its new size, which gets less true as bets grow (bigger bids wait longer, and the desk's caps on open bets bite).
  */
-export default function HeroChart({ points, marks, checked, members, bets, putIn, betPct, period, replayFrom }: {
+export default function HeroChart({ points, marks, checked, members, bets, putIn, betPct, period }: {
   points: PortfolioPoint[]; marks?: MoneyMove[]; checked?: string | null;
+  /** bets: the season's, from its start (older days may come one row per employee per day) */
   members: WhatIfMember[]; bets: WhatIfBet[]; putIn: number; betPct: number; period: string;
-  /** `bets` start here, not at the season's start: the pool's (settled) value then */
-  replayFrom?: { t: number; pool: number };
 }) {
   const [open, setOpen] = useState(false);
   const [moneyOn, setMoneyOn] = useState(false);
@@ -49,8 +48,8 @@ export default function HeroChart({ points, marks, checked, members, bets, putIn
   // Replay the season: the real pool and the what-if pool side by side, deposits scaled like the money put in
   const alt = useMemo(() => {
     if (!on) return null;
-    const moves = (marks ?? []).filter((x) => !replayFrom || x.t >= replayFrom.t);
-    const start = replayFrom ? replayFrom.pool : putIn - moves.reduce((s, x) => s + x.amount, 0);
+    const moves = marks ?? [];
+    const start = putIn - moves.reduce((s, x) => s + x.amount, 0);
     let real = start, what = real * k;
     const events: [number, number, string | null, number][] = [
       ...moves.map((x) => [x.t, 0, null, x.amount] as [number, number, string | null, number]),
@@ -70,7 +69,7 @@ export default function HeroChart({ points, marks, checked, members, bets, putIn
       while (i < timeline.length && timeline[i][0] <= p.t) last = timeline[i++][1];
       return last;
     });
-  }, [on, marks, bets, points, putIn, k, ratio, out, replayFrom]);
+  }, [on, marks, bets, points, putIn, k, ratio, out]);
 
   const reset = () => {
     setMoneyOn(false); setMoney(String(Math.round(putIn))); setBetOn(false); setBet(String(+(betPct * 100).toFixed(2)));
