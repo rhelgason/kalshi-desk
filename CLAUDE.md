@@ -113,6 +113,11 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
   sessions (lib/session.ts), invites from /offices (manager), sign-up at /join/<token>; a friend sees only their office.
   Kalshi keys are locked to the server's key (/etc/kalshi-desk-offices.pem; public half in web/lib/vault.ts).
   Tables: deploy/friends.sql. Manager actions refuse office books (app/actions.ts managedBook).
+- **11-16: website speed.** Training's season is ~40,000 bets (5 MB, over Next's 2 MB cache limit), so pages no
+  longer read every bet: after each run the bot writes the season by day (status row `_page`, one row per employee per
+  day, added up inside Postgres; Ledger.publish_page_summary) and pages take single bets only for the latest two weeks
+  (web/lib/season.ts betWindow; past days cached for hours, today's after each report) and daily rows before that. The
+  bot then calls /api/warm (desk/cloud.py warm_site; `DESK_WARM_URL=off` stops it). Never pass whole-season bets to a page.
 - **Fast Sadie trial** on the server (desk/fast.py, from 2026-10-26 07:12 UTC): always-on bid vs a 2-minute cron twin,
   pretend money from $87.63 each. `python -m desk fast-report`. So far it fills more, not better per $1.
 
