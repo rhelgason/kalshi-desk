@@ -1,0 +1,15 @@
+[Unit]
+Description=Kalshi Desk: the prediction model, once a day (desk/forecast.py -> each real-money office's status _forecast)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=desk
+WorkingDirectory=/home/desk/kalshi-desk
+EnvironmentFile=/etc/kalshi-desk.env
+ExecStart=/home/desk/kalshi-desk/.venv/bin/python -u -m desk forecast
+# Low priority: the trading runs come first on this one small server
+Nice=15
+TimeoutStartSec=900
+MemoryMax=300M

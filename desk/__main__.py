@@ -689,6 +689,8 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("fast", help="run the always-on Fast Sadie and her 2-minute twin (the server's job)")
     sub.add_parser("fast-report", help="Fast Sadie vs her twin by month: is the server worth it?")
     sub.add_parser("tick", help="one run of every book, like the hosted bot's /api/tick (the server's timer, 11-16)")
+    p_fc = sub.add_parser("forecast", help="the prediction model: every real-money office's next 6 months (status _forecast)")
+    p_fc.add_argument("--paths", type=int, default=200, help="futures simulated per office")
     p_off = sub.add_parser("offices", help="run the friends' offices every 2 minutes (the server's job, desk/offices.py)")
     p_off.add_argument("--once", action="store_true", help="one round now, then stop")
     args = parser.parse_args(argv)
@@ -753,6 +755,18 @@ def main(argv: list[str] | None = None) -> int:
             from desk.fast import run_fast
 
             asyncio.run(run_fast(cfg.db_path))
+        elif args.cmd == "forecast":
+            import os, time
+
+            from desk.forecast import family_schemas, run_family
+
+            url = os.environ["DATABASE_URL"]
+            t = time.time()
+            for name, out in run_family(url, family_schemas(url), n=args.paths).items():
+                mid = next(f for f in out["fan"] if f["day"] == out["fan"][-1]["day"])
+                print(f"{name}: ${out['start']:,.0f} now, middle of {out['days']} days ${mid['p50']:,.0f}"
+                      f" (10-90%: ${mid['p10']:,.0f}-${mid['p90']:,.0f}); earning ceiling ${out['peak']['profit_day']:,.0f}/day")
+            print(f"done in {time.time() - t:.0f} s")
         elif args.cmd == "tick":
             from desk.cloud import run_all_books
 

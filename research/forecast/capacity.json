@@ -1,0 +1,686 @@
+{
+ "DOGE": {
+  "days": 62.0,
+  "markets": 5880,
+  "caps": {
+   "10": {
+    "windows": 1640,
+    "spent_per_day": 259.15,
+    "avg_fill": 9.8,
+    "per_dollar": 0.0146,
+    "capped_share": 0.97
+   },
+   "25": {
+    "windows": 1640,
+    "spent_per_day": 638.71,
+    "avg_fill": 24.14,
+    "per_dollar": 0.0138,
+    "capped_share": 0.945
+   },
+   "50": {
+    "windows": 1640,
+    "spent_per_day": 1256.2,
+    "avg_fill": 47.48,
+    "per_dollar": 0.0135,
+    "capped_share": 0.923
+   },
+   "100": {
+    "windows": 1640,
+    "spent_per_day": 2446.43,
+    "avg_fill": 92.47,
+    "per_dollar": 0.0127,
+    "capped_share": 0.876
+   },
+   "200": {
+    "windows": 1640,
+    "spent_per_day": 4675.47,
+    "avg_fill": 176.73,
+    "per_dollar": 0.0109,
+    "capped_share": 0.81
+   },
+   "400": {
+    "windows": 1640,
+    "spent_per_day": 8638.63,
+    "avg_fill": 326.53,
+    "per_dollar": 0.0086,
+    "capped_share": 0.69
+   },
+   "800": {
+    "windows": 1640,
+    "spent_per_day": 14841.38,
+    "avg_fill": 560.98,
+    "per_dollar": 0.0062,
+    "capped_share": 0.494
+   },
+   "1600": {
+    "windows": 1640,
+    "spent_per_day": 22355.13,
+    "avg_fill": 844.99,
+    "per_dollar": 0.0019,
+    "capped_share": 0.248
+   },
+   "3200": {
+    "windows": 1640,
+    "spent_per_day": 28145.71,
+    "avg_fill": 1063.87,
+    "per_dollar": -0.0015,
+    "capped_share": 0.066
+   },
+   "6400": {
+    "windows": 1640,
+    "spent_per_day": 30092.3,
+    "avg_fill": 1137.44,
+    "per_dollar": -0.004,
+    "capped_share": 0.005
+   }
+  }
+ },
+ "ETH": {
+  "days": 62.0,
+  "markets": 5879,
+  "caps": {
+   "10": {
+    "windows": 1580,
+    "spent_per_day": 253.92,
+    "avg_fill": 9.96,
+    "per_dollar": 0.0062,
+    "capped_share": 0.994
+   },
+   "25": {
+    "windows": 1580,
+    "spent_per_day": 632.1,
+    "avg_fill": 24.8,
+    "per_dollar": 0.0059,
+    "capped_share": 0.984
+   },
+   "50": {
+    "windows": 1580,
+    "spent_per_day": 1252.79,
+    "avg_fill": 49.15,
+    "per_dollar": 0.0053,
+    "capped_share": 0.968
+   },
+   "100": {
+    "windows": 1580,
+    "spent_per_day": 2469.38,
+    "avg_fill": 96.88,
+    "per_dollar": 0.0044,
+    "capped_share": 0.944
+   },
+   "200": {
+    "windows": 1580,
+    "spent_per_day": 4837.41,
+    "avg_fill": 189.79,
+    "per_dollar": 0.0034,
+    "capped_share": 0.915
+   },
+   "400": {
+    "windows": 1580,
+    "spent_per_day": 9348.37,
+    "avg_fill": 366.77,
+    "per_dollar": 0.0016,
+    "capped_share": 0.861
+   },
+   "800": {
+    "windows": 1580,
+    "spent_per_day": 17663.93,
+    "avg_fill": 693.02,
+    "per_dollar": -0.0009,
+    "capped_share": 0.78
+   },
+   "1600": {
+    "windows": 1580,
+    "spent_per_day": 32317.41,
+    "avg_fill": 1267.94,
+    "per_dollar": -0.0048,
+    "capped_share": 0.658
+   },
+   "3200": {
+    "windows": 1580,
+    "spent_per_day": 54859.6,
+    "avg_fill": 2152.36,
+    "per_dollar": -0.0099,
+    "capped_share": 0.465
+   },
+   "6400": {
+    "windows": 1580,
+    "spent_per_day": 81855.81,
+    "avg_fill": 3211.52,
+    "per_dollar": -0.0137,
+    "capped_share": 0.216
+   }
+  }
+ },
+ "SOL": {
+  "days": 62.0,
+  "markets": 5880,
+  "caps": {
+   "10": {
+    "windows": 1634,
+    "spent_per_day": 259.37,
+    "avg_fill": 9.84,
+    "per_dollar": 0.0115,
+    "capped_share": 0.974
+   },
+   "25": {
+    "windows": 1634,
+    "spent_per_day": 640.87,
+    "avg_fill": 24.31,
+    "per_dollar": 0.0108,
+    "capped_share": 0.958
+   },
+   "50": {
+    "windows": 1634,
+    "spent_per_day": 1264.61,
+    "avg_fill": 47.98,
+    "per_dollar": 0.01,
+    "capped_share": 0.936
+   },
+   "100": {
+    "windows": 1634,
+    "spent_per_day": 2472.56,
+    "avg_fill": 93.8,
+    "per_dollar": 0.0086,
+    "capped_share": 0.903
+   },
+   "200": {
+    "windows": 1634,
+    "spent_per_day": 4770.96,
+    "avg_fill": 181.0,
+    "per_dollar": 0.0069,
+    "capped_share": 0.845
+   },
+   "400": {
+    "windows": 1634,
+    "spent_per_day": 8972.04,
+    "avg_fill": 340.38,
+    "per_dollar": 0.005,
+    "capped_share": 0.752
+   },
+   "800": {
+    "windows": 1634,
+    "spent_per_day": 16179.58,
+    "avg_fill": 613.81,
+    "per_dollar": 0.0021,
+    "capped_share": 0.621
+   },
+   "1600": {
+    "windows": 1634,
+    "spent_per_day": 27016.64,
+    "avg_fill": 1024.94,
+    "per_dollar": -0.0003,
+    "capped_share": 0.409
+   },
+   "3200": {
+    "windows": 1634,
+    "spent_per_day": 38167.83,
+    "avg_fill": 1447.99,
+    "per_dollar": -0.0024,
+    "capped_share": 0.156
+   },
+   "6400": {
+    "windows": 1634,
+    "spent_per_day": 44584.9,
+    "avg_fill": 1691.43,
+    "per_dollar": -0.005,
+    "capped_share": 0.034
+   }
+  }
+ },
+ "XRP": {
+  "days": 62.0,
+  "markets": 5880,
+  "caps": {
+   "10": {
+    "windows": 1598,
+    "spent_per_day": 254.68,
+    "avg_fill": 9.88,
+    "per_dollar": 0.0185,
+    "capped_share": 0.977
+   },
+   "25": {
+    "windows": 1598,
+    "spent_per_day": 629.92,
+    "avg_fill": 24.44,
+    "per_dollar": 0.0181,
+    "capped_share": 0.964
+   },
+   "50": {
+    "windows": 1598,
+    "spent_per_day": 1246.41,
+    "avg_fill": 48.35,
+    "per_dollar": 0.0177,
+    "capped_share": 0.947
+   },
+   "100": {
+    "windows": 1598,
+    "spent_per_day": 2451.58,
+    "avg_fill": 95.1,
+    "per_dollar": 0.0167,
+    "capped_share": 0.923
+   },
+   "200": {
+    "windows": 1598,
+    "spent_per_day": 4774.78,
+    "avg_fill": 185.22,
+    "per_dollar": 0.0156,
+    "capped_share": 0.882
+   },
+   "400": {
+    "windows": 1598,
+    "spent_per_day": 9131.88,
+    "avg_fill": 354.24,
+    "per_dollar": 0.0139,
+    "capped_share": 0.81
+   },
+   "800": {
+    "windows": 1598,
+    "spent_per_day": 16789.12,
+    "avg_fill": 651.28,
+    "per_dollar": 0.0114,
+    "capped_share": 0.683
+   },
+   "1600": {
+    "windows": 1598,
+    "spent_per_day": 28697.75,
+    "avg_fill": 1113.24,
+    "per_dollar": 0.0069,
+    "capped_share": 0.484
+   },
+   "3200": {
+    "windows": 1598,
+    "spent_per_day": 42351.83,
+    "avg_fill": 1642.91,
+    "per_dollar": 0.0023,
+    "capped_share": 0.22
+   },
+   "6400": {
+    "windows": 1598,
+    "spent_per_day": 51932.39,
+    "avg_fill": 2014.56,
+    "per_dollar": 0.0005,
+    "capped_share": 0.048
+   }
+  }
+ },
+ "BNB": {
+  "days": 60.0,
+  "markets": 5696,
+  "caps": {
+   "10": {
+    "windows": 1538,
+    "spent_per_day": 248.51,
+    "avg_fill": 9.69,
+    "per_dollar": 0.0055,
+    "capped_share": 0.946
+   },
+   "25": {
+    "windows": 1538,
+    "spent_per_day": 605.15,
+    "avg_fill": 23.6,
+    "per_dollar": 0.0042,
+    "capped_share": 0.91
+   },
+   "50": {
+    "windows": 1538,
+    "spent_per_day": 1169.39,
+    "avg_fill": 45.61,
+    "per_dollar": 0.0026,
+    "capped_share": 0.86
+   },
+   "100": {
+    "windows": 1538,
+    "spent_per_day": 2223.06,
+    "avg_fill": 86.71,
+    "per_dollar": 0.0003,
+    "capped_share": 0.791
+   },
+   "200": {
+    "windows": 1538,
+    "spent_per_day": 4093.7,
+    "avg_fill": 159.67,
+    "per_dollar": -0.0038,
+    "capped_share": 0.672
+   },
+   "400": {
+    "windows": 1538,
+    "spent_per_day": 7032.0,
+    "avg_fill": 274.28,
+    "per_dollar": -0.0102,
+    "capped_share": 0.482
+   },
+   "800": {
+    "windows": 1538,
+    "spent_per_day": 10624.93,
+    "avg_fill": 414.42,
+    "per_dollar": -0.0199,
+    "capped_share": 0.248
+   },
+   "1600": {
+    "windows": 1538,
+    "spent_per_day": 13505.57,
+    "avg_fill": 526.78,
+    "per_dollar": -0.0285,
+    "capped_share": 0.077
+   },
+   "3200": {
+    "windows": 1538,
+    "spent_per_day": 14834.27,
+    "avg_fill": 578.61,
+    "per_dollar": -0.0336,
+    "capped_share": 0.008
+   },
+   "6400": {
+    "windows": 1538,
+    "spent_per_day": 14969.36,
+    "avg_fill": 583.88,
+    "per_dollar": -0.0339,
+    "capped_share": 0.0
+   }
+  }
+ },
+ "HYPE": {
+  "days": 59.9,
+  "markets": 5688,
+  "caps": {
+   "10": {
+    "windows": 1603,
+    "spent_per_day": 263.62,
+    "avg_fill": 9.85,
+    "per_dollar": 0.0015,
+    "capped_share": 0.975
+   },
+   "25": {
+    "windows": 1603,
+    "spent_per_day": 649.65,
+    "avg_fill": 24.28,
+    "per_dollar": 0.0005,
+    "capped_share": 0.948
+   },
+   "50": {
+    "windows": 1603,
+    "spent_per_day": 1268.04,
+    "avg_fill": 47.39,
+    "per_dollar": -0.0008,
+    "capped_share": 0.906
+   },
+   "100": {
+    "windows": 1603,
+    "spent_per_day": 2444.33,
+    "avg_fill": 91.35,
+    "per_dollar": -0.0024,
+    "capped_share": 0.853
+   },
+   "200": {
+    "windows": 1603,
+    "spent_per_day": 4590.25,
+    "avg_fill": 171.54,
+    "per_dollar": -0.005,
+    "capped_share": 0.752
+   },
+   "400": {
+    "windows": 1603,
+    "spent_per_day": 8143.44,
+    "avg_fill": 304.33,
+    "per_dollar": -0.0086,
+    "capped_share": 0.586
+   },
+   "800": {
+    "windows": 1603,
+    "spent_per_day": 13143.64,
+    "avg_fill": 491.2,
+    "per_dollar": -0.0149,
+    "capped_share": 0.369
+   },
+   "1600": {
+    "windows": 1603,
+    "spent_per_day": 18306.58,
+    "avg_fill": 684.14,
+    "per_dollar": -0.022,
+    "capped_share": 0.147
+   },
+   "3200": {
+    "windows": 1603,
+    "spent_per_day": 21403.98,
+    "avg_fill": 799.9,
+    "per_dollar": -0.0268,
+    "capped_share": 0.029
+   },
+   "6400": {
+    "windows": 1603,
+    "spent_per_day": 22102.7,
+    "avg_fill": 826.01,
+    "per_dollar": -0.0283,
+    "capped_share": 0.001
+   }
+  }
+ },
+ "NEAR": {
+  "days": 60.0,
+  "markets": 5696,
+  "caps": {
+   "10": {
+    "windows": 1433,
+    "spent_per_day": 233.01,
+    "avg_fill": 9.75,
+    "per_dollar": 0.0101,
+    "capped_share": 0.955
+   },
+   "25": {
+    "windows": 1433,
+    "spent_per_day": 567.21,
+    "avg_fill": 23.74,
+    "per_dollar": 0.0087,
+    "capped_share": 0.915
+   },
+   "50": {
+    "windows": 1433,
+    "spent_per_day": 1096.2,
+    "avg_fill": 45.89,
+    "per_dollar": 0.0076,
+    "capped_share": 0.863
+   },
+   "100": {
+    "windows": 1433,
+    "spent_per_day": 2071.81,
+    "avg_fill": 86.73,
+    "per_dollar": 0.0054,
+    "capped_share": 0.774
+   },
+   "200": {
+    "windows": 1433,
+    "spent_per_day": 3756.4,
+    "avg_fill": 157.25,
+    "per_dollar": 0.0019,
+    "capped_share": 0.651
+   },
+   "400": {
+    "windows": 1433,
+    "spent_per_day": 6391.36,
+    "avg_fill": 267.56,
+    "per_dollar": -0.0014,
+    "capped_share": 0.458
+   },
+   "800": {
+    "windows": 1433,
+    "spent_per_day": 9656.58,
+    "avg_fill": 404.25,
+    "per_dollar": -0.0022,
+    "capped_share": 0.251
+   },
+   "1600": {
+    "windows": 1433,
+    "spent_per_day": 12683.24,
+    "avg_fill": 530.96,
+    "per_dollar": -0.0019,
+    "capped_share": 0.096
+   },
+   "3200": {
+    "windows": 1433,
+    "spent_per_day": 14241.88,
+    "avg_fill": 596.21,
+    "per_dollar": -0.0033,
+    "capped_share": 0.015
+   },
+   "6400": {
+    "windows": 1433,
+    "spent_per_day": 14648.77,
+    "avg_fill": 613.24,
+    "per_dollar": -0.0033,
+    "capped_share": 0.001
+   }
+  }
+ },
+ "ZEC": {
+  "days": 60.0,
+  "markets": 5696,
+  "caps": {
+   "10": {
+    "windows": 1441,
+    "spent_per_day": 233.94,
+    "avg_fill": 9.74,
+    "per_dollar": 0.0068,
+    "capped_share": 0.955
+   },
+   "25": {
+    "windows": 1441,
+    "spent_per_day": 572.62,
+    "avg_fill": 23.84,
+    "per_dollar": 0.0058,
+    "capped_share": 0.93
+   },
+   "50": {
+    "windows": 1441,
+    "spent_per_day": 1116.6,
+    "avg_fill": 46.48,
+    "per_dollar": 0.0045,
+    "capped_share": 0.887
+   },
+   "100": {
+    "windows": 1441,
+    "spent_per_day": 2148.41,
+    "avg_fill": 89.44,
+    "per_dollar": 0.0023,
+    "capped_share": 0.825
+   },
+   "200": {
+    "windows": 1441,
+    "spent_per_day": 4017.23,
+    "avg_fill": 167.24,
+    "per_dollar": -0.0005,
+    "capped_share": 0.729
+   },
+   "400": {
+    "windows": 1441,
+    "spent_per_day": 7065.4,
+    "avg_fill": 294.14,
+    "per_dollar": -0.0048,
+    "capped_share": 0.561
+   },
+   "800": {
+    "windows": 1441,
+    "spent_per_day": 11259.06,
+    "avg_fill": 468.72,
+    "per_dollar": -0.0109,
+    "capped_share": 0.341
+   },
+   "1600": {
+    "windows": 1441,
+    "spent_per_day": 15196.83,
+    "avg_fill": 632.65,
+    "per_dollar": -0.0171,
+    "capped_share": 0.117
+   },
+   "3200": {
+    "windows": 1441,
+    "spent_per_day": 17261.22,
+    "avg_fill": 718.59,
+    "per_dollar": -0.0224,
+    "capped_share": 0.016
+   },
+   "6400": {
+    "windows": 1441,
+    "spent_per_day": 17747.75,
+    "avg_fill": 738.85,
+    "per_dollar": -0.0266,
+    "capped_share": 0.001
+   }
+  }
+ },
+ "BTC": {
+  "days": 67.0,
+  "markets": 6352,
+  "caps": {
+   "10": {
+    "windows": 1456,
+    "spent_per_day": 216.84,
+    "avg_fill": 9.98,
+    "per_dollar": 0.0136,
+    "capped_share": 0.995
+   },
+   "25": {
+    "windows": 1456,
+    "spent_per_day": 540.86,
+    "avg_fill": 24.88,
+    "per_dollar": 0.0134,
+    "capped_share": 0.993
+   },
+   "50": {
+    "windows": 1456,
+    "spent_per_day": 1079.28,
+    "avg_fill": 49.66,
+    "per_dollar": 0.0133,
+    "capped_share": 0.989
+   },
+   "100": {
+    "windows": 1456,
+    "spent_per_day": 2150.76,
+    "avg_fill": 98.96,
+    "per_dollar": 0.013,
+    "capped_share": 0.981
+   },
+   "200": {
+    "windows": 1456,
+    "spent_per_day": 4268.72,
+    "avg_fill": 196.4,
+    "per_dollar": 0.0125,
+    "capped_share": 0.97
+   },
+   "400": {
+    "windows": 1456,
+    "spent_per_day": 8461.82,
+    "avg_fill": 389.32,
+    "per_dollar": 0.0119,
+    "capped_share": 0.958
+   },
+   "800": {
+    "windows": 1456,
+    "spent_per_day": 16697.94,
+    "avg_fill": 768.26,
+    "per_dollar": 0.0111,
+    "capped_share": 0.938
+   },
+   "1600": {
+    "windows": 1456,
+    "spent_per_day": 32875.4,
+    "avg_fill": 1512.58,
+    "per_dollar": 0.0101,
+    "capped_share": 0.92
+   },
+   "3200": {
+    "windows": 1456,
+    "spent_per_day": 64055.95,
+    "avg_fill": 2947.17,
+    "per_dollar": 0.0085,
+    "capped_share": 0.878
+   },
+   "6400": {
+    "windows": 1456,
+    "spent_per_day": 123033.03,
+    "avg_fill": 5660.67,
+    "per_dollar": 0.007,
+    "capped_share": 0.816
+   }
+  }
+ }
+}

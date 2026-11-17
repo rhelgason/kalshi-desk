@@ -1,0 +1,10 @@
+[Unit]
+Description=Kalshi Desk: the prediction model daily at 11:20 UTC (3:20 am Pacific), and an hour after boot
+
+[Timer]
+OnCalendar=*-*-* 11:20:00
+OnBootSec=1h
+Persistent=true
+
+[Install]
+WantedBy=timers.target
