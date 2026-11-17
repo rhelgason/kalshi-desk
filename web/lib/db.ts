@@ -275,6 +275,10 @@ async function getRecentFillsQuery(book: Book, season: number, limit = 30, strat
     FROM fills f
     LEFT JOIN settlements s ON s.strategy = f.strategy AND s.ticker = f.ticker AND s.season = f.season
     WHERE f.season = ${season} ${strategy ? db(book)`AND f.strategy = ${strategy}` : db(book)``}
+      -- Only the newest fills (a few per bet at most), not the whole season's (11-16: 2.7 s on Training)
+      AND f.id >= (SELECT coalesce(min(id), 0) FROM (
+        SELECT id FROM fills WHERE season = ${season} ${strategy ? db(book)`AND strategy = ${strategy}` : db(book)``}
+        ORDER BY id DESC LIMIT ${limit * 4}) newest)
     GROUP BY f.strategy, f.ticker, f.side, s.yes_value, s.pnl
     ORDER BY max(f.id) DESC LIMIT ${limit}`;
   return rows.map((r) => ({ ...r, count: Number(r.count), price: Number(r.price), fee: Number(r.fee) })) as Fill[];
@@ -310,22 +314,47 @@ async function getSettlementStatsQuery(book: Book, season: number, strategy: str
   };
 }
 
-/** Every settled bet this season with what it cost (fills joined by employee and market): records and player cards. */
-async function getBetsQuery(book: Book, season: number): Promise<Bet[]> {
+/**
+ * Settled bets this season with what they cost (fills joined by employee and market): records and player cards.
+ * With `since` (ISO), only bets settled from then (11-16: Training's season is ~40,000 bets, 5 MB, far too much to
+ * send for a week's page); their fills are looked for from a few days earlier (weather bets fill a day or so ahead).
+ */
+async function getBetsQuery(book: Book, season: number, since?: string | null, strategy?: string): Promise<Bet[]> {
+  const fillsFrom = since ? new Date(Date.parse(since) - 4 * 86_400_000).toISOString() : null;
   const rows = await db(book)`
     SELECT s.ts, s.strategy, s.ticker, s.pnl, f.cost, f.price
     FROM settlements s
     LEFT JOIN (
       SELECT strategy, ticker, sum(count * price + fee) AS cost, max(price) AS price
-      FROM fills WHERE season = ${season} GROUP BY strategy, ticker
+      FROM fills WHERE season = ${season} ${fillsFrom ? db(book)`AND ts >= ${fillsFrom}` : db(book)``}
+        ${strategy ? db(book)`AND strategy = ${strategy}` : db(book)``}
+      GROUP BY strategy, ticker
     ) f ON f.strategy = s.strategy AND f.ticker = s.ticker
-    WHERE s.season = ${season}
+    WHERE s.season = ${season} ${since ? db(book)`AND s.ts >= ${since}` : db(book)``}
+      ${strategy ? db(book)`AND s.strategy = ${strategy}` : db(book)``}
     ORDER BY s.ts`;
   return rows.map((r) => ({
     t: Date.parse(r.ts), strategy: r.strategy, coin: coinOfTicker(r.ticker), pnl: Number(r.pnl),
     cost: r.cost == null ? null : Number(r.cost), price: r.price == null ? null : Number(r.price),
   }));
 }
+
+/** An employee's whole season in four numbers, added up by the database (11-16): bets, wins, profit, money bet. */
+export type Totals = { n: number; won: number; pnl: number; cost: number };
+
+async function getTotalsQuery(book: Book, season: number): Promise<Record<string, Totals>> {
+  const rows = await db(book)`
+    SELECT s.strategy, count(*)::int AS n, count(*) FILTER (WHERE s.pnl > 0)::int AS won, sum(s.pnl) AS pnl,
+           coalesce(sum(f.cost), 0) AS cost
+    FROM settlements s
+    LEFT JOIN (
+      SELECT strategy, ticker, sum(count * price + fee) AS cost FROM fills WHERE season = ${season} GROUP BY strategy, ticker
+    ) f ON f.strategy = s.strategy AND f.ticker = s.ticker
+    WHERE s.season = ${season}
+    GROUP BY s.strategy`;
+  return Object.fromEntries(rows.map((r) => [r.strategy, { n: r.n, won: r.won, pnl: Number(r.pnl), cost: Number(r.cost) }]));
+}
+export const getTotals = sturdy("getTotals", getTotalsQuery);
 
 /** Deposits and withdrawals this season (one per move: the bot writes each employee's share at the same moment). */
 async function getMoneyMovesQuery(book: Book, season: number): Promise<MoneyMove[]> {

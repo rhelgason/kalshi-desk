@@ -97,13 +97,19 @@ export function winsToRecover(loss: number, bets: Bet[]) {
  * One short line per employee for the team list (11-16): the most telling fact about them right now, worded plainly.
  * Team-wide firsts (best rate, busiest today) go to one person each, so neighbouring rows read differently.
  */
+/**
+ * Each employee's one-line caption on the team list. `bets` may be just the latest weeks (11-16: Training's whole
+ * season is too much to send); then `totals` (the season added up by the database) gives the season-long numbers:
+ * how many bets, the profit, the rate and the share won. Streaks and recent losses come from the bets.
+ */
 export function teamNotes(people: { key: string; benchedUntil?: string | null; benched?: boolean }[], bets: Bet[], tz: string,
-                          now = Date.now()): Record<string, string> {
+                          now = Date.now(), totals?: Record<string, { n: number; won: number; pnl: number; cost: number }>): Record<string, string> {
   const by: Record<string, Bet[]> = {};
   for (const b of bets) (by[b.strategy] ??= []).push(b);
   const today = dayKey(now, tz);
   const short = (t: number) => new Date(t).toLocaleDateString("en-US", { timeZone: tz, month: "short", day: "numeric" });
-  const rate = (k: string) => (by[k]?.length ?? 0) >= 30 ? perDollar(by[k]) : null;
+  const count = (k: string) => totals ? totals[k]?.n ?? 0 : by[k]?.length ?? 0;
+  const rate = (k: string) => count(k) < 30 ? null : totals ? (totals[k].cost ? totals[k].pnl / totals[k].cost : null) : perDollar(by[k]);
   const todays = (k: string) => (by[k] ?? []).filter((b) => dayKey(b.t, tz) === today).length;
   const top = (f: (k: string) => number | null) => {
     let best: string | null = null, v = -Infinity;
@@ -115,7 +121,9 @@ export function teamNotes(people: { key: string; benchedUntil?: string | null; b
   const out: Record<string, string> = {};
   for (const p of people) {
     const mine = by[p.key] ?? [];
-    const n = mine.length, pnl = mine.reduce((s, b) => s + b.pnl, 0);
+    const t = totals?.[p.key];
+    const n = t ? t.n : mine.length, pnl = t ? t.pnl : mine.reduce((s, b) => s + b.pnl, 0);
+    const wonAll = t ? t.won : mine.filter(won).length;
     const s = streaks(mine);
     const last = mine.length ? biggest(mine.filter((b) => now - b.t < 86_400_000)).loss : null;
     const run = greenRun(days(mine, tz), tz, now);
@@ -128,10 +136,10 @@ export function teamNotes(people: { key: string; benchedUntil?: string | null; b
       : last ? `Lost ${dollars(-last.pnl)} ${dayKey(last.t, tz) === today ? "today" : "yesterday"}, ${winsToRecover(last.pnl, mine) ?? "a few"} wins to earn it back`
       : p.key === busiest ? `Busiest today · ${todays(p.key)} bets`
       : pnl < 0 ? `Down ${dollars(-pnl)} so far · needs a good week`
-      : s.current >= 5 && s.current < n ? `No loss since ${short(mine[n - s.current - 1].t)} · ${s.current} wins since`
-      : s.current === n ? `Hasn't lost yet · ${n} bets`
+      : s.current >= 5 && s.current < mine.length ? `No loss since ${short(mine[mine.length - s.current - 1].t)} · ${s.current} wins since`
+      : wonAll === n ? `Hasn't lost yet · ${n} bets`
       : run >= 3 ? `Up ${run} days running`
-      : `${Math.round((mine.filter(won).length / n) * 100)}% won over ${n} bets`;
+      : `${Math.round((wonAll / n) * 100)}% won over ${n} bets`;
   }
   return out;
 }

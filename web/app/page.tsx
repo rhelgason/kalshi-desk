@@ -18,12 +18,12 @@ import { isAdmin } from "@/lib/admin";
 import { light } from "@/lib/advice";
 import { bookLabel, getOffice, getRealBook, viewedBook, requireViewer } from "@/lib/book";
 import {
-  getAnalysis, getBets, getBonusPot, getHistory, getNews, getKillSwitch, getLive, getMoneyMoves, getPolicy, getRecentFills, getRoster,
+  getAnalysis, getBets, getBonusPot, getTotals, getHistory, getNews, getKillSwitch, getLive, getMoneyMoves, getPolicy, getRecentFills, getRoster,
   getSettlements, getSettlementsSince, isLive, isOffice, withRoster,
 } from "@/lib/db";
 import { currentUser, officeOf } from "@/lib/session";
 import { dollars, pct } from "@/lib/format";
-import { perDollar, teamNotes } from "@/lib/records";
+import { teamNotes } from "@/lib/records";
 import { headline, only, parseRange, poolKeys, profitSeries, RANGES, RANGE_WORDS, settledSeries } from "@/lib/portfolio";
 
 export const dynamic = "force-dynamic";
@@ -44,6 +44,9 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
   // Bets before the range arrive rolled up (getSettlementsSince); a minute early so the roll-up sits before the chart's start
   const days = RANGES[range].days;
   const sinceIso = days == null ? null : new Date(Date.now() - days * 86_400_000 - 60_000).toISOString();
+  // Single bets only for the range (two weeks at least, for the team's captions); the season in totals the database
+  // adds up (11-16: Training's whole season is ~40,000 bets and took ~15 s to send)
+  const betsFrom = days == null ? null : new Date(Date.now() - Math.max(14, days) * 86_400_000 - 60_000).toISOString();
   const book = await viewedBook();
   let data;
   try {
@@ -53,19 +56,20 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
       getLive(book), getRecentFills(book, policy.season, 100), getRoster(book), getHistory(book, policy.season, range),
       range === "season" ? null : getHistory(book, policy.season, "season"), isAdmin(),
       sinceIso ? getSettlementsSince(book, policy.season, sinceIso) : getSettlements(book, policy.season),
-      getBets(book, policy.season),
+      getBets(book, policy.season, betsFrom),
       // A friend's office has its own pause; the owner's real book's pause shows on both of the owner's views
       isOffice(book) ? getKillSwitch(book) : realBook ? getKillSwitch("real") : null, getMoneyMoves(book, policy.season),
       getOffice(book), currentUser(),
     ]);
-    const [analysis, news, pot] = await Promise.all([getAnalysis(book), getNews(book, 40), getBonusPot(book)]);
+    const [analysis, news, pot, totals] = await Promise.all([getAnalysis(book), getNews(book, 40), getBonusPot(book),
+      getTotals(book, policy.season)]);
     data = { realBook, live, fills, roster, policy, history, season: season ?? history, admin: admin && !isOffice(book),
-             settled, bets, kill, marks, office, user, analysis, news, pot };
+             settled, bets, kill, marks, office, user, analysis, news, pot, totals };
   } catch (e) {
     if (isOffice(book)) return <OfficeSoon />;
     return <Setup error={String(e)} />;
   }
-  const { realBook, live, fills, roster, policy, history, season, admin, settled, bets, kill, marks, office, user, analysis, news, pot } = data;
+  const { realBook, live, fills, roster, policy, history, season, admin, settled, bets, kill, marks, office, user, analysis, news, pot, totals } = data;
   if (!live) return isOffice(book) ? <OfficeSoon /> : <Setup error="The bot hasn't published a status yet. Is it running?" />;
 
   const label = bookLabel(book, realBook, office);
@@ -89,13 +93,16 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
   const won = (xs: typeof pool) => xs.filter((b) => b.pnl > 0).length;
   const record = (xs: typeof pool) => xs.length ? `${won(xs)} of ${xs.length} won (${Math.round((won(xs) / xs.length) * 100)}%)` : "nothing finished yet";
   const allTime = (worth - putIn) / (putIn || 1);
+  // The season, added up by the database (`pool` may be just the latest weeks)
+  const season_ = Object.entries(totals).filter(([k]) => members.has(k)).map(([, t]) => t);
+  const seasonN = season_.reduce((s, t) => s + t.n, 0), seasonWon = season_.reduce((s, t) => s + t.won, 0);
   const stats: Stat[] = [
     { label: "Today", value: dollars(sum(todays), true), tone: toneOf(sum(todays)), note: record(todays) },
     { label: "Last 7 Days", value: dollars(sum(weeks), true), tone: toneOf(sum(weeks)), note: record(weeks) },
-    { label: "All Time", value: pct(allTime, true, 1), tone: toneOf(allTime), note: record(pool) },
+    { label: "All Time", value: pct(allTime, true, 1), tone: toneOf(allTime),
+      note: seasonN ? `${seasonWon} of ${seasonN} won (${Math.round((seasonWon / seasonN) * 100)}%)` : "nothing finished yet" },
   ];
-  const profits: Record<string, number> = {};
-  for (const b of pool) profits[b.strategy] = (profits[b.strategy] ?? 0) + b.pnl;
+  const profits: Record<string, number> = Object.fromEntries(Object.entries(totals).map(([k, t]) => [k, t.pnl]));
   const dayAgo = Date.now() - 86_400_000;
   const recent = pool.filter((b) => b.t >= dayAgo);
   const lastDay = { n: recent.length, won: won(recent), pnl: sum(recent) };
@@ -106,9 +113,9 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
     .filter((e) => members.has(e.key) || e.control)
     .map((e) => ({ e, light: light(e, analysis.evidence[e.key]), trend: trends[e.key] ?? [] }))
     .sort((a, b) => away(a) - away(b) || (profits[b.e.key] ?? 0) - (profits[a.e.key] ?? 0));
-  const rates = Object.fromEntries(rows.map((r) => [r.e.key, perDollar(bets.filter((b) => b.strategy === r.e.key))]));
+  const rates = Object.fromEntries(rows.map((r) => [r.e.key, totals[r.e.key]?.cost ? totals[r.e.key].pnl / totals[r.e.key].cost : null]));
   const notes = teamNotes(rows.map((r) => ({ key: r.e.key, benched: r.light.key === "benched" || r.light.key === "fired",
-    benchedUntil: r.e.suspended_until })), bets, tz);
+    benchedUntil: r.e.suspended_until })), bets, tz, Date.now(), totals);
   // The chart's range: where it starts, what changed over it, and each member's running profit for the what-if
   const chartStart = points[0]?.t ?? season.since;
   const rangeChange = Math.round(pool.filter((b) => b.t >= chartStart).reduce((s, b) => s + b.pnl, 0) * 100) / 100 || 0;
@@ -116,6 +123,12 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
     key: e.key, name: e.name, emoji: e.emoji,
     inRange: Math.round(pool.filter((b) => b.strategy === e.key && b.t >= chartStart).reduce((s, b) => s + b.pnl, 0) * 100) / 100,
   })).sort((a, b) => a.inRange - b.inRange);
+  // Where the what-if's replay starts when only the latest bets came: the pool then, on finished bets
+  const replayFrom = betsFrom ? (() => {
+    const t = Date.parse(betsFrom);
+    const later = (marks ?? []).filter((m) => m.t >= t).reduce((s, m) => s + m.amount, 0);
+    return { t, pool: putIn + season_.reduce((s, x) => s + x.pnl, 0) - sum(pool) - later };
+  })() : undefined;
   // When each open bet filled (its first fill), so the race knows where each lane started
   const started: Record<string, number> = {};
   for (const f of fills) if (f.yes_value == null) {
@@ -140,7 +153,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
         tabs={<RangeTabs value={range} path="/" />}
         chart={<HeroChart points={points} marks={marks} checked={books?.at ?? live.updated_at} members={whatIf}
                           bets={pool.map((b) => [b.t, b.strategy, Math.round(b.pnl * 100) / 100] as WhatIfBet)}
-                          putIn={putIn} betPct={policy.pool.bet_pct} period={RANGE_WORDS[range]} />}
+                          putIn={putIn} betPct={policy.pool.bet_pct} period={RANGE_WORDS[range]} replayFrom={replayFrom} />}
         facts={<HeroFacts period={RANGE_WORDS[range]} change={rangeChange} inRange={pool.filter((b) => b.t >= chartStart)}
                           all={pool} employees={employees} tz={tz} since={season.since} days={days} />}
         under={isOffice(book) ? <OfficePause halted={!!kill?.halted} mine={officeOf(user) === book} /> : null}

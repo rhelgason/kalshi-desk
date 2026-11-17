@@ -31,7 +31,8 @@ export default function NavButtons({ book, hasLive, manager, inOffice = false }:
     setPicked(b);
     start(async () => {
       await pickBook(b);
-      if (path === "/") router.refresh();
+      // Always the plain office page, which opens on the week (a longer range from before would load far more)
+      if (path === "/" && !window.location.search) router.refresh();
       else router.push("/");
     });
   };

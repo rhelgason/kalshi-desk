@@ -753,3 +753,15 @@ html[data-navigating] body { cursor: progress; }
   border: 2px solid currentColor; border-right-color: transparent; animation: spin 0.7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { html[data-navigating] .nav-progress::after { animation-duration: 3s; } .spinner { animation-duration: 2s; } }
+
+/* Loading placeholders (app/loading.tsx) */
+.skel { border-radius: 10px; background: linear-gradient(90deg, var(--surface-2) 25%, color-mix(in srgb, var(--surface-2) 60%, var(--surface-1)) 50%, var(--surface-2) 75%);
+  background-size: 200% 100%; animation: skel 1.3s ease-in-out infinite; }
+.skel-title { width: 160px; height: 24px; margin-bottom: 14px; }
+.skel-big { width: 220px; height: 48px; margin-bottom: 14px; }
+.skel-row { height: 70px; margin-bottom: 14px; }
+.skel-chart { height: 220px; }
+.skel-line { height: 44px; margin-bottom: 10px; }
+.skel-line.short { width: 60%; }
+@keyframes skel { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+@media (prefers-reduced-motion: reduce) { .skel { animation: none; } }

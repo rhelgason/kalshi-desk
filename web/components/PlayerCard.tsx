@@ -15,14 +15,15 @@ const dayLabel = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("e
  * finished bets, so it only moves when a bet is decided.
  */
 export default function PlayerCard({ e, bets, team, tz, badges, caption, blurb }: {
-  e: Employee; bets: Bet[]; team: { key: string; bets: Bet[] }[]; tz: string;
+  /** team: everyone's season profit per $1 and bets, for this employee's rank */
+  e: Employee; bets: Bet[]; team: { key: string; n: number; perDollar: number | null }[]; tz: string;
   badges?: ReactNode; caption?: string; blurb?: string;
 }) {
   const n = bets.length;
   const wins = bets.filter((b) => b.pnl > 0).length;
   const profit = bets.reduce((s, b) => s + b.pnl, 0);
   const pd = perDollar(bets);
-  const ranked = team.map((t) => ({ key: t.key, pd: perDollar(t.bets), n: t.bets.length }))
+  const ranked = team.map((t) => ({ key: t.key, pd: t.perDollar, n: t.n }))
     .filter((t) => t.pd != null && t.n >= 10).sort((a, b) => b.pd! - a.pd!);
   const rank = ranked.findIndex((t) => t.key === e.key);
   const s = streaks(bets);

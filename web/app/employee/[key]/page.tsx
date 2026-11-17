@@ -14,7 +14,7 @@ import Card from "@/components/ui/Card";
 import { teamNotes } from "@/lib/records";
 import { isAdmin } from "@/lib/admin";
 import { HOW_THEY_BET } from "@/lib/voice";
-import { getAnalysis, getBets, getLive, getPolicy, getRecentFills, getRoster, getSeasonStart, getSettlementStats, isOffice, withRoster } from "@/lib/db";
+import { getAnalysis, getBets, getLive, getPolicy, getRecentFills, getRoster, getSeasonStart, getSettlementStats, getTotals, isOffice, withRoster } from "@/lib/db";
 import { viewedBook, requireViewer } from "@/lib/book";
 import { parseRange, poolKeys, RANGES } from "@/lib/portfolio";
 import RangeTabs from "@/components/RangeTabs";
@@ -36,9 +36,12 @@ export default async function EmployeePage({ params, searchParams }: {
   try {
     const book = await viewedBook();
     const policy = await getPolicy(book);
-    const [live, seasonStart, fills, analysis, roster, admin, stats, bets] = await Promise.all([
+    // Their own season's bets; the team's only from the last two weeks (for their caption) and as season totals
+    const twoWeeks = new Date(Date.now() - 14 * 86_400_000).toISOString();
+    const [live, seasonStart, fills, analysis, roster, admin, stats, bets, recentAll, totals] = await Promise.all([
       getLive(book), getSeasonStart(book, policy.season), getRecentFills(book, policy.season, 100, key), getAnalysis(book),
-      getRoster(book), isAdmin(), getSettlementStats(book, policy.season, key), getBets(book, policy.season),
+      getRoster(book), isAdmin(), getSettlementStats(book, policy.season, key), getBets(book, policy.season, null, key),
+      getBets(book, policy.season, twoWeeks), getTotals(book, policy.season),
     ]);
     // On Training, can the manager move this employee to real money? (not when they're already there)
     let movable = false;
@@ -46,7 +49,7 @@ export default async function EmployeePage({ params, searchParams }: {
       const [real, realPolicy] = await Promise.all([getLive("real"), getPolicy("real")]);
       movable = !!real && !real.employees.some((x) => x.key === key) && !realPolicy.hired?.includes(key);
     }
-    data = { live, seasonStart, fills, evidence: analysis.evidence, roster, policy, admin: admin && !isOffice(book), stats, bets, movable };
+    data = { live, seasonStart, fills, evidence: analysis.evidence, roster, policy, admin: admin && !isOffice(book), stats, bets, recentAll, totals, movable };
   } catch (e) {
     return <Setup error={String(e)} />;
   }
@@ -59,12 +62,12 @@ export default async function EmployeePage({ params, searchParams }: {
 
   const tz = data.live.pool?.settings?.timezone || "America/Vancouver";
   const team = poolKeys(data.live);
-  const mine = data.bets.filter((b) => b.strategy === key);
+  const mine = data.bets;
   // Their caption, worded against the whole team so it matches the home page's list
   const caption = teamNotes(team.map((k) => {
     const x = everyone.find((y) => y.key === k);
     return { key: k, benched: x?.status === "suspended" || x?.status === "fired", benchedUntil: x?.suspended_until };
-  }), data.bets.filter((b) => team.includes(b.strategy)), tz)[key];
+  }), data.recentAll.filter((b) => team.includes(b.strategy)), tz, Date.now(), data.totals)[key];
   // Their running profit from finished bets over the range picked, drawn like the home chart (break-even dashed),
   // from their first bet at the earliest so a mid-season hire's line doesn't sit flat before they joined
   const days = RANGES[range].days;
@@ -87,7 +90,7 @@ export default async function EmployeePage({ params, searchParams }: {
       <AutoRefresh seconds={60} />
       <Link href="/" className="muted">← My Office</Link>
       <PlayerCard e={e} bets={mine} tz={tz} caption={caption} blurb={HOW_THEY_BET[e.key] ?? e.blurb}
-        team={team.map((k) => ({ key: k, bets: data.bets.filter((b) => b.strategy === k) }))}
+        team={team.map((k) => ({ key: k, n: data.totals[k]?.n ?? 0, perDollar: data.totals[k]?.cost ? data.totals[k].pnl / data.totals[k].cost : null }))}
         badges={<><StatusBadge e={e} /><Trophies n={e.awards} /></>} />
       {e.note && <div className="notice">{e.note}</div>}
 
