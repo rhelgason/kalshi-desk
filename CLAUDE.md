@@ -193,6 +193,14 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
   of 7/30-day predictions (grade the model from it after a week). The NUX "Is it working?" estimate now reads the
   model (lib/forecast.ts sixMonths: own office's 6-month p50, else the newcomer table; old pace math only before the
   model's first run).
+- **11-17: bet caps from the model** (Forecaster.caps -> status `_bet_caps` per real-money office, nightly): per employee,
+  the family bid where one more dollar stops adding profit, times the office's share of the family's money; runner.size
+  never bets above it (only trims). First caps ~$230 owner-side for BNB/NEAR/ZEC, ~$800-925 for the rest; Hazel and
+  Wendell uncapped (assumed limits have no turning point). Replay: at a $37k pool ~$389/day capped vs ~$287 uncapped.
+- **Capacity hunt (11-17):** hourly ladders for other coins already failed (11-12 notes). Kalshi lists ADA/BCH/TON 15-min
+  series with no markets yet (recheck). Gold's 15-min windows trade ~4.7x SOL's; oil/silver ~SOL. Replay library at
+  97c+ (research/forecast/cmdty_0.97.json.gz, Sep 10-Nov 9, no coin check): silver +1.43c (halves +1.35/+1.45), oil
+  +1.07c (+1.8/+0.64), gold +0.28c; oil and silver hold their edge to ~$1-2k bids.
 - A weather day can sit unsettled for days on Kalshi's side (NY Nov 13, 2026: "closed", no result, Kalshi's deadline
   Nov 20, while every other city and day paid next morning ~7 am PT). Not a bug: settle_check asks Kalshi about every
   held ticker each run, listed or not, and books it the moment a result appears; Riding Now shows them as "settling".

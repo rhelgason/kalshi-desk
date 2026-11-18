@@ -19,7 +19,8 @@ tick_seconds: 15          # how often everyone looks at the market
 # The real book (desk.real.yaml) stays on bitcoin only.
 crypto_series: [KXBTC15M, KXETH15M, KXSOL15M, KXXRP15M, KXDOGE15M,
                 KXHYPE15M, KXBNB15M, KXNEAR15M, KXZEC15M,   # these four: 11-02 experiment
-                KXGOLD15M, KXWTI15M, KXSILVER15M]           # 11-09: commodities (no price feed for them)
+                KXGOLD15M, KXWTI15M, KXSILVER15M,           # 11-09: commodities (no price feed for them)
+                KXNATGAS15M]                                # 11-17: natural gas (the capacity hunt)
 slow_series: []
 crypto_symbols: [BTC, ETH, SOL, XRP, DOGE, HYPE, BNB, NEAR, ZEC]
 crypto_horizon_hours: 1
@@ -81,6 +82,7 @@ strategies:
   maker_gold: {min_price: 0.97}    # 🐦 Goldie the Magpie
   maker_wti: {min_price: 0.97}     # 🦭 Crude Clyde (oil)
   maker_silver: {min_price: 0.97}  # 🦊 Sterling the Fox
+  maker_natgas: {min_price: 0.97}  # 🐉 Bertie the Dragon (natural gas, 11-17)
   late_maker: {enabled: false}       # 🦉 Closing Time Coco - 94-99c, 2-5 minutes left (benched)
   runner_up_maker: {enabled: false}  # 🥈 Silver Medal Sid - 85-92c, 5-13 minutes left (benched)
   # 2026-10-28: Sadie's idea outside the coins, on Training only (research/other_markets/README.md)

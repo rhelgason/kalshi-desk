@@ -187,3 +187,23 @@ the steadiest, so Goldie, Clyde and Sterling went on Training with `min_price: 0
 **A gold check with PAXG (gold_check.py) made it worse:** the bids it kept made +0.19c per $1, the ones it skipped
 +1.99c. Binance's gold token is probably too far behind Kalshi's gold reference to say anything. No check for gold;
 oil and silver have no free second-by-second price at all.
+
+## The capacity hunt: more markets to grow into (2026-11-17)
+
+The prediction model (desk/forecast.py) says the office stops growing around $470 a day because each market runs out
+of sellers at our price, so the next growth comes from more markets, not better rules. Replays with
+`research/forecast/library.py` (CHECK=0 LO=..., no free price feed for these; harsh fills, queue 0.3, 5-9 min left,
+any bid size):
+
+| Market | Trades per window vs SOL | 97c+: c per $1 (bets) | halves | fresh Nov 7-17 | at $320 bids |
+|---|---|---|---|---|---|
+| Natural gas | 0.27x | +2.55 (139) | +2.59 / +2.52 | (in the same tape) | +2.48 |
+| Oil (WTI) | 1.1x | +1.07 (277) | +1.80 / +0.64 | +2.22 (49) | +1.31 |
+| Silver | 0.75x | +1.43 (288) | +1.35 / +1.45 | -1.50 (56) | +1.32 |
+| Gold | 4.7x | +0.28 (280) | +0.69 / -0.17 | +2.06 (75) | +0.42 |
+| Copper | 0.15x | +0.43 (335) | +2.02 / -1.14 | | +0.50 |
+
+At 92c+ natural gas is +1.14c (706 bets, +1.67 / +0.61). 🐉 Bertie the Dragon (`maker_natgas`, 97c+) joins Training.
+Oil is the steadiest of the existing three across every period; silver's fresh 10 days are one loss. Copper: no.
+Not yet tradable: Kalshi lists ADA, BCH and TON 15-minute series with no markets (recheck). Hourly ladders for the
+other coins already failed (above). Currencies, rates and indexes trade 2-30% of SOL's volume: thin.

@@ -63,6 +63,7 @@ strategies:
   maker_gold: {enabled: false}    # 11-09: commodities, Training only
   maker_wti: {enabled: false}
   maker_silver: {enabled: false}
+  maker_natgas: {enabled: false}  # 11-17: natural gas, Training only
   # 11-03: 🐸 Weather Wendell joins mid-season with $0 of his own (owner's go): two years of trades +1.48c per $1
   # (t 5.4, both years, every city), Training +2.7c on 63 bets, no maker fee on weather. Same rules as Training.
   weather_maker: {min_price: 0.92, max_price: 0.995, end_hour: 6}

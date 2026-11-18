@@ -386,6 +386,18 @@ class SterlingFox(CoinSpecialist):
     )
 
 
+# 2026-11-17: natural gas's 15-minute markets, the capacity hunt (research/forecast/cmdty3_0.97.json.gz): 97c+ favorites
+# at 5-9 minutes left, Sep 18 - Nov 17, +2.55c per $1 on 139 bets, both months the same (+2.59 / +2.52), holding at
+# $300 bids. Few bets and no losses yet, so Training first. Like the metals, no price feed: no coin check.
+class BlueFlameBertie(CoinSpecialist):
+    key = "maker_natgas"
+    coin = "NATGAS"
+    persona = Persona(
+        "Bertie the Dragon", "Blue Flame Dept.", "🐉",
+        "A pocket-sized dragon who only breathes clean blue flame. Lights the office stove every morning and bids only when the pilot light is steady.",
+    )
+
+
 def side_odds(snap: Snapshot, m: Optional[Market], side: Side) -> Optional[float]:
     """
     The chance `side` wins a 15-minute up/down market, from the coin's spot vs. the strike and its realized

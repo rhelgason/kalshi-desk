@@ -144,6 +144,11 @@ const LINES: Record<string, Lines> = {
     down: ["Tarnished. How vulgar.", "I shall polish my pride.", "A rare misstep for a fox."],
     idle: ["Polishing the spoons.", "Nothing worth a silver fox's attention.", "Adjusting the waistcoat."],
   },
+  maker_natgas: {
+    up: ["Fwoosh. Clean burn.", "Blue flame, green ticket.", "Pilot light steady, pocket warm."],
+    down: ["Sputtered out.", "Singed my own tail.", "Gas leak. Opening a window."],
+    idle: ["Keeping the pilot light lit.", "Nothing steady enough to light.", "Warming my claws on the stove."],
+  },
   dart_monkey: { up: ["Ook! 🍌"], down: ["Ook…"], idle: ["Ook?"] },
 };
 const DEFAULT: Lines = { up: ["Up and to the right."], down: ["Rough patch."], idle: ["Waiting."] };
@@ -189,6 +194,7 @@ export const HOW_THEY_BET: Record<string, string> = {
   maker_gold: "Gold's 15-minute markets on the coin team's rules, 97¢+ favorites only. Training only.",
   maker_wti: "Oil's 15-minute markets on the coin team's rules, 97¢+ favorites only. Training only.",
   maker_silver: "Silver's 15-minute markets on the coin team's rules, 97¢+ favorites only. Training only.",
+  maker_natgas: "Natural gas's 15-minute markets on the coin team's rules, 97¢+ favorites only. Training only.",
   longshot_buy: "Buys cheap long shots at random: the yardstick the long-shot strategies must beat. Pretend money only.",
   dart_monkey: "Bets at random: the yardstick every strategy must beat. Pretend money only.",
 };

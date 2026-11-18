@@ -178,7 +178,7 @@ def test_commodity_specialists_are_training_only():
     from desk.strategies import build_strategies
 
     pretend = {s.key: s for s in build_strategies(hr_config(DeskConfig.load(ROOT / "desk.yaml")))}
-    for k, coin in (("maker_gold", "GOLD"), ("maker_wti", "WTI"), ("maker_silver", "SILVER")):
+    for k, coin in (("maker_gold", "GOLD"), ("maker_wti", "WTI"), ("maker_silver", "SILVER"), ("maker_natgas", "NATGAS")):
         assert pretend[k].coins == [coin] and pretend[k].min_price == 0.97 and pretend[k].max_seconds == 540
     real = {s.key for s in build_strategies(hr_config(DeskConfig.load(ROOT / "desk.real.yaml")))}
-    assert not real & {"maker_gold", "maker_wti", "maker_silver"}
+    assert not real & {"maker_gold", "maker_wti", "maker_silver", "maker_natgas"}

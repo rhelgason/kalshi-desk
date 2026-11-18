@@ -184,6 +184,7 @@ export const LOOKS: Record<string, Look | "monkey"> = {
   maker_gold: { skin: SKIN.light, hair: "#1c1f2a", hairStyle: "short", shirt: "#f4f4f4", tie: "#e8b130", mouth: "smile" },
   maker_wti: { skin: SKIN.tan, hair: "#8a6248", hairStyle: "cap", hat: "#f5c542", shirt: "#3d4a5c", tie: null, mouth: "flat" },
   maker_silver: { skin: SKIN.light, hair: "#a9b1bb", hairStyle: "short", shirt: "#7a5c3e", tie: "#d63031", mouth: "smile" },
+  maker_natgas: { skin: SKIN.tan, hair: "#2f7d4f", hairStyle: "short", shirt: "#2b6cb0", tie: null, mouth: "grin" },
   sports_closer: { skin: SKIN.tan, hair: "#1f1410", hairStyle: "ponytail", shirt: "#20242c", tie: null, mouth: "grin", pants: "#20242c" },
   favorite_sports: { skin: SKIN.brown, hair: "#f2d16b", hairStyle: "ponytail", shirt: "#c0392b", tie: null, mouth: "grin" },
   market_maker: { skin: SKIN.tan, hair: "#4a2c17", hairStyle: "short", headset: true, shirt: "#ecf0f1", tie: "#1f3a68" },
