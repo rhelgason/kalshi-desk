@@ -92,3 +92,12 @@ def test_prediction_log_keeps_one_line_a_day():
     b = prediction_log({"log": a}, {"at": "2026-11-17T12:00:00", "start": 760, "fan": fan})
     c = prediction_log({"log": b}, {"at": "2026-11-18T11:20:00", "start": 800, "fan": fan})
     assert len(b) == 1 and b[0]["start"] == 760 and len(c) == 2 and c[1]["d30"] == [1, 3, 5]
+
+
+def test_caps_sit_where_bigger_bids_stop_paying():
+    lib = tiny_library()  # profit 0.3 at $20, 0.1 at $40: the best bid is $20
+    fc = Forecaster(lib)
+    s = Staff(key="maker_sol", level=3, edge=lib.tape_edge["SOL"], edge_sd=0.0, tape_edge=lib.tape_edge["SOL"])
+    book = Book(name="t", equity=500, settings=dict(POOL), staff=[s], tested=5.0)
+    cap = fc.caps(book)["maker_sol"]
+    assert 15 <= cap <= 25

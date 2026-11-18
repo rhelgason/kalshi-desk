@@ -43,6 +43,7 @@ from typing import Optional
 from desk.hr import LEVELS
 
 LIBRARY = Path(__file__).with_name("forecast_library.json.gz")
+CAPS_KEY = "_bet_caps"  # status row: per-employee dollar caps the bot applies (see Forecaster.caps)
 COIN_OF = {"maker_btc": "BTC", "maker_eth": "ETH", "maker_sol": "SOL", "maker_xrp": "XRP", "maker_doge": "DOGE",
            "maker_bnb": "BNB", "maker_near": "NEAR", "maker_zec": "ZEC", "maker_hype": "HYPE"}
 PRIOR_BETS = 300  # how many real bets the tape's number counts for when the two are blended
@@ -84,6 +85,7 @@ class Staff:
     real_edge: Optional[float] = None
     paper_bets: int = 0
     paper_edge: Optional[float] = None
+    cap: float = 0.0  # family dollars past which one more dollar of bid stops adding profit (0 = none)
 
 
 @dataclass
@@ -193,7 +195,10 @@ class Forecaster:
             bids = []
             for s, curve in moments[slot]:
                 b = size * pct * level_mult(s.level) * (brake_f if braked else 1.0)
-                bids.append(min(b, max_bet) if max_bet > 0 else b)
+                b = min(b, max_bet) if max_bet > 0 else b
+                if s.cap > 0:  # the office's share of the family's cap (they grow together)
+                    b = min(b, s.cap / (1 + others_ratio))
+                bids.append(b)
             room = max(size, 0) * cap_share
             total = sum(bids)
             scale = min(1.0, room / total) if total > 0 else 0.0
@@ -221,6 +226,8 @@ class Forecaster:
             if s.key in SYNTHETIC and SYNTHETIC[s.key]["slot"] is None:
                 for _ in range(_poisson(rng, s.rate)):
                     b = (eq if compound else equity) * pct * level_mult(s.level)
+                    if s.cap > 0:
+                        b = min(b, s.cap)
                     spent, fade = synthetic_fill(s.key, b)
                     pnl = spent * _outcome(rng, edges[s.key] * fade)
                     eq += pnl
@@ -332,6 +339,37 @@ class Forecaster:
             return self._day(rng, book.staff, edges, size, st, ratio, s2, stats, compound=False, tested=book.tested) - size
         finally:
             lib.all_days = real
+
+    # -- where bigger bets stop paying --------------------------------------------------------------------------
+    def caps(self, book: Book) -> dict[str, float]:
+        """Per employee, the family bid (one market, all offices together) that makes the most profit: past it, the
+        extra dollars fill at worse moments and lose more than they add. From the tape (with the untested-size
+        penalty at its middle guess and the blended edge) or, for the two without a tape, their assumed limits.
+        Never under what real fills have vouched for."""
+        grid = [book.tested * 1.15 ** i for i in range(0, 40)]
+        out: dict[str, float] = {}
+        for s in book.staff:
+            coin = COIN_OF.get(s.key)
+            if coin and coin in self.lib.days:
+                curves = [c for wins in self.lib.days[coin].values() for _, c in wins]
+                def total(t: float) -> float:
+                    got = 0.0
+                    shrink = 1 / (1 + max(0.0, t - book.tested) / ROOM)
+                    for c in curves:
+                        sp, pn = self.lib.at(c, t)
+                        got += (pn + (s.edge - s.tape_edge) * sp) * shrink
+                    return got
+            elif s.key in SYNTHETIC:
+                def total(t: float) -> float:
+                    filled, fade = synthetic_fill(s.key, t)
+                    return filled * s.edge * fade
+            else:
+                continue
+            vals = [(total(t), t) for t in grid]
+            best_v, best_t = max(vals)
+            if best_t < grid[-1]:  # a real turning point inside the range (else: no cap needed yet)
+                out[s.key] = round(max(book.tested, best_t), 2)
+        return out
 
     # -- a new friend's office -----------------------------------------------------------------------------------
     def newcomer(self, owner: Book, family: float, starts: tuple = (50, 100, 250, 500, 1000, 2500, 5000), n: int = 50) -> list:
@@ -561,7 +599,16 @@ def run_family(url: str, schemas: list[str], n: int = 200) -> dict[str, dict]:
         book = book_from(led, ledgers, fc.lib, s, paper)
         if book is None:
             continue
+        family_caps = fc.caps(book)
+        for st in book.staff:
+            st.cap = family_caps.get(st.key, 0.0)
+        share = book.equity / (book.equity + book.others) if book.equity + book.others > 0 else 1.0
+        office_caps = {k: round(v * share, 2) for k, v in family_caps.items()}
+        # The bot reads these each run (runner.size): no bet above them. Only ever smaller, never bigger
+        led.set_status(CAPS_KEY, {"at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                                  "caps": office_caps, "family": family_caps, "share": round(share, 4)})
         out = fc.run(book, n=n)
+        out["caps"] = office_caps
         if s == schemas[0]:
             family = book.equity + book.others
             out["newcomer"] = fc.newcomer(book, family)

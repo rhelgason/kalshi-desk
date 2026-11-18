@@ -126,3 +126,16 @@ def test_the_daily_stop_on_real_money_pings_the_phone_once(desk_and_client, monk
     asyncio.run(desk.run_strategies(None))
     asyncio.run(desk.run_strategies(None))
     assert len(sent) == 1 and "daily stop" in sent[0] and "midnight" in sent[0]
+
+
+def test_the_models_bet_cap_trims_a_bet_and_never_grows_one(desk_and_client):
+    desk, _ = desk_and_client
+    desk.pool.update(1000, NOW)
+    t = "KXBTC15M-26OCT151200-00"
+    normal, _ = desk.size(TradeIntent("longshot_fade", [Leg(t, Side.YES, 0.50, 100)], ""))
+    desk.bet_caps = {"longshot_fade": 4.0}  # the nightly model: past $4 the extra dollars lose
+    capped, _ = desk.size(TradeIntent("longshot_fade", [Leg(t, Side.YES, 0.50, 100)], ""))
+    assert capped.legs[0].count == 8 and normal.legs[0].count > 8
+    desk.bet_caps = {"longshot_fade": 1000.0}
+    same, _ = desk.size(TradeIntent("longshot_fade", [Leg(t, Side.YES, 0.50, 100)], ""))
+    assert same.legs[0].count == normal.legs[0].count

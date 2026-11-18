@@ -275,6 +275,11 @@ class Desk:
         self.inactive = {k for k, r in self.roster.items() if not r.is_working()}
         self.multipliers = {k: r.multiplier for k, r in self.roster.items()}
         self.bonus = bonus.load(self.ledger)
+        # Per-employee bet caps from the nightly prediction model (desk/forecast.py caps): where bigger bets stop paying
+        try:
+            self.bet_caps = {k: float(v) for k, v in ((self.ledger.get_status("_bet_caps") or {}).get("caps") or {}).items()}
+        except Exception:  # a nicety: without it, bets are just uncapped
+            self.bet_caps = {}
         self.pool.settings = self.policy["pool"]
         self.pool.members = self.broker.pool_members = {k for k, r in self.roster.items() if not r.control}
         if self.manage_roster and self.broker.accounts:
@@ -581,6 +586,9 @@ class Desk:
         """
         dollars = base = self.pool.bet_dollars(self.multipliers.get(intent.strategy, 1.0))
         dollars += bonus.extra(self.bonus, intent.strategy, base)  # Employee of the Week: bigger bets, same pool
+        cap = getattr(self, "bet_caps", {}).get(intent.strategy, 0.0)
+        if cap > 0 and dollars > cap:  # past this size, the model says the extra dollars lose more than they add
+            dollars = cap
         capped = False
         if intent.strategy in self.pool.members:
             room = min(self.pool.window_room(event_of(leg.ticker), self.accounts, self.broker.resting)

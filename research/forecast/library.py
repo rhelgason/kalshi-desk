@@ -50,7 +50,10 @@ def side_odds(v, close, strike, at, side):
     return fy if side == "yes" else 1 - fy
 
 
-A, B, LO, HI, QUEUE, LAT = 300, 540, 0.92, 0.995, 0.3, 1.0
+A, B, HI, QUEUE, LAT = 300, 540, 0.995, 0.3, 1.0
+# Commodities have no free second-by-second price: CHECK=0 skips the coin check; LO=0.97 is their Training setting
+LO = float(os.environ.get("LO", "0.92"))
+CHECK = os.environ.get("CHECK", "1") != "0"
 CAPS = [5, 10, 20, 40, 80, 160, 320, 640, 1280, 2560, 5120, 10240]
 tick = lambda p: 0.001 if p >= 0.9 or p <= 0.1 else 0.01
 
@@ -67,7 +70,7 @@ def replay(m, v):
                 q = best[s_]
                 if q and LO <= q < HI and (held is None or s_ == held):
                     price = round(min(q + tick(q), 0.999), 4)
-                    odds = side_odds(v, close, m["strike"], at, s_)
+                    odds = side_odds(v, close, m["strike"], at, s_) if v else 1.0
                     if odds is None or odds < price:  # the coin check: skip when the coin says worse odds than the bid
                         continue
                     bid = (s_, price, at + LAT, at + 110)
@@ -89,13 +92,13 @@ def main(out, args):
     lib = {"caps": CAPS, "coins": {}}
     for arg in args:
         tape, coin = arg.split(":")
-        v = Binance(coin)
+        v = Binance(coin) if CHECK else None
         path = os.path.join(tape, f"KX{coin}15M.jsonl.gz")
         wins = []
         with gzip.open(path, "rt") as fh:
             for line in fh:
                 m = json.loads(line)
-                if not m.get("result") or not m.get("t") or not m.get("strike"):
+                if not m.get("result") or not m.get("t") or (CHECK and not m.get("strike")):
                     continue
                 fl, held, look = replay(m, v)
                 if not fl:
@@ -110,7 +113,7 @@ def main(out, args):
                             break
                         spent += take * p; got += take
                     curve.append([round(spent, 2), round((got if won else 0) - spent, 3)])
-                wins.append([m["close"], 1, curve, move(v, look, 300), move(v, look, 900), move(v, look, 3600)])
+                wins.append([m["close"], 1, curve] + ([move(v, look, 300), move(v, look, 900), move(v, look, 3600)] if v else [None] * 3))
         lib["coins"][coin] = wins
         bet = [w for w in wins if w[1]]
         s10 = sum(w[2][1][0] for w in bet); p10 = sum(w[2][1][1] for w in bet)
