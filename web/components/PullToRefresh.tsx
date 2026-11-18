@@ -15,6 +15,8 @@ export default function PullToRefresh() {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [pull, setPull] = useState(0);
+  // Only a pull shows the pill; the quiet refresh on coming back to the app doesn't (11-18)
+  const [pulled, setPulled] = useState(false);
   const from = useRef<number | null>(null);
   const pullRef = useRef(0);
 
@@ -35,7 +37,7 @@ export default function PullToRefresh() {
       setPull(pullRef.current);
     };
     const up = () => {
-      if (from.current != null && pullRef.current >= PULL) start(() => router.refresh());
+      if (from.current != null && pullRef.current >= PULL) { setPulled(true); start(() => router.refresh()); }
       from.current = null;
       pullRef.current = 0;
       setPull(0);
@@ -54,12 +56,18 @@ export default function PullToRefresh() {
       window.removeEventListener("touchcancel", up);
     };
   }, [router]);
+  useEffect(() => { if (!pending) setPulled(false); }, [pending]);
 
-  const shown = pending || pull > 10;
-  const offset = pending ? 0 : Math.min(pull, PULL) - PULL;
+  const busy = pending && pulled;
+  const shown = busy || pull > 10;
+  const offset = busy ? 0 : Math.min(pull, PULL) - PULL;
+  // Hidden: fully above the screen, past the notch too (11-18: a fixed -60px left it peeking out under the status
+  // bar on notched iPhones, where the top inset is ~50-60px)
   return (
-    <div className="ptr" aria-live="polite" style={{ transform: `translate(-50%, ${shown ? offset * 0.6 : -60}px)` }}>
-      {pending ? "REFRESHING…" : pull >= PULL ? "LET GO TO REFRESH" : "PULL TO REFRESH"}
+    <div className="ptr" aria-live="polite" aria-hidden={!shown} style={shown
+      ? { transform: `translate(-50%, ${offset * 0.6}px)` }
+      : { transform: "translate(-50%, calc(-100% - env(safe-area-inset-top, 0px) - 24px))", visibility: "hidden" }}>
+      {busy ? "REFRESHING…" : pull >= PULL ? "LET GO TO REFRESH" : "PULL TO REFRESH"}
     </div>
   );
 }
