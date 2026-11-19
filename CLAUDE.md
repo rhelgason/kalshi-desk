@@ -201,6 +201,12 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
   series with no markets yet (recheck). Gold's 15-min windows trade ~4.7x SOL's; oil/silver ~SOL. Replay library at
   97c+ (research/forecast/cmdty_0.97.json.gz, Sep 10-Nov 9, no coin check): silver +1.43c (halves +1.35/+1.45), oil
   +1.07c (+1.8/+0.64), gold +0.28c; oil and silver hold their edge to ~$1-2k bids.
+- **11-19: 🦭 Crude Clyde (`maker_wti`, oil) and 🐉 Bertie (`maker_natgas`, natural gas) on real money** (owner's go; all three
+  offices via the playbook). The prediction model with oil and gas in its library (1,000 futures x 3 seeds, same futures per
+  setup): 6-month middle guess ~$51k as now vs ~$59k with both (+16%), same bad case. desk.real.yaml pins them at 97c+
+  (else they'd inherit the coin team's 92c); commodities need no price feed (`needs_feed = False`, no coin check). Shard 2.
+  Same day, after two losing days (-$318), the model compared office setups: as now beat benching or capping Hourly
+  Hazel (-40% / -30% at 6 months) and a $35 bet cap (-77%); the model's own caps beat none. Decide setups with the model.
 - A weather day can sit unsettled for days on Kalshi's side (NY Nov 13, 2026: "closed", no result, Kalshi's deadline
   Nov 20, while every other city and day paid next morning ~7 am PT). Not a bug: settle_check asks Kalshi about every
   held ticker each run, listed or not, and books it the moment a result appears; Riding Now shows them as "settling".
