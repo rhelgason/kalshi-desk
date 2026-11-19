@@ -45,6 +45,10 @@ from desk.hr import LEVELS
 LIBRARY = Path(__file__).with_name("forecast_library.json.gz")
 COMMODITIES = {"WTI", "NATGAS", "GOLD", "SILVER"}  # replayed at 97c+ without the coin check (research/forecast)
 NOT_CALENDAR = COMMODITIES | {"BTCD"}  # their tapes cover other dates: futures are drawn on the 15-minute coins' days
+# 11-19: per-employee bet caps OFF (owner's go). The model's own futures made more without them: 6-month middle guess
+# ~$97k with caps vs ~$113-119k without, same bad case (1,000 futures x 3 seeds; the 16% closing-moment limit already keeps
+# bets where the edge holds). Forecaster.caps stays for research; the nightly run writes empty caps so the bot sets none.
+USE_CAPS = False
 CAPS_KEY = "_bet_caps"  # status row: per-employee dollar caps the bot applies (see Forecaster.caps)
 COIN_OF = {"maker_btc": "BTC", "maker_eth": "ETH", "maker_sol": "SOL", "maker_xrp": "XRP", "maker_doge": "DOGE",
            "maker_bnb": "BNB", "maker_near": "NEAR", "maker_zec": "ZEC", "maker_hype": "HYPE",
@@ -615,7 +619,7 @@ def run_family(url: str, schemas: list[str], n: int = 200) -> dict[str, dict]:
         book = book_from(led, ledgers, fc.lib, s, paper)
         if book is None:
             continue
-        family_caps = fc.caps(book)
+        family_caps = fc.caps(book) if USE_CAPS else {}
         for st in book.staff:
             st.cap = family_caps.get(st.key, 0.0)
         share = book.equity / (book.equity + book.others) if book.equity + book.others > 0 else 1.0
