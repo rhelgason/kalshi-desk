@@ -207,6 +207,14 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
   (else they'd inherit the coin team's 92c); commodities need no price feed (`needs_feed = False`, no coin check). Shard 2.
   Same day, after two losing days (-$318), the model compared office setups: as now beat benching or capping Hourly
   Hazel (-40% / -30% at 6 months) and a $35 bet cap (-77%); the model's own caps beat none. Decide setups with the model.
+- **11-19: Hourly Hazel's replay library** (research/forecast/hazel_library.py, 45 days of KXBTCD trades, every strike, any
+  bid size: +0.7c per $1 to ~$40 a strike, zero near $1,000) replaced her assumed limits, which had her betting a third of
+  what she really does. Her Training bets no longer count in her edge (forecast.PAPER_SKIP: paper +1.65c vs real +0.87c).
+  With it: keep Hazel as is (benching -65%, a $15 cap -55% at 6 months; her level makes no difference, the window cap
+  binds). Gold and silver stay on Training (no gain, worse bad case). The friends' offices' low self-check percentiles
+  (Judson 0.5th, Colin 11th) are NOT a friend penalty: their whole history is Nov 16-19, the worst days, and per $1 they
+  did better than the owner on them. The model still leans optimistic overall (owner at the 27th percentile): grade the
+  `_forecast.log` from ~11-24. Open: the model's caps for Hazel are tighter than its own simulation likes (uncapped +30%).
 - A weather day can sit unsettled for days on Kalshi's side (NY Nov 13, 2026: "closed", no result, Kalshi's deadline
   Nov 20, while every other city and day paid next morning ~7 am PT). Not a bug: settle_check asks Kalshi about every
   held ticker each run, listed or not, and books it the moment a result appears; Riding Now shows them as "settling".
