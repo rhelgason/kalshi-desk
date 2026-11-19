@@ -182,3 +182,13 @@ def test_commodity_specialists_are_training_only():
         assert pretend[k].coins == [coin] and pretend[k].min_price == 0.97 and pretend[k].max_seconds == 540
     real = {s.key for s in build_strategies(hr_config(DeskConfig.load(ROOT / "desk.real.yaml")))}
     assert not real & {"maker_gold", "maker_wti", "maker_silver", "maker_natgas"}
+
+
+def test_oil_and_gas_bid_only_97c_favourites_when_hired_onto_the_real_book():
+    """2026-11-19: Crude Clyde and Bertie hired onto real money; without their own floor they'd inherit the coin team's 92c."""
+    from desk import hr
+
+    cfg = DeskConfig.load(ROOT / "desk.real.yaml")
+    hired = hr.effective_strategy_config(cfg.strategies, {}, ["maker_wti", "maker_natgas"])
+    for k in ("maker_wti", "maker_natgas"):
+        assert hired[k]["enabled"] and hired[k]["min_price"] == 0.97
