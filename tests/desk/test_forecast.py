@@ -117,3 +117,16 @@ def test_hazel_uses_her_replay_library_when_there_is_one():
                                                                          "home_bets": 5, "home_days": 3}})[0]
     assert h.tape_edge == pytest.approx(0.01) and h.keep == 1.0
     assert "hourly_btc" in Forecaster(lib).caps(Book("x", 1000, POOL, [h], tested=5))
+
+
+def test_a_slump_today_starts_every_future_with_the_brake_on():
+    """11-19: the office 38% under its high has its bets halved live; the model's futures must start that way too."""
+    lib = tiny_library()
+    staff = build_staff(lib, ["maker_sol"], {"maker_sol": 1}, {})
+    fresh = Book("x", 100, POOL, staff)  # $4 bets, where the tiny library's curve still pays per dollar
+    slump = Book("x", 100, POOL, staff, peak=160)
+    fc = Forecaster(lib)
+    a = fc.paths(fresh, n=20, days=3, seed=1)["lines"]
+    b = fc.paths(slump, n=20, days=3, seed=1)["lines"]
+    gain = lambda lines: sum(l[-1] - l[0] for l in lines)
+    assert 0 < gain(b) < gain(a)  # the same futures, half-size bets while under the high

@@ -106,6 +106,7 @@ class Book:
     policy: dict = field(default_factory=dict)
     tested: float = TESTED  # the biggest family bid (one window) that real fills have vouched for
     history: list = field(default_factory=list)  # [(day, value)] of this season, for the model's own check
+    peak: float = 0.0  # the pool's high this season: the slump brake starts from where the office really is (11-19)
 
 
 class Library:
@@ -263,7 +264,10 @@ class Forecaster:
             room = ROOM * ROOM_SPREAD ** rng.gauss(0, 1)
             edges = {s.key: s.edge + s.edge_sd * (0.8 * common + 0.6 * rng.gauss(0, 1)) for s in book.staff}
             staff = [Staff(**{**s.__dict__}) for s in book.staff]
-            eq, st, line, week, worst = start, {"peak": start}, [start], {}, 0.0
+            # The real high, scaled with the start (a what-if deposit moves the high with it): if the office is in a
+            # slump today, the brake is already on in every future, as it is live
+            high = max(start, book.peak * start / book.equity) if book.peak and book.equity else start
+            eq, st, line, week, worst = start, {"peak": high}, [start], {}, 0.0
             lv = {s.key: [s.level] for s in staff}
             season: dict[str, list] = {}
             # Every family office runs the same rules on the same markets, so they grow at about the same pace:
@@ -307,7 +311,7 @@ class Forecaster:
         days = len(h) - 1
         import copy
         b = copy.deepcopy(book)
-        b.equity = start
+        b.equity, b.peak = start, 0.0  # replayed from the season's first day: no slump yet
         for s in b.staff:
             s.level = 0 if s.key in SYNTHETIC and SYNTHETIC[s.key]["slot"] is None else 1
         lines = self.paths(b, n=n, days=days, seed=3, reviews=False)["lines"]
@@ -550,7 +554,7 @@ def book_from(ledger, family: list, lib: Library, name: str, paper: Optional[dic
         others += float(p.get("equity") or 0)
     return Book(name=name, equity=float(pool["equity"]), settings=settings,
                 staff=build_staff(lib, members, levels, record, paper), others=others, policy=policy,
-                tested=tested_bid([ledger] + [f for f in family if f is not ledger]),
+                tested=tested_bid([ledger] + [f for f in family if f is not ledger]), peak=float(pool.get("peak") or 0),
                 history=season_days(ledger, int(policy.get("season", 1)), settings.get("timezone") or "America/Vancouver"))
 
 
