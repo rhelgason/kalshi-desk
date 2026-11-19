@@ -229,6 +229,16 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
   max_daily_loss_pct) stays, for bugs, not market luck. Same day: bad days don't cluster in the trade history (no streak
   term in the model), and the Nov 16-19 slump wasn't the friends: real Hazel matched her replay on the same markets
   (-2.0c vs -1.2c), coins matched Training on the same markets; the markets themselves lost, within luck.
+- **11-19: the setup study** (the model, from the real slump, no brake): bet size x closing-moment limit x levels x caps.
+  **Per-employee bet caps OFF** (owner's go; forecast.USE_CAPS = False, `_bet_caps` written empty): ~$97k -> ~$113-119k
+  6-month middle guess, same bad case. Kept: 4% bets (6-8% get trimmed by the limit anyway), 16% limit (best or tied
+  without caps; 24-32% bets into sizes where the edge is gone), levels (tie with everyone-equal, slightly better bad
+  case). Same seed can move ~5% between processes (set order somewhere): only act on gaps well past that.
+- **Other sites (11-19 research):** Polymarket US (CFTC, KYC, API at api.polymarket.us, public gateway.polymarket.us)
+  lists 15-min up/down for BTC/ETH/SOL/XRP (BTC settles on CF Benchmarks' BRTI 60 s average, like Kalshi), oil and gas
+  (Chainlink mid, from 11-18); makers get small rebates, takers pay. Public data has books, BBO and price history but no
+  trade history, so a test needs our own recording first. Robinhood/Coinbase/Webull route to Kalshi (no new sellers);
+  ForecastEx (IBKR) has no short crypto markets; Novig is sports; Polymarket.com blocks US users.
 - A weather day can sit unsettled for days on Kalshi's side (NY Nov 13, 2026: "closed", no result, Kalshi's deadline
   Nov 20, while every other city and day paid next morning ~7 am PT). Not a bug: settle_check asks Kalshi about every
   held ticker each run, listed or not, and books it the moment a result appears; Riding Now shows them as "settling".
