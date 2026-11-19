@@ -44,12 +44,17 @@ from desk.hr import LEVELS
 
 LIBRARY = Path(__file__).with_name("forecast_library.json.gz")
 COMMODITIES = {"WTI", "NATGAS", "GOLD", "SILVER"}  # replayed at 97c+ without the coin check (research/forecast)
+NOT_CALENDAR = COMMODITIES | {"BTCD"}  # their tapes cover other dates: futures are drawn on the 15-minute coins' days
 CAPS_KEY = "_bet_caps"  # status row: per-employee dollar caps the bot applies (see Forecaster.caps)
 COIN_OF = {"maker_btc": "BTC", "maker_eth": "ETH", "maker_sol": "SOL", "maker_xrp": "XRP", "maker_doge": "DOGE",
            "maker_bnb": "BNB", "maker_near": "NEAR", "maker_zec": "ZEC", "maker_hype": "HYPE",
-           "maker_wti": "WTI", "maker_natgas": "NATGAS", "maker_gold": "GOLD", "maker_silver": "SILVER"}
+           "maker_wti": "WTI", "maker_natgas": "NATGAS", "maker_gold": "GOLD", "maker_silver": "SILVER",
+           "hourly_btc": "BTCD"}  # 11-19: Hazel's hourly ladder, one window per strike (research/forecast/hazel_library.py)
 PRIOR_BETS = 300  # how many real bets the tape's number counts for when the two are blended
 PAPER_WEIGHT = 0.5  # a Training bet (paper, filled from Kalshi's real trades) counts as half a real one
+# ...except Hazel's (11-19): on the same days her paper fills made +1.65c per $1 against +0.87c real (1,500 real bets) and
+# +0.73c in the trade replay, and the model's self-check sat at the 24th percentile with them, ~35th without
+PAPER_SKIP = {"hourly_btc"}
 BET_SD = 0.20  # one bet's profit per $1 varies by about this much (a 96c favourite: +4c or -100c)
 # ...and however many bets we have, the market itself can change (more makers, calmer coins): at least this much
 # doubt about any edge, shared by all employees (they all lean on the same dips)
@@ -127,7 +132,7 @@ class Library:
             self.tape_rate[coin] = n / max(1.0, (last - first) / 86400)
         # The days a future is drawn from are the coins' (oil and gas, 11-19, use the same calendar day when their tape
         # has it, else one of their own days), so the coins always move together
-        coins = [c for c in self.days if c not in COMMODITIES] or list(self.days)
+        coins = [c for c in self.days if c not in NOT_CALENDAR] or list(self.days)
         self.all_days = sorted(set().union(*(set(self.days[c]) for c in coins)))
 
     @classmethod
@@ -176,10 +181,8 @@ class Forecaster:
         moments: dict[int, list] = {}
         for s in staff:
             coin = COIN_OF.get(s.key)
-            if coin:
-                by = lib.days.get(coin)
-                if not by:
-                    continue
+            if coin and lib.days.get(coin):
+                by = lib.days[coin]
                 wins = by.get(day)
                 if wins is None:  # this coin's tape doesn't cover that day: one of its own days instead
                     wins = by[rng.choice(list(by))]
@@ -441,7 +444,7 @@ class Forecaster:
                 "real_edge": None if s.real_edge is None else round(s.real_edge, 4), "real_bets": s.real_bets,
                 "paper_edge": None if s.paper_edge is None else round(s.paper_edge, 4), "paper_bets": s.paper_bets,
                 "now": now["staff"].get(s.key, {}), "at_peak": best["staff"].get(s.key, {}),
-                "assumed": s.key in SYNTHETIC,
+                "assumed": s.key in SYNTHETIC and not self.lib.days.get(COIN_OF.get(s.key, "")),
             })
         worst = sorted(res["worst"])
         return {
@@ -503,11 +506,13 @@ def build_staff(lib: Library, members: list[str], levels: dict[str, int], record
             ratio = live_rate / tape_rate if live_rate else 1.0
             w = r.get("home_bets", 0) / (r.get("home_bets", 0) + 100)  # a few days of real betting sets the rate
             keep = min(1.0, w * ratio + (1 - w) * 1.0)
+            if coin == "BTCD":  # Hazel bets fewer strikes live because the window cap and cash run out, which the
+                keep = 1.0      # simulation already does: her live rate isn't a sign she'd skip strikes
         elif k in SYNTHETIC:
             prior, keep = SYNTHETIC[k]["prior_edge"], 1.0
         else:
             continue  # no model for them (yet)
-        pp = paper.get(k) or {}
+        pp = {} if k in PAPER_SKIP else (paper.get(k) or {})
         pn = PAPER_WEIGHT * int(pp.get("bets", 0)) if float(pp.get("spent", 0)) > 0 else 0.0
         pe = float(pp["pnl"]) / float(pp["spent"]) if pn else 0.0
         weight = PRIOR_BETS + pn + (n if real is not None else 0)

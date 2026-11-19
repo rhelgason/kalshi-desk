@@ -101,3 +101,19 @@ def test_caps_sit_where_bigger_bids_stop_paying():
     book = Book(name="t", equity=500, settings=dict(POOL), staff=[s], tested=5.0)
     cap = fc.caps(book)["maker_sol"]
     assert 15 <= cap <= 25
+
+
+def test_hazel_uses_her_replay_library_when_there_is_one():
+    """11-19: Hazel's hourly ladder is replayed from Kalshi's trades (BTCD); the assumed limits are only a fallback."""
+    lib = tiny_library()
+    assumed = build_staff(lib, ["hourly_btc"], {"hourly_btc": 2}, {})[0]
+    assert assumed.tape_edge is None and assumed.edge == pytest.approx(0.006)
+    curve = [[5, 0.05], [10, 0.1], [20, 0.15], [40, 0.1]]
+    lib = Library({"caps": [5, 10, 20, 40], "coins": {
+        "SOL": [[86400 + 900, 1, [[5, 0.1], [10, 0.2], [18, 0.3], [20, 0.1]]]],
+        "BTCD": [[86400 + 3600, 1, curve], [5 * 86400 + 3600, 1, curve]]}})
+    assert lib.all_days == [1]  # futures are drawn on the coins' days, not the hourly tape's
+    h = build_staff(lib, ["hourly_btc"], {"hourly_btc": 2}, {"hourly_btc": {"bets": 5, "spent": 50, "pnl": 0.5,
+                                                                         "home_bets": 5, "home_days": 3}})[0]
+    assert h.tape_edge == pytest.approx(0.01) and h.keep == 1.0
+    assert "hourly_btc" in Forecaster(lib).caps(Book("x", 1000, POOL, [h], tested=5))
