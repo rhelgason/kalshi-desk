@@ -11,6 +11,14 @@ files change (deploy/README.md). Run any database change the new code needs BEFO
 
 Tests: `python -m pytest -q` (all offline); the what-if math: `node web/lib/whatif.test.ts`. Web type-check: `cd web && node_modules/.bin/tsc --noEmit -p .`
 
+## The owner's #1 priority (2026-11-19, in their words: "make sure this is clear")
+
+**Always choose whatever gives the highest likelihood of the highest portfolio value in the long run**: employee levels,
+brakes, bet sizes, caps, hires, betting rules, anything. Decide with backtests and the prediction model (desk/forecast.py,
+many futures, the same futures for each setup), never with gut feel or a bad streak, and even if it looks bad short-term.
+The owner would rather avoid brakes and per-employee tuning such as bet caps, but the long-run money decides: keep them
+only if the model and backtests show they make more.
+
 ## Links (nothing secret here; secrets live in `.env`, Vercel, and the server's /etc/kalshi-desk.env)
 
 | What | Where |
