@@ -207,3 +207,9 @@ At 92c+ natural gas is +1.14c (706 bets, +1.67 / +0.61). 🐉 Bertie the Dragon 
 Oil is the steadiest of the existing three across every period; silver's fresh 10 days are one loss. Copper: no.
 Not yet tradable: Kalshi lists ADA, BCH and TON 15-minute series with no markets (recheck). Hourly ladders for the
 other coins already failed (above). Currencies, rates and indexes trade 2-30% of SOL's volume: thin.
+
+**11-19, the model's verdict on hiring them for real money** (desk/forecast.py with oil and natural gas in its library, the
+owner's book from $639, 1,000 futures x 3 seeds, the same futures for each setup): 6-month middle guess ~$51k as now,
+~$55-57k with Crude Clyde (oil), ~$54k with Bertie (natural gas), **~$59k with both**; averages ~$58k vs ~$67k (+17%),
+the 1-in-10 bad case about the same (~$5k). Both trade on shard 2 like the coins; makers pay no fee (quadratic).
+Training so far is too small to say much: Clyde 36 bets -0.5c, Bertie 3 bets.

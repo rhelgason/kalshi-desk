@@ -43,9 +43,11 @@ from typing import Optional
 from desk.hr import LEVELS
 
 LIBRARY = Path(__file__).with_name("forecast_library.json.gz")
+COMMODITIES = {"WTI", "NATGAS", "GOLD", "SILVER"}  # replayed at 97c+ without the coin check (research/forecast)
 CAPS_KEY = "_bet_caps"  # status row: per-employee dollar caps the bot applies (see Forecaster.caps)
 COIN_OF = {"maker_btc": "BTC", "maker_eth": "ETH", "maker_sol": "SOL", "maker_xrp": "XRP", "maker_doge": "DOGE",
-           "maker_bnb": "BNB", "maker_near": "NEAR", "maker_zec": "ZEC", "maker_hype": "HYPE"}
+           "maker_bnb": "BNB", "maker_near": "NEAR", "maker_zec": "ZEC", "maker_hype": "HYPE",
+           "maker_wti": "WTI", "maker_natgas": "NATGAS", "maker_gold": "GOLD", "maker_silver": "SILVER"}
 PRIOR_BETS = 300  # how many real bets the tape's number counts for when the two are blended
 PAPER_WEIGHT = 0.5  # a Training bet (paper, filled from Kalshi's real trades) counts as half a real one
 BET_SD = 0.20  # one bet's profit per $1 varies by about this much (a 96c favourite: +4c or -100c)
@@ -114,14 +116,19 @@ class Library:
             first = min(w[0] for w in wins); last = max(w[0] for w in wins)
             n = 0
             for w in wins:
+                t = int(w[0])
+                day = by.setdefault(t // 86400, [])  # a day with windows but no bet is a day of no bets, not a gap
                 if not w[1]:
                     continue
-                t = int(w[0]); by.setdefault(t // 86400, []).append(((t % 86400) // 900, w[2]))
+                day.append(((t % 86400) // 900, w[2]))
                 spent += w[2][1][0]; pnl += w[2][1][1]; n += 1
             self.days[coin] = by
             self.tape_edge[coin] = pnl / spent if spent else 0.0
             self.tape_rate[coin] = n / max(1.0, (last - first) / 86400)
-        self.all_days = sorted(set().union(*(set(d) for d in self.days.values())))
+        # The days a future is drawn from are the coins' (oil and gas, 11-19, use the same calendar day when their tape
+        # has it, else one of their own days), so the coins always move together
+        coins = [c for c in self.days if c not in COMMODITIES] or list(self.days)
+        self.all_days = sorted(set().union(*(set(self.days[c]) for c in coins)))
 
     @classmethod
     def load(cls, path: Path = LIBRARY) -> "Library":
