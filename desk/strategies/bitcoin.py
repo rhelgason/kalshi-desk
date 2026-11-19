@@ -267,6 +267,7 @@ class CoinSpecialist(SteadySadie):
     """
 
     coin = ""
+    needs_feed = True  # the coin check needs this coin's price (a book's crypto_symbols); commodities have none
 
     def __init__(self, coins: Optional[list[str]] = None, **kw):
         super().__init__(coins=[self.coin], **kw)
@@ -362,6 +363,7 @@ class ZcashZoe(CoinSpecialist):
 class GoldieMagpie(CoinSpecialist):
     key = "maker_gold"
     coin = "GOLD"
+    needs_feed = False
     persona = Persona(
         "Goldie the Magpie", "Shiny Things Dept.", "🐦",
         "A magpie who can't resist anything that glitters, so she only bids when gold is all but certain. Lines her nest with winning tickets.",
@@ -371,6 +373,7 @@ class GoldieMagpie(CoinSpecialist):
 class CrudeClyde(CoinSpecialist):
     key = "maker_wti"
     coin = "WTI"
+    needs_feed = False
     persona = Persona(
         "Crude Clyde", "Roughneck", "🦭",
         "A walrus in an oil-stained hard hat who has worked every rig from Texas to the North Sea. Waits for the gusher, never drills dry.",
@@ -380,6 +383,7 @@ class CrudeClyde(CoinSpecialist):
 class SterlingFox(CoinSpecialist):
     key = "maker_silver"
     coin = "SILVER"
+    needs_feed = False
     persona = Persona(
         "Sterling the Fox", "Silver Fox", "🦊",
         "A distinguished silver fox in a tweed waistcoat who polishes the office cutlery while he waits for a sure thing.",
@@ -392,6 +396,7 @@ class SterlingFox(CoinSpecialist):
 class BlueFlameBertie(CoinSpecialist):
     key = "maker_natgas"
     coin = "NATGAS"
+    needs_feed = False
     persona = Persona(
         "Bertie the Dragon", "Blue Flame Dept.", "🐉",
         "A pocket-sized dragon who only breathes clean blue flame. Lights the office stove every morning and bids only when the pilot light is steady.",

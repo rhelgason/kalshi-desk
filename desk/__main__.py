@@ -578,7 +578,7 @@ def cmd_hire(cfg: DeskConfig, key: str, level: int, why: str) -> int:
         print(f"No employee {key!r}: see `python -m desk employees`.")
         return 1
     coin = getattr(cls, "coin", "")
-    if coin and coin not in cfg.crypto_symbols:
+    if coin and getattr(cls, "needs_feed", True) and coin not in cfg.crypto_symbols:
         print(f"{cls.persona.name} needs {coin} prices, which this book's feed doesn't fetch: add {coin} to "
               f"this book's crypto_symbols first.")
         return 1

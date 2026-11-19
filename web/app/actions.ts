@@ -131,7 +131,9 @@ export async function hireOnReal(key: string) {
   if (!live) return { error: "No real book" };
   if (live.employees.some((x) => x.key === key) || policy.hired?.includes(key)) return { error: "Already on real money" };
   // A coin specialist needs the real book's price feed to fetch their coin (desk.real.yaml crypto_symbols)
-  const coin = key.startsWith("maker_") ? key.slice(6) : null;
+  // (not the commodities: no price feed exists for them, so they bid without the coin check, as on Training)
+  const commodity = ["maker_gold", "maker_wti", "maker_silver", "maker_natgas"].includes(key);
+  const coin = key.startsWith("maker_") && !commodity ? key.slice(6) : null;
   if (coin && !live.employees.some((x) => x.key === `maker_${coin}`))
     return { error: `The real book doesn't fetch ${coin.toUpperCase()} prices yet: ask Claude to add it first` };
   policy.hired = [...(policy.hired ?? []), key];
