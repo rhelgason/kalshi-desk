@@ -223,6 +223,12 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
   (Judson 0.5th, Colin 11th) are NOT a friend penalty: their whole history is Nov 16-19, the worst days, and per $1 they
   did better than the owner on them. The model still leans optimistic overall (owner at the 27th percentile): grade the
   `_forecast.log` from ~11-24. Open: the model's caps for Hazel are tighter than its own simulation likes (uncapped +30%).
+- **11-19: slump brake and the pool's 15% daily stop OFF** (owner's go; real.settings pool brake_drawdown/brake_factor/
+  daily_stop = 1.0, synced to the offices). The model, with futures starting from the office's real high (Book.peak):
+  no gain from either (removing both +3% at 1 month, a hair more at 6). The 20% daily-loss halt (desk.real.yaml live
+  max_daily_loss_pct) stays, for bugs, not market luck. Same day: bad days don't cluster in the trade history (no streak
+  term in the model), and the Nov 16-19 slump wasn't the friends: real Hazel matched her replay on the same markets
+  (-2.0c vs -1.2c), coins matched Training on the same markets; the markets themselves lost, within luck.
 - A weather day can sit unsettled for days on Kalshi's side (NY Nov 13, 2026: "closed", no result, Kalshi's deadline
   Nov 20, while every other city and day paid next morning ~7 am PT). Not a bug: settle_check asks Kalshi about every
   held ticker each run, listed or not, and books it the moment a result appears; Riding Now shows them as "settling".
