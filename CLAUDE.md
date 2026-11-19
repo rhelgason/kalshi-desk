@@ -239,6 +239,10 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
   (Chainlink mid, from 11-18); makers get small rebates, takers pay. Public data has books, BBO and price history but no
   trade history, so a test needs our own recording first. Robinhood/Coinbase/Webull route to Kalshi (no new sellers);
   ForecastEx (IBKR) has no short crypto markets; Novig is sports; Polymarket.com blocks US users.
+  **Recording since 11-19** (owner's call: record now, build nothing): the server saves Polymarket US's 15-minute
+  BTC/ETH/SOL/XRP books to /home/desk/pm_tape (deploy/SERVER.md). **Revisit some day, once Kalshi is going well and the
+  profits need somewhere else to grow** (the model's growth stalls in untested sizes): replay Sadie's rule on that tape
+  first; only if the edge shows up there, open an account and build the connection.
 - A weather day can sit unsettled for days on Kalshi's side (NY Nov 13, 2026: "closed", no result, Kalshi's deadline
   Nov 20, while every other city and day paid next morning ~7 am PT). Not a bug: settle_check asks Kalshi about every
   held ticker each run, listed or not, and books it the moment a result appears; Riding Now shows them as "settling".

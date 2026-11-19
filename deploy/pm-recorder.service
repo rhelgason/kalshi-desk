@@ -1,0 +1,16 @@
+[Unit]
+Description=Kalshi Desk: Polymarket US 15-minute market recorder (research only, no trading; research/polymarket/recorder.py)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=desk
+WorkingDirectory=/home/desk/kalshi-desk
+ExecStart=/home/desk/kalshi-desk/.venv/bin/python -u research/polymarket/recorder.py /home/desk/pm_tape
+Restart=always
+RestartSec=30
+Nice=10
+MemoryMax=100M
+
+[Install]
+WantedBy=multi-user.target

@@ -12,6 +12,11 @@ twin on pretend money in the database's `fast` schema. Everything else stays on 
   (signed reads get the key's own rate limit). Delete it on kalshi.com -> Settings -> API Keys to revoke.
 - Research downloads run here too (research/fast_coco/tape.py, index_history.py) into /home/desk/research; stop one
   with `kill $(cat /home/desk/research/tape15/pid)`, never `pkill -f` (it matches your own ssh command).
+- **Polymarket US recorder** (11-19, research only: no account, no key, no trading, no database): `deploy/pm-recorder.service`
+  runs research/polymarket/recorder.py, saving best bid/ask, last trade, contracts traded (every 2 s) and the top of the
+  book (every 10 s) of Polymarket US's 15-minute up/down windows to `/home/desk/pm_tape/YYYY-MM-DD.jsonl[.gz]` (~20 MB a
+  day). Its public data has no trade history, so this is the tape a future replay would need. Gold/silver/oil/gas books
+  answer 404 publicly (11-19); only BTC/ETH/SOL/XRP record. Check: `du -sh /home/desk/pm_tape; journalctl -u pm-recorder -n 20`.
 - Service: `deploy/fast-coco.service` -> `/etc/systemd/system/fast-coco.service` (restarts on crash and boot).
 
 ```bash
