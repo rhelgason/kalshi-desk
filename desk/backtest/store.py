@@ -170,14 +170,23 @@ async def sync_prices(ledger: Ledger, symbols: Iterable[str], start: datetime, e
             while day <= end:
                 d = day.strftime("%Y-%m-%d")
                 s_ts, e_ts = int(day.timestamp()), int((day + timedelta(days=1)).timestamp())
+                # A price site that's briefly down (Deribit 503, 11-20) skips that day instead of ending the whole
+                # job run: nothing is saved for it, so the next run (6 h later) fills it in
                 if d not in have or d == today:
-                    closes = await fetch_bitstamp(http, sym, s_ts, e_ts)
+                    try:
+                        closes = await fetch_bitstamp(http, sym, s_ts, e_ts)
+                    except httpx.HTTPError as e:
+                        logger.warning("prices %s %s skipped for now: %s", sym, d, e)
+                        closes = None
                     if closes:
                         _save_day(ledger, sym, d, {str(k): v for k, v in closes.items() if s_ts < k <= e_ts})
                         saved += 1
                 if sym in ("BTC", "ETH") and (d not in have_vol or d == today):
-                    rows = await fetch_dvol(http, sym, s_ts, e_ts)
-                    _save_day(ledger, f"DVOL:{sym}", d, rows)
+                    try:
+                        rows = await fetch_dvol(http, sym, s_ts, e_ts)
+                        _save_day(ledger, f"DVOL:{sym}", d, rows)
+                    except httpx.HTTPError as e:
+                        logger.warning("DVOL %s %s skipped for now: %s", sym, d, e)
                 day += timedelta(days=1)
                 await asyncio.sleep(0.1)
     return saved
