@@ -1,6 +1,6 @@
 import type { Employee } from "@/lib/types";
 import { dollars, shortName } from "@/lib/format";
-import { biggest, countOf, type Bet } from "@/lib/records";
+import { biggest, calendarDays, countOf, type Bet } from "@/lib/records";
 import DayStrip from "./DayStrip";
 import StatRow, { toneOf } from "./ui/StatRow";
 
@@ -27,7 +27,7 @@ export default function HeroFacts({ period, change, inRange, all, employees, tz,
 
   // The range's days, at least a week and at most a month, never from before the season started
   const want = Math.min(30, Math.max(7, rangeDays ?? 30));
-  const n = Math.max(1, Math.min(want, Math.ceil((Date.now() - since) / 86_400_000)));
+  const n = Math.min(want, calendarDays(since, tz));
 
   return (
     <div className="hero-facts">

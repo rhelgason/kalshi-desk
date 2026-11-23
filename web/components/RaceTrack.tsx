@@ -36,7 +36,9 @@ export default function RaceTrack({ positions, employees, held, started, now }: 
   if (!positions.length) return null;
   const who = Object.fromEntries(employees.map((e) => [e.key, e]));
 
-  const rank = (c: number | null) => (c == null ? [2, 0] : c <= now ? [1, c] : [0, c]);
+  // Nearest to an answer first (11-22, owner): settling (Kalshi stopped listing it, the result is on its way), then
+  // deciding (past closing), then bets still trading by time left
+  const rank = (c: number | null) => (c == null ? [0, 0] : c <= now ? [1, c] : [2, c]);
   const soonest = (a: { closes: number | null }, b: { closes: number | null }) => {
     const [x, y] = [rank(a.closes), rank(b.closes)];
     return x[0] - y[0] || x[1] - y[1];
@@ -53,8 +55,7 @@ export default function RaceTrack({ positions, employees, held, started, now }: 
     return { p, closes, progress, paid, price, what, gain: worthNow(p) - p.cost, win: count - p.cost };
   });
   const groups = Object.values(lanes.reduce<Record<string, typeof lanes>>((g, l) => ((g[l.p.strategy] ??= []).push(l), g), {}))
-    // Closing soonest first: bets still trading by time left, then ones past closing waiting on a result, then
-    // ones Kalshi has stopped listing (no closing time). 11-17: a closing time of "none" sorted as Infinity, and
+    // 11-17: a closing time of "none" sorted as Infinity, and
     // Infinity minus Infinity is NaN, which scrambled the whole list (Wendell's soonest bets hid behind "more")
     .map((ls) => ls.sort(soonest))
     .sort((a, b) => soonest(a[0], b[0]));

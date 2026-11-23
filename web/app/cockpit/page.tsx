@@ -14,7 +14,7 @@ import type { Employee } from "@/lib/types";
 import { dollars, pct } from "@/lib/format";
 import { headline, parseRange, poolKeys, RANGES, RANGE_WORDS } from "@/lib/portfolio";
 import RangeTabs from "@/components/RangeTabs";
-import { perDollar, skillOdds, type Bet } from "@/lib/records";
+import { calendarDays, perDollar, skillOdds, type Bet } from "@/lib/records";
 import OfficeTable, { type OfficeRow } from "@/components/OfficeTable";
 import SkillGauge from "@/components/SkillGauge";
 import DayStrip from "@/components/DayStrip";
@@ -114,7 +114,7 @@ export default async function CockpitPage({ searchParams }: { searchParams: Prom
   const profit = offices.reduce((s, o) => s + o.worth - o.putIn, 0), putIn = offices.reduce((s, o) => s + o.putIn, 0);
   const up = offices.filter((o) => o.worth > o.putIn).length;
   const start = Math.min(...offices.map((o) => o.since));
-  const stripDays = Math.min(Math.min(30, Math.max(7, rangeDays ?? 30)), Math.ceil((now - start) / 86_400_000));
+  const stripDays = Math.min(Math.min(30, Math.max(7, rangeDays ?? 30)), calendarDays(start, "America/Vancouver", now));
 
   // What it might do for the person looking (the new-user tour's selling point; the tour quotes it,
   // components/Tour.tsx): the prediction model's 6-month middle guess (desk/forecast.py, lib/forecast.ts) for their

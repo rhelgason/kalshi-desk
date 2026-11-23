@@ -73,6 +73,13 @@ export function days(bets: Bet[], tz: string): Day[] {
 }
 
 /** The last `n` calendar days ending today, empty days included (for the day strip). */
+/** How many calendar days (in tz) from the day of `since` to today, both counted: an office that opened yesterday
+ *  evening has 2 days, not 1 (11-22, the owner: days are Pacific calendar days for everyone). */
+export function calendarDays(since: number, tz: string, now = Date.now()): number {
+  const a = Date.parse(`${dayKey(since, tz)}T00:00:00Z`), b = Date.parse(`${dayKey(now, tz)}T00:00:00Z`);
+  return Math.max(1, Math.round((b - a) / 86_400_000) + 1);
+}
+
 export function lastDays(all: Day[], n: number, tz: string, now = Date.now()): Day[] {
   const by = new Map(all.map((d) => [d.day, d]));
   return [...Array(n)].map((_, i) => {
