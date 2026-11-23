@@ -42,6 +42,57 @@ from desk.runner import Desk
 logger = logging.getLogger(__name__)
 
 STATE_KEY = "_state"
+# 11-23 (Supabase's 5 GB monthly download cap): on the server each owner run is a fresh process that read ~30 KB of
+# saved state per book from the database, ~45 MB a day. With DESK_STATE_CACHE set (deploy/tick.service), a run keeps a
+# copy on local disk and only asks the database for the row's stamp: the full row is read only when someone else
+# changed it (the website starting a season, a manual fix). The database stays the source of truth.
+STATE_CACHE = os.environ.get("DESK_STATE_CACHE", "")
+
+
+def _cache_file(ledger: Ledger) -> Optional[Path]:
+    if not STATE_CACHE:
+        return None
+    return Path(STATE_CACHE) / f"{ledger.schema or 'public'}.state.json"
+
+
+def read_state(ledger: Ledger) -> dict:
+    """The saved state: the local copy if its stamp still matches the database's, else the database's row."""
+    f = _cache_file(ledger)
+    if f is not None:
+        try:
+            stamp = ledger.status_stamp(STATE_KEY)
+            cached = json.loads(f.read_text()) if f.exists() else None
+            if stamp and cached and cached.get("stamp") == stamp:
+                return cached["data"]
+        except Exception:
+            logger.warning("local state copy unreadable; reading the database's", exc_info=True)
+    state = ledger.get_status(STATE_KEY) or {}
+    if f is not None:
+        try:
+            _write_cache(f, ledger.status_stamp(STATE_KEY), state)
+        except Exception:
+            pass
+    return state
+
+
+def write_state(ledger: Ledger, state: dict) -> None:
+    """Save the state to the database, and the local copy with the same stamp."""
+    stamp = ledger.set_status(STATE_KEY, state)
+    f = _cache_file(ledger)
+    if f is not None:
+        try:
+            _write_cache(f, stamp, json.loads(json.dumps(state, default=str)))
+        except Exception:
+            logger.warning("couldn't save the local state copy", exc_info=True)
+
+
+def _write_cache(f: Path, stamp: Optional[str], state: dict) -> None:
+    if not stamp:
+        return
+    f.parent.mkdir(parents=True, exist_ok=True)
+    tmp = f.with_suffix(".tmp")
+    tmp.write_text(json.dumps({"stamp": stamp, "data": state}, default=str))
+    tmp.replace(f)
 LEASE = "tick"
 LEASE_SECONDS = 150
 # seconds; Vercel Hobby includes 4 CPU-hours (dashboard uses some). 0: no budget (the server, `desk tick`, 11-16)
@@ -243,13 +294,13 @@ async def run_cloud_tick(ledger: Optional[Ledger] = None, config_path: Optional[
         return {"ok": False, "skipped": "another run is in progress"}
 
     try:
-        state = ledger.get_status(STATE_KEY) or {}
+        state = read_state(ledger)
         now = datetime.now(timezone.utc)
         within_budget, budget = _budget_check(state, now)
         if not within_budget:
             budget["skipped"] = budget.get("skipped", 0) + 1
             state["budget"] = budget
-            ledger.set_status(STATE_KEY, state)
+            write_state(ledger, state)
             return {"ok": True, "skipped": "monthly CPU budget pacing", "budget": budget}
 
         if state.get("season", 1) != ledger.season:
@@ -280,7 +331,7 @@ async def run_cloud_tick(ledger: Optional[Ledger] = None, config_path: Optional[
         state["budget"] = budget
         state["last_run"] = {"at": now.isoformat(), "seconds": round(time.time() - started, 1),
                              "cpu_seconds": round(used, 3)}
-        ledger.set_status(STATE_KEY, state)
+        write_state(ledger, state)
         journal = desk.journal.summary()
         return {
             "ok": True,

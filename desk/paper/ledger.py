@@ -542,12 +542,20 @@ class Ledger:
         self._write("INSERT INTO events(ts, strategy, kind, detail) VALUES (?, ?, ?, ?)",
                     (_now(), strategy, kind, text))
 
-    def set_status(self, key: str, data: Any) -> None:
+    def set_status(self, key: str, data: Any) -> str:
+        """Save a status row; returns its new updated_at (the stamp a local copy can be checked against)."""
+        stamp = _now()
         self._write(
             "INSERT INTO status(key, updated_at, data) VALUES (?, ?, ?)"
             " ON CONFLICT(key) DO UPDATE SET updated_at = excluded.updated_at, data = excluded.data",
-            (key, _now(), json.dumps(data, default=str)),
+            (key, stamp, json.dumps(data, default=str)),
         )
+        return stamp
+
+    def status_stamp(self, key: str) -> Optional[str]:
+        """A status row's updated_at alone (a few bytes, where the row itself can be tens of KB)."""
+        rows = self._rows("SELECT updated_at FROM status WHERE key = ?", (key,))
+        return str(rows[0]["updated_at"]) if rows else None
 
     def try_lease(self, name: str, seconds: float) -> bool:
         """

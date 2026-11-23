@@ -11,6 +11,8 @@ EnvironmentFile=/etc/kalshi-desk.env
 Environment=KALSHI_LIVE_TRADING=yes
 # No Vercel CPU budget to pace against here
 Environment=DESK_CPU_BUDGET_HOURS=0
+# 11-23: keep a local copy of each book's saved state (desk/cloud.py read_state): fewer database downloads
+Environment=DESK_STATE_CACHE=/home/desk/state
 ExecStart=/home/desk/kalshi-desk/.venv/bin/python -u -m desk tick
 TimeoutStartSec=110
 MemoryMax=400M

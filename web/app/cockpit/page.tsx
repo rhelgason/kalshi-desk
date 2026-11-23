@@ -78,7 +78,7 @@ function returnLine(o: Office, color: string): ReturnLine {
  */
 export default async function CockpitPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   await requireViewer();
-  const range = parseRange((await searchParams).range, "week");
+  const range = parseRange((await searchParams).range, "season"); // 11-23 (owner): everyone's whole story by default
   const [manager, user] = await Promise.all([isAdmin(), currentUser()]);
   // The manager previewing the new-user tour sees a friend's cockpit: percentages, no manager cards
   const fresh = await previewFresh(manager);

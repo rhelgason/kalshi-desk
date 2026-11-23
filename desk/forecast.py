@@ -581,8 +581,17 @@ def season_days(ledger, season: int, tz: str) -> list:
     """The pool's value at the end of each day this season (members' last snapshot each day, added up)."""
     from zoneinfo import ZoneInfo
 
-    rows = ledger._rows("SELECT strategy, ts, equity FROM equity WHERE season = ? ORDER BY ts", (season,))
     zone = ZoneInfo(tz)
+    if ledger.is_postgres:
+        # 11-23: the database picks each employee's last snapshot per day (~360 rows, not ~33,000; the same answer),
+        # since every row read counts against Supabase's monthly download allowance
+        rows = ledger._rows(
+            "SELECT DISTINCT ON (strategy, d) strategy, ts, equity FROM ("
+            " SELECT strategy, ts, equity, to_char(ts::timestamptz AT TIME ZONE ?, 'YYYY-MM-DD') AS d FROM equity"
+            " WHERE season = ?) x ORDER BY strategy, d, ts DESC", (tz, season))
+        rows = sorted(rows, key=lambda r: str(r["ts"]))
+    else:
+        rows = ledger._rows("SELECT strategy, ts, equity FROM equity WHERE season = ? ORDER BY ts", (season,))
     last: dict[str, dict[str, float]] = {}
     for r in rows:
         d = datetime.fromisoformat(str(r["ts"]).replace("Z", "+00:00")).astimezone(zone).date().isoformat()
