@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { dollars, pct } from "@/lib/format";
+import { calendarDays } from "@/lib/records";
 import SubmitButton from "./SubmitButton";
 
 /** One office's row. */
@@ -34,7 +35,7 @@ export default function OfficeTable({ rows, money, now, period }: { rows: Office
     ...(money ? [{ key: "all", label: "All time", value: (r: OfficeRow) => r.worth - r.putIn,
       show: (r: OfficeRow) => <span className={tone(r.worth - r.putIn)}>{dollars(r.worth - r.putIn, true)}</span> }] : []),
     { key: "return", label: "Return", value: ret, show: (r) => <span className={tone(ret(r), 0.001)}>{pct(ret(r), true, 1)}</span> },
-    { key: "days", label: "Days in", value: (r) => now - r.since, show: (r) => Math.max(1, Math.ceil((now - r.since) / 86_400_000)) },
+    { key: "days", label: "Days in", value: (r) => now - r.since, show: (r) => calendarDays(r.since, "America/Vancouver", now) },
   ];
   const [sort, setSort] = useState<{ key: string; desc: boolean }>({ key: money ? "worth" : "return", desc: true });
   const col = cols.find((c) => c.key === sort.key) ?? cols[0];

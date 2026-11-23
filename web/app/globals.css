@@ -724,7 +724,10 @@ html[data-range-loading] .employee-chart .chart::after { content: "Updating…";
 .sort-btn { font: inherit; color: inherit; text-transform: inherit; letter-spacing: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
 .sort-btn:hover { color: var(--text-primary); }
 th[aria-sort] .sort-btn { color: var(--text-primary); }
-.sort-mark { display: inline-block; width: 10px; text-align: left; margin-left: 2px; }
+/* 11-23: the sort arrow hangs outside the label, so a header's text lines up exactly with its column's numbers */
+.sort-btn { position: relative; }
+.sort-mark { position: absolute; left: 100%; top: 0; margin-left: 2px; }
+th.num .sort-mark { left: auto; right: 100%; margin: 0 2px 0 0; }
 .office-name { display: inline-flex; align-items: center; gap: 8px; }
 .office-name .legend-swatch { width: 12px; height: 12px; border-radius: 50%; }
 .paused-badge { margin-left: 8px; background: color-mix(in srgb, var(--down) 18%, transparent); color: var(--down); }
