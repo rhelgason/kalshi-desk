@@ -250,6 +250,15 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
   (so the hover dot, snapped to a sample, sits on its line), a glow and soft fill under each line, and a tag at each
   line's end spaced so tags never overlap (components/ReturnsChart.tsx). The table always shows, without "Per $1 bet"
   and "Bets won"; its "All time" column is worth minus put in (manager only; for a friend it would repeat Return).
+- **11-23: Supabase room again** (database 446 MB of 500, downloads on pace for ~9 of 5 GB, grace to 11-25).
+  deploy/archive_logs.py archived (server: /home/desk/archive/2026-11-23) and deleted Training's past seasons (1-6:
+  142k fills, 136k settlements, 31k equity rows; nothing reads past seasons) plus logs past the new retention, then
+  VACUUM FULL: **446 -> 195 MB**. Retention now: owner books runs 3 days, decisions and market tape 7; offices runs 2
+  days and **no market tape** (runner skips record_tape for office_* schemas). Downloads: the server's tick keeps each
+  book's saved state on local disk (DESK_STATE_CACHE=/home/desk/state in deploy/tick.service; desk/cloud.py
+  read_state/write_state check only the row's stamp; ~45 MB a day less), and forecast.season_days reads one snapshot per
+  employee per day. Not yet done (smaller): `SELECT * FROM employees` every run, runner.recently_settled each run,
+  website caching. A new Training season makes the old one archivable again: rerun archive_logs.py on the server.
 - A weather day can sit unsettled for days on Kalshi's side (NY Nov 13, 2026: "closed", no result, Kalshi's deadline
   Nov 20, while every other city and day paid next morning ~7 am PT). Not a bug: settle_check asks Kalshi about every
   held ticker each run, listed or not, and books it the moment a result appears; Riding Now shows them as "settling".
