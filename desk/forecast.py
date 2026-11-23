@@ -97,6 +97,7 @@ class Staff:
     paper_bets: int = 0
     paper_edge: Optional[float] = None
     cap: float = 0.0  # family dollars past which one more dollar of bid stops adding profit (0 = none)
+    fill: float = 1.0  # 11-23: real dollars filled a day over what the model fills at the same pool (calibrate_fills)
 
 
 @dataclass
@@ -225,12 +226,12 @@ class Forecaster:
                 if curve is not None:
                     together = b * (1 + others_ratio)  # the family's bids share the window
                     spent, pnl = self.lib.at(curve, together)
-                    share = b / together / (1 + max(0.0, together - tested) / room)
+                    share = b / together / (1 + max(0.0, together - tested) / room) * s.fill
                     spent, pnl = spent * share, pnl * share
                     pnl += (e - s.tape_edge) * spent  # the tape's luck in this window, shifted to the blended edge
                 else:
                     spent, fade = synthetic_fill(s.key, b * (1 + others_ratio))
-                    spent *= b / (b * (1 + others_ratio))
+                    spent *= b / (b * (1 + others_ratio)) * s.fill
                     pnl = spent * _outcome(rng, e * fade)
                 eq += pnl
                 if stats is not None:
@@ -244,6 +245,7 @@ class Forecaster:
                     if s.cap > 0:
                         b = min(b, s.cap)
                     spent, fade = synthetic_fill(s.key, b)
+                    spent *= s.fill
                     pnl = spent * _outcome(rng, edges[s.key] * fade)
                     eq += pnl
                     if stats is not None:
@@ -402,11 +404,11 @@ class Forecaster:
             row = {"start": amount}
             for d in (30, len(lines[0]) - 1):
                 col = sorted(l[d] for l in lines)
-                row[f"d{d}"] = {"p10": round(_q(col, 0.1), 2), "p50": round(_q(col, 0.5), 2), "p90": round(_q(col, 0.9), 2)}
+                row[f"d{d}"] = {q: round(_q(col, int(q[1:]) / 100), 2) for q in ("p10", "p25", "p50", "p90")}
             out.append(row)
         # Fewer futures per amount, so a little noise: more money never shows a smaller result
         for k in [k for k in out[0] if k.startswith("d")]:
-            for q in ("p10", "p50", "p90"):
+            for q in ("p10", "p25", "p50", "p90"):
                 for i in range(1, len(out)):
                     out[i][k][q] = max(out[i][k][q], out[i - 1][k][q])
         return out
@@ -439,7 +441,7 @@ class Forecaster:
             row = {"deposit": dep}
             for d in (30, 90, days):
                 col = sorted(l[min(d, days)] for l in r)
-                row[f"d{d}"] = {"p10": round(_q(col, 0.1), 2), "p50": round(_q(col, 0.5), 2), "p90": round(_q(col, 0.9), 2)}
+                row[f"d{d}"] = {q: round(_q(col, int(q[1:]) / 100), 2) for q in ("p10", "p25", "p50", "p90")}
             what_if.append(row)
         staff = []
         for s in book.staff:
@@ -562,6 +564,62 @@ def book_from(ledger, family: list, lib: Library, name: str, paper: Optional[dic
                 history=season_days(ledger, int(policy.get("season", 1)), settings.get("timezone") or "America/Vancouver"))
 
 
+FILL_DAYS = 10  # real days that set each employee's fill rate (since the shared closing-moment limit, 11-17)
+FILL_PRIOR_BETS = 30  # fills (not luck-heavy like profit per bet): a few days of real fills count as much as the tape
+FILL_RANGE = (0.25, 1.2)
+
+
+def real_fill_rates(ledger, days: int = FILL_DAYS) -> dict[str, tuple[float, int, float]]:
+    """Each employee's real dollars filled a day as a share of the pool that day, over the last `days` full days:
+    {key: (filled per pool dollar per day, bets, the average pool)}."""
+    from zoneinfo import ZoneInfo
+
+    from desk import hr
+
+    policy = hr.load_policy(ledger)
+    tz = (policy.get("pool") or {}).get("timezone") or "America/Vancouver"
+    zone = ZoneInfo(tz)
+    pool = dict(season_days(ledger, int(policy.get("season", 1)), tz))
+    today = datetime.now(timezone.utc).astimezone(zone).date()
+    days_seen = sorted(d for d in ((today - timedelta(days=i)).isoformat() for i in range(1, days + 1)) if pool.get(d, 0) > 0)
+    if not days_seen:
+        return {}
+    since = (datetime.now(timezone.utc) - timedelta(days=days + 2)).isoformat()
+    per: dict[str, dict[str, list]] = {}
+    for r in ledger._rows("SELECT strategy, ts, count * price AS spent FROM fills WHERE ts >= ? AND count > 0", (since,)):
+        d = datetime.fromisoformat(str(r["ts"]).replace("Z", "+00:00")).astimezone(zone).date().isoformat()
+        if d in pool and d in days_seen:
+            x = per.setdefault(r["strategy"], {}).setdefault(d, [0.0, 0])
+            x[0] += float(r["spent"]); x[1] += 1
+    avg_pool = sum(pool[d] for d in days_seen) / len(days_seen)
+    return {k: (sum(by.get(d, [0.0, 0])[0] / pool[d] for d in days_seen) / len(days_seen), sum(v[1] for v in by.values()), avg_pool)
+            for k, by in per.items()}
+
+
+def calibrate_fills(fc: "Forecaster", book: "Book", real: dict) -> dict[str, dict]:
+    """11-23 (owner: rein the model in): the model filled ~$5,100 a day at an ~$800 pool where real fills ran
+    $3,300-4,400; coins filled about half the tape's dollars (queue position, other makers). Each employee's fill
+    rate becomes real dollars filled a day over the model's at the same (average) pool, blended toward 1 by real bets
+    (FILL_PRIOR_BETS) and kept in FILL_RANGE. Returns what it set, for the record."""
+    for s in book.staff:
+        s.fill = 1.0
+    if not real:
+        return {}
+    avg_pool = next(iter(real.values()))[2]
+    model = fc.engine(book, [round(avg_pool, 2)], samples=2)[0]["staff"]
+    out = {}
+    for s in book.staff:
+        got = real.get(s.key)
+        m = (model.get(s.key) or {}).get("filled_day", 0.0) / avg_pool if avg_pool > 0 else 0.0
+        if not got or m <= 0:
+            continue
+        ratio = got[0] / m
+        w = got[1] / (got[1] + FILL_PRIOR_BETS)
+        s.fill = round(min(FILL_RANGE[1], max(FILL_RANGE[0], w * ratio + (1 - w))), 3)
+        out[s.key] = {"fill": s.fill, "real_vs_model": round(ratio, 3), "bets": got[1]}
+    return out
+
+
 def tested_bid(ledgers: list, days: int = 30) -> float:
     """The family's biggest real coin bids (one window, all offices together) that filled at least 90%: the 95th
     percentile, so one lucky window doesn't count. Never below TESTED."""
@@ -623,11 +681,17 @@ def run_family(url: str, schemas: list[str], n: int = 200) -> dict[str, dict]:
     ledgers = [Ledger(url, s, shared=True) for s in schemas]
     paper = real_record([Ledger(url, "public", shared=True)])  # Training's paper bets: recent, from the real tape
     fc = Forecaster.load()
-    done = {}
+    done, fills = {}, {}
     for led, s in zip(ledgers, schemas):
         book = book_from(led, ledgers, fc.lib, s, paper)
         if book is None:
             continue
+        # The owner's real fills set everyone's fill rates (friends' offices bid the same windows beside them)
+        if s == schemas[0]:
+            fills = calibrate_fills(fc, book, real_fill_rates(led))
+        else:
+            for st in book.staff:
+                st.fill = (fills.get(st.key) or {}).get("fill", 1.0)
         family_caps = fc.caps(book) if USE_CAPS else {}
         for st in book.staff:
             st.cap = family_caps.get(st.key, 0.0)
@@ -638,6 +702,7 @@ def run_family(url: str, schemas: list[str], n: int = 200) -> dict[str, dict]:
                                   "caps": office_caps, "family": family_caps, "share": round(share, 4)})
         out = fc.run(book, n=n)
         out["caps"] = office_caps
+        out["fills"] = fills
         if s == schemas[0]:
             family = book.equity + book.others
             out["newcomer"] = fc.newcomer(book, family)

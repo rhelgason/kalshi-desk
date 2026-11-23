@@ -259,6 +259,13 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
   read_state/write_state check only the row's stamp; ~45 MB a day less), and forecast.season_days reads one snapshot per
   employee per day. Not yet done (smaller): `SELECT * FROM employees` every run, runner.recently_settled each run,
   website caching. A new Training season makes the old one archivable again: rerun archive_logs.py on the server.
+- **11-23: the model reined in** (owner: the week ran at the 20th percentile of the 11-17 prediction). Real coin bids
+  fill less than the tape says (queue position, other makers): each employee's fill rate is now real dollars filled a
+  day over the model's at the same pool, last 10 days (forecast.real_fill_rates / calibrate_fills, `Staff.fill`, blended
+  toward 1 by FILL_PRIOR_BETS = 30 fills, kept in 0.25-1.2; the owner's fills set everyone's; `_forecast.fills`). DOGE
+  ~0.64, BTC/NEAR/XRP/BNB ~0.74-0.77, ETH/ZEC/Hazel ~0.9-0.97. Model fills ~$5.1k -> ~$4.5k a day at $794; 6-month
+  middle ~$57k -> ~$49k; self-check ~55th percentile. **Estimates other people see (the NUX tour) use the 25th
+  percentile** ("careful guess", lib/forecast.ts sixMonths; newcomer rows carry p25); the owner's card keeps the middle.
 - A weather day can sit unsettled for days on Kalshi's side (NY Nov 13, 2026: "closed", no result, Kalshi's deadline
   Nov 20, while every other city and day paid next morning ~7 am PT). Not a bug: settle_check asks Kalshi about every
   held ticker each run, listed or not, and books it the moment a result appears; Riding Now shows them as "settling".

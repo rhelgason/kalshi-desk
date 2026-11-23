@@ -12,7 +12,7 @@ export type Forecast = {
   tested_pool: number;
   check: { actual_line: [string, number][]; percentile: number; p10: number; p90: number; actual: number } | null;
   /** the owner's row only: a new friend's office from each starting amount (desk/forecast.py newcomer) */
-  newcomer?: { start: number; d180: { p10: number; p50: number; p90: number } }[];
+  newcomer?: { start: number; d180: { p10: number; p25?: number; p50: number; p90: number } }[];
 };
 
 const HORIZONS = [{ d: 30, label: "1 mo" }, { d: 90, label: "3 mo" }, { d: 180, label: "6 mo" }];
