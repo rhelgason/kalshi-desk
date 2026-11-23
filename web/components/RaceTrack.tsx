@@ -25,7 +25,7 @@ const left = (ms: number) => {
 /**
  * Bets riding now as a race (11-16): one lane per bet, grouped by employee. The employee runs from when the bet was
  * placed to a chequered line at the moment it's decided; their trail is green while the bet is ahead at today's
- * price and red while it's behind. The only place on the page a number moves before a bet is decided.
+ * price and red while it's behind. The right side says the market's chance it wins (11-22). The only place on the page a number moves before a bet is decided.
  */
 export default function RaceTrack({ positions, employees, held, started, now }: {
   positions: Position[]; employees: Employee[]; held?: number | null;
@@ -68,12 +68,17 @@ export default function RaceTrack({ positions, employees, held, started, now }: 
       {/* What went in, what Kalshi would pay to buy them back today, and what they pay if every one wins */}
       <StatRow stats={[
         { label: "Put In", value: dollars(cost), note: `${positions.length} open ${positions.length === 1 ? "bet" : "bets"}` },
-        { label: "Worth Now", value: dollars(worth), tone: toneOf(worth - cost), note: <>{dollars(worth - cost, true)} at today&apos;s prices</> },
+        // 11-22: "Worth Now" read like money about to be lost; it's only what they'd sell for, and we never sell
+        { label: "If Sold Now", value: dollars(worth), tone: toneOf(worth - cost), note: <>{dollars(worth - cost, true)} · we hold to the end</> },
         { label: "If All Win", value: dollars(pays), note: <>{dollars(pays - cost, true)} profit</> },
       ]} />
       {groups.map((ls) => {
         const k = ls[0].p.strategy, e = who[k];
         const open = all.includes(k);
+        // The group's odds: the market's chance of winning, weighted by money riding (11-22)
+        const priced = ls.filter((l) => l.price != null);
+        const riding = priced.reduce((s, l) => s + l.p.cost, 0);
+        const odds = riding ? priced.reduce((s, l) => s + (l.price as number) * l.p.cost, 0) / riding : null;
         const gain = ls.reduce((s, l) => s + l.gain, 0);
         return (
           <div key={k} className="race-group">
@@ -81,7 +86,7 @@ export default function RaceTrack({ positions, employees, held, started, now }: 
               <Avatar k={k} emoji={e?.emoji ?? "•"} size={26} />
               <strong>{e ? e.name : k}</strong>
               <span className="muted small">{ls.length} open</span>
-              <span className={`race-group-gain ${gain >= 0 ? "up" : "down"}`}>{dollars(gain, true)}</span>
+              {odds != null && <span className={`race-group-gain ${gain >= 0 ? "up" : "down"}`}>{Math.round(odds * 100)}% to win</span>}
             </div>
             {(open ? ls : ls.slice(0, SHOWN)).map((l) => (
               <div key={l.p.ticker} className={`lane ${l.gain >= 0 ? "ahead" : "behind"}`}>
@@ -101,7 +106,13 @@ export default function RaceTrack({ positions, employees, held, started, now }: 
                 </div>
                 <div className="lane-side">
                   <div className="lane-left">{l.closes == null ? "settling" : l.closes <= now ? "deciding" : left(l.closes - now)}</div>
-                  <div className={l.gain >= 0 ? "up" : "down"}>{dollars(l.gain, true)}</div>
+                  {/* 11-22 (owner): the market's chance this bet wins, instead of a "sell now" gain that read like a
+                      loss. Green when the odds have moved our way since we bet, red when they've slipped */}
+                  {l.price != null
+                    ? <div className={l.gain >= 0 ? "up" : "down"} title={`The market's odds now; we bet at ${Math.round((l.paid ?? 0) * 100)}%`}>
+                        {Math.round(l.price * 100)}% <span className="lane-odds-word">to win</span>
+                      </div>
+                    : <div className="muted">–</div>}
                 </div>
               </div>
             ))}

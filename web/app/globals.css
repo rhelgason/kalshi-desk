@@ -837,3 +837,35 @@ html[data-navigating] body { cursor: progress; }
 .segmented { display: flex; padding: 3px; gap: 2px; border-radius: var(--r-pill); background: var(--surface-2); border: 1px solid var(--border); }
 .segmented button { flex: 1; font: inherit; font-size: 13px; padding: 6px 14px; border: 0; border-radius: var(--r-pill); background: none; color: var(--text-secondary); cursor: pointer; }
 .segmented button[aria-checked="true"] { background: var(--surface-1); color: var(--text-primary); box-shadow: 0 1px 3px var(--shadow); }
+.lane-odds-word { font-weight: 500; font-size: 0.85em; opacity: 0.8; }
+
+/* Cockpit player cards (11-22): one per office, money now vs put in, its own glowing chart; the table folds under */
+.office-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.office-card { position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 6px; padding: 14px 14px 10px;
+  border-radius: var(--r-lg); border: 1px solid color-mix(in srgb, var(--office) 35%, var(--border));
+  background: radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--office) 16%, transparent), transparent 60%), var(--surface-2); }
+.office-card::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 3px; background: var(--office); opacity: 0.9; }
+.office-card-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.office-card-badge { width: 26px; height: 26px; flex: none; border-radius: 50%; display: grid; place-items: center; font-weight: 750;
+  font-size: 13px; color: #fff; background: var(--office); box-shadow: 0 0 12px color-mix(in srgb, var(--office) 60%, transparent); }
+.office-card-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.office-card-growth { font-weight: 750; font-size: 13px; font-variant-numeric: tabular-nums; padding: 2px 8px;
+  border-radius: var(--r-pill); background: color-mix(in srgb, currentColor 14%, transparent); }
+.office-card-money { display: flex; flex-direction: column; min-height: 50px; }
+.office-card-bigrow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.office-card-sub { display: flex; flex-direction: column; line-height: 1.45; }
+.office-card .nowrap { white-space: nowrap; }
+.office-card-big { font-size: 28px; font-weight: 750; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; line-height: 1.15; }
+.office-card-chart { margin: 2px -6px 0; }
+.office-card-chart svg { display: block; overflow: visible; cursor: crosshair; }
+.office-card-line { filter: drop-shadow(0 0 5px color-mix(in srgb, var(--office) 70%, transparent)); }
+.office-card-pulse { transform-box: fill-box; transform-origin: center; animation: office-pulse 2.2s ease-out infinite; }
+@keyframes office-pulse { from { opacity: 0.55; transform: scale(0.6); } to { opacity: 0; transform: scale(2.2); } }
+@media (prefers-reduced-motion: reduce) { .office-card-pulse { animation: none; opacity: 0; } }
+.office-card-coin circle { fill: var(--coin, #f5b942); stroke: var(--surface-1); stroke-width: 1.5; }
+.office-card-open { margin: 0; align-self: flex-end; }
+.office-details { margin-top: 12px; border-top: 1px solid var(--grid); padding-top: 8px; }
+.office-details > summary { cursor: pointer; font-size: 13px; color: var(--text-secondary); font-weight: 600; padding: 4px 0; }
+.office-details .table-wrap { margin-top: 6px; border-top: 0; padding-top: 0; }
+@media (max-width: 520px) { .office-cards { grid-template-columns: 1fr 1fr; gap: 8px; } .office-card { padding: 12px 10px 8px; }
+  .office-card-big { font-size: 22px; } .office-card-growth { font-size: 11.5px; padding: 1px 6px; } }
