@@ -30,8 +30,9 @@ export default function OfficeTable({ rows, money, now, period }: { rows: Office
       { key: "worth", label: "Worth now", value: (r: OfficeRow) => r.worth, show: (r: OfficeRow) => <strong>{dollars(r.worth)}</strong> },
       { key: "putIn", label: "Put in", value: (r: OfficeRow) => r.putIn, show: (r: OfficeRow) => dollars(r.putIn) },
     ] : []),
-    { key: "week", label: period, value: (r) => r.week / (r.putIn || 1),
-      show: (r) => <span className={money ? tone(r.week) : tone(r.week / (r.putIn || 1), 0.001)}>{money ? dollars(r.week, true) : pct(r.week / (r.putIn || 1), true, 1)}</span> },
+    // 11-22 (owner): all-time profit, not the chart's range. Dollars only: for a friend it would repeat Return
+    ...(money ? [{ key: "all", label: "All time", value: (r: OfficeRow) => r.worth - r.putIn,
+      show: (r: OfficeRow) => <span className={tone(r.worth - r.putIn)}>{dollars(r.worth - r.putIn, true)}</span> }] : []),
     { key: "return", label: "Return", value: ret, show: (r) => <span className={tone(ret(r), 0.001)}>{pct(ret(r), true, 1)}</span> },
     { key: "days", label: "Days in", value: (r) => now - r.since, show: (r) => Math.max(1, Math.ceil((now - r.since) / 86_400_000)) },
   ];

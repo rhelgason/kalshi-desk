@@ -245,9 +245,11 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
   first; only if the edge shows up there, open an account and build the connection.
 - **Someday, maybe: people avatars** (owner, 11-22, low priority, purely for fun): let each person pick an avatar during
   onboarding (the NUX). No place needs it yet; the cockpit chart or office headers are the likely spots if it's built.
-- **11-22 cockpit:** player cards per office were tried and reverted the same day (the owner prefers one chart over the
-  table). The table always shows (no fold) without "Per $1 bet" and "Bets won". The chart's lines are straight between
-  points so the hover dots sit on them (they were smoothed curves read as steps). The chart itself is being redesigned.
+- **11-22 cockpit:** player cards and four other chart styles were tried in production; the owner kept the % chart
+  ("What $1 became" a close second), restyled: every line sampled on one shared grid and smoothed through those samples
+  (so the hover dot, snapped to a sample, sits on its line), a glow and soft fill under each line, and a tag at each
+  line's end spaced so tags never overlap (components/ReturnsChart.tsx). The table always shows, without "Per $1 bet"
+  and "Bets won"; its "All time" column is worth minus put in (manager only; for a friend it would repeat Return).
 - A weather day can sit unsettled for days on Kalshi's side (NY Nov 13, 2026: "closed", no result, Kalshi's deadline
   Nov 20, while every other city and day paid next morning ~7 am PT). Not a bug: settle_check asks Kalshi about every
   held ticker each run, listed or not, and books it the moment a result appears; Riding Now shows them as "settling".
