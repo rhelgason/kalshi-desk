@@ -1,7 +1,7 @@
 import AutoRefresh from "@/components/AutoRefresh";
 import Card from "@/components/ui/Card";
 import StatRow, { toneOf } from "@/components/ui/StatRow";
-import OfficeCards, { type OfficeCard, type OfficePoint } from "@/components/OfficeCards";
+import ReturnsChart, { type ReturnLine } from "@/components/ReturnsChart";
 import { isAdmin } from "@/lib/admin";
 import { requireViewer } from "@/lib/book";
 import { getAnalysis, getBets, getForecast, getKillSwitch, getLive, getMoneyMoves, getPolicy, getRoster, getSeasonStart, home, withRoster, type Book } from "@/lib/db";
@@ -64,36 +64,15 @@ async function loadOffices(): Promise<Office[]> {
 
 const won = (bs: Bet[]) => bs.filter((b) => b.pnl > 0).length;
 
-/**
- * An office's worth and money put in over the range, for its card's chart (11-22): put in steps up at each deposit,
- * worth is put in plus finished bets' profit, thinned to ~150 points, and the last point is today's worth (with open bets).
- */
-function officePoints(o: Office, from: number, now: number): OfficePoint[] {
-  const start = Math.max(from, o.since);
-  const base = o.putIn - o.moves.reduce((s, m) => s + m.amount, 0);
-  const putInAt = (t: number) => base + o.moves.filter((m) => m.t <= t).reduce((s, m) => s + m.amount, 0);
-  let profit = 0, i = 0;
-  const bets = o.bets;
-  for (; i < bets.length && bets[i].t <= start; i++) profit += bets[i].pnl;
-  const out: OfficePoint[] = [{ t: start, v: putInAt(start) + profit, p: putInAt(start) }];
-  const bin = Math.max(60_000, (now - start) / 150);
-  const events = [...bets.slice(i).map((b) => ({ t: b.t, pnl: b.pnl, move: false })),
-    ...o.moves.filter((m) => m.t > start && m.t <= now).map((m) => ({ t: m.t, pnl: 0, move: true }))].sort((a, b) => a.t - b.t);
-  for (const e of events) {
-    if (e.move) out.push({ t: e.t - 1, v: putInAt(e.t - 1) + profit, p: putInAt(e.t - 1) }); // the step's foot
-    profit += e.pnl;
-    const p = { t: e.t, v: putInAt(e.t) + profit, p: putInAt(e.t) };
-    const last = out[out.length - 1];
-    if (!e.move && out.length > 1 && Math.floor((last.t - start) / bin) === Math.floor((e.t - start) / bin) && last.p === p.p) out[out.length - 1] = p;
-    else out.push(p);
-  }
-  out.push({ t: Math.max(now, out[out.length - 1].t + 1), v: o.worth, p: o.putIn });
-  return out;
+/** An office's running profit after each finished bet, for the chart. */
+function returnLine(o: Office, color: string): ReturnLine {
+  let sum = 0;
+  return { key: o.book, label: o.name, color, putIn: o.putIn, since: o.since, pnl: o.bets.map((b) => [b.t, (sum += b.pnl)]) };
 }
 
 /**
- * The cockpit (11-16; 11-22 the owner: one player card per office instead of one shared % chart, the table folded
- * under them). The manager sees dollars and can open each office; a friend sees % only. Then, side by side, the manager's to-do
+ * The cockpit (11-16): one chart of every office over the range, the office table under it (11-22: per $1 bet and bets
+ * won dropped to keep it short; the player-card try was reverted the same day). The manager sees dollars and can open each office; a friend sees % only. Then, side by side, the manager's to-do
  * list and "Is it working?": every office's bets together, which is the honest answer to "can I trust this?" (one
  * office can be lucky over a few days; all of them together over weeks can't).
  */
@@ -122,12 +101,7 @@ export default async function CockpitPage({ searchParams }: { searchParams: Prom
   const now = Date.now();
   const rangeDays = RANGES[range].days;
   const from = rangeDays == null ? 0 : now - rangeDays * 86_400_000;
-  const cards: OfficeCard[] = offices.map((o, i) => ({
-    key: o.book, name: o.name, color: COLORS[i % COLORS.length], paused: o.paused, since: o.since, worth: o.worth, putIn: o.putIn,
-    period: o.bets.filter((b) => b.t >= Math.max(from, o.since)).reduce((s, b) => s + b.pnl, 0),
-    points: officePoints(o, from, now), moves: o.moves,
-    visit: admin ? viewOffice.bind(null, o.book === "real" ? null : o.book) : undefined,
-  }));
+  const lines = offices.map((o, i) => returnLine(o, COLORS[i % COLORS.length]));
   const rows: OfficeRow[] = offices.map((o, i) => ({
     key: o.book, name: o.name, color: COLORS[i % COLORS.length], paused: o.paused, since: o.since, putIn: o.putIn, worth: o.worth,
     week: o.bets.filter((b) => b.t >= Math.max(from, o.since)).reduce((s, b) => s + b.pnl, 0), bets: o.bets.length, won: won(o.bets),
@@ -185,12 +159,8 @@ export default async function CockpitPage({ searchParams }: { searchParams: Prom
       {admin && <SystemAlert />}
       <Card title="Cockpit" className="cockpit-main">
         <div className="hero-chart-head"><RangeTabs value={range} path="/cockpit" /></div>
-        <OfficeCards cards={cards} money={admin} period={RANGE_WORDS[range]} />
-        {/* The full numbers, folded: the cards carry the headline (11-22) */}
-        <details className="office-details">
-          <summary>All the numbers</summary>
-          <OfficeTable rows={rows} money={admin} now={now} period={RANGE_WORDS[range]} />
-        </details>
+        <ReturnsChart lines={lines} from={from} now={now} checked={offices[0]?.updated} />
+        <OfficeTable rows={rows} money={admin} now={now} period={RANGE_WORDS[range]} />
       </Card>
       {admin && forecast?.fan?.length ? <ForecastCard f={forecast} /> : null}
       {admin ? <div className="grid two cockpit-under">{working}<NeedsAttention todo={todo} /></div> : working}

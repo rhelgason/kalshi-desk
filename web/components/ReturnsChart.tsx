@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { pct } from "@/lib/format";
 import { fmtWhen, updatedAgo } from "./PortfolioChart";
-import { niceTicks, smoothPath, useWidth } from "./useWidth";
+import { niceTicks, useWidth } from "./useWidth";
 
 /** One office for the chart: its colour, money put in, start, and running profit after each finished bet. */
 export type ReturnLine = { key: string; label: string; color: string; putIn: number; since: number; pnl: [t: number, sum: number][] };
@@ -54,11 +54,15 @@ export default function ReturnsChart({ lines, from, now, checked, height = 240 }
   const spanDays = (x1 - x0) / 86_400_000;
   const step = ticks.length > 1 ? ticks[1] - ticks[0] : 0.01;
   // Each line's value at the moment read (none for an office that hadn't started yet)
+  // 11-22: read the line exactly as drawn (straight between points). The lines used to be smoothed curves while the
+  // dot took the last bet's value, so the dots floated off their lines
   const valueAt = (pts: [number, number][], t: number) => {
     if (t < pts[0][0]) return null;
-    let v = pts[0][1];
-    for (const p of pts) { if (p[0] > t) break; v = p[1]; }
-    return v;
+    for (let i = 1; i < pts.length; i++) {
+      const [ta, va] = pts[i - 1], [tb, vb] = pts[i];
+      if (t <= tb) return tb === ta ? vb : va + ((vb - va) * (t - ta)) / (tb - ta);
+    }
+    return pts[pts.length - 1][1];
   };
   const ht = hover ?? x1;
   const pick = (clientX: number, box: DOMRect) => {
@@ -108,7 +112,7 @@ export default function ReturnsChart({ lines, from, now, checked, height = 240 }
         ))}
         <g clipPath="url(#rc-plot)">
           {series.map(({ l, pts }) => (
-            <path key={l.key} d={smoothPath(pts.map(([t, v]) => [X(t), Y(v)]))} fill="none" stroke={l.color} strokeWidth={2.25}
+            <path key={l.key} d={pts.map(([t, v], i) => `${i ? "L" : "M"}${X(t).toFixed(1)},${Y(v).toFixed(1)}`).join("")} fill="none" stroke={l.color} strokeWidth={2.25}
                   strokeLinejoin="round" strokeLinecap="round" />
           ))}
         </g>

@@ -243,6 +243,11 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
   BTC/ETH/SOL/XRP books to /home/desk/pm_tape (deploy/SERVER.md). **Revisit some day, once Kalshi is going well and the
   profits need somewhere else to grow** (the model's growth stalls in untested sizes): replay Sadie's rule on that tape
   first; only if the edge shows up there, open an account and build the connection.
+- **Someday, maybe: people avatars** (owner, 11-22, low priority, purely for fun): let each person pick an avatar during
+  onboarding (the NUX). No place needs it yet; the cockpit chart or office headers are the likely spots if it's built.
+- **11-22 cockpit:** player cards per office were tried and reverted the same day (the owner prefers one chart over the
+  table). The table always shows (no fold) without "Per $1 bet" and "Bets won". The chart's lines are straight between
+  points so the hover dots sit on them (they were smoothed curves read as steps). The chart itself is being redesigned.
 - A weather day can sit unsettled for days on Kalshi's side (NY Nov 13, 2026: "closed", no result, Kalshi's deadline
   Nov 20, while every other city and day paid next morning ~7 am PT). Not a bug: settle_check asks Kalshi about every
   held ticker each run, listed or not, and books it the moment a result appears; Riding Now shows them as "settling".

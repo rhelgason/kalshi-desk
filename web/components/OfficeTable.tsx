@@ -33,9 +33,6 @@ export default function OfficeTable({ rows, money, now, period }: { rows: Office
     { key: "week", label: period, value: (r) => r.week / (r.putIn || 1),
       show: (r) => <span className={money ? tone(r.week) : tone(r.week / (r.putIn || 1), 0.001)}>{money ? dollars(r.week, true) : pct(r.week / (r.putIn || 1), true, 1)}</span> },
     { key: "return", label: "Return", value: ret, show: (r) => <span className={tone(ret(r), 0.001)}>{pct(ret(r), true, 1)}</span> },
-    { key: "per", label: "Per $1 bet", value: (r) => r.perDollar ?? -1,
-      show: (r) => r.perDollar == null ? "–" : <span className={tone(r.perDollar, 0.001)}>{`${r.perDollar >= 0 ? "+" : ""}${(r.perDollar * 100).toFixed(1)}¢`}</span> },
-    { key: "won", label: "Bets won", value: (r) => (r.bets ? r.won / r.bets : 0), show: (r) => r.bets ? pct(r.won / r.bets, false, 1) : "–" },
     { key: "days", label: "Days in", value: (r) => now - r.since, show: (r) => Math.max(1, Math.ceil((now - r.since) / 86_400_000)) },
   ];
   const [sort, setSort] = useState<{ key: string; desc: boolean }>({ key: money ? "worth" : "return", desc: true });
