@@ -912,14 +912,14 @@ class Desk:
             return {}
         who = ",".join("?" * len(members))
         out: dict[str, tuple[float, float]] = {}
+        # 11-23: added up in the database, one row per market instead of one per fill (download allowance)
         for r in self.ledger._rows(
-                f"SELECT f.ticker, f.side, f.count, s.yes_value FROM settlements s JOIN fills f "
+                f"SELECT f.ticker, SUM(CASE WHEN f.side = 'yes' THEN f.count ELSE -f.count END) AS net, "
+                f"SUM(f.count * CASE WHEN f.side = 'yes' THEN s.yes_value ELSE 1 - s.yes_value END) AS pay "
+                f"FROM settlements s JOIN fills f "
                 f"ON f.season = s.season AND f.strategy = s.strategy AND f.ticker = s.ticker "
-                f"WHERE s.season = ? AND s.ts >= ? AND s.strategy IN ({who})", (self.season, since, *members)):
-            t, n, side, yes_value = r["ticker"], float(r["count"]), r["side"], float(r["yes_value"])
-            net, pay = out.get(t, (0.0, 0.0))
-            won = yes_value if side == "yes" else 1 - yes_value
-            out[t] = (round(net + (n if side == "yes" else -n), 2), round(pay + n * won, 4))
+                f"WHERE s.season = ? AND s.ts >= ? AND s.strategy IN ({who}) GROUP BY f.ticker", (self.season, since, *members)):
+            out[r["ticker"]] = (round(float(r["net"]), 2), round(float(r["pay"]), 4))
         return out
 
     async def split_cash(self) -> None:

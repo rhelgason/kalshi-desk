@@ -588,7 +588,18 @@ class Ledger:
         )
 
     def employee_rows(self) -> list[dict]:
-        return [dict(r) for r in self._rows("SELECT * FROM employees")]
+        """11-23 (download allowance): read 2-3 times a run per book, and the website changes rows too. On Postgres
+        the whole table is fetched again only when its 32-byte fingerprint changes."""
+        if not self.is_postgres:
+            return [dict(r) for r in self._rows("SELECT * FROM employees")]
+        mark = self._rows("SELECT md5(coalesce(string_agg(e::text, '|' ORDER BY e.key), '')) AS m FROM employees e")
+        mark = mark[0]["m"] if mark else None
+        kept = getattr(self, "_employees_kept", None)
+        if kept and mark and kept[0] == mark:
+            return [dict(r) for r in kept[1]]
+        rows = [dict(r) for r in self._rows("SELECT * FROM employees")]
+        self._employees_kept = (mark, rows)
+        return [dict(r) for r in rows]
 
     def upsert_employee(self, row: dict) -> None:
         cols = ["key", "status", "suspended_until", "level", "strikes", "params", "autotune", "control",
@@ -597,6 +608,7 @@ class Ledger:
         if not isinstance(vals.get("params"), str):
             vals["params"] = json.dumps(vals.get("params") or {})
         updates = ", ".join(f"{c} = excluded.{c}" for c in cols[1:])
+        self._employees_kept = None
         self._write(
             f"INSERT INTO employees({', '.join(cols)}) VALUES ({', '.join('?' for _ in cols)})"
             f" ON CONFLICT(key) DO UPDATE SET {updates}",
