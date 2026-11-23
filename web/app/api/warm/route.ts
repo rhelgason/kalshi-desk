@@ -31,6 +31,7 @@ export async function GET() {
   const seen = await home()`SELECT updated_at FROM public.status WHERE key = '_seen'`.catch(() => []);
   const last = seen[0] ? Date.parse(String(seen[0].updated_at)) : 0;
   if (Date.now() - last > 20 * 60_000) return NextResponse.json({ ok: true, skipped: "nobody on the site" });
-  const done = await Promise.allSettled((["real", "pretend"] as Book[]).map(warm));
+  // 11-23: the real book only (Training is pretend; its first visitor after a change waits a moment)
+  const done = await Promise.allSettled((["real"] as Book[]).map(warm));
   return NextResponse.json({ ok: done.every((d) => d.status === "fulfilled"), ms: Date.now() - t });
 }

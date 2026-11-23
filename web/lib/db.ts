@@ -76,6 +76,7 @@ export function db(book: Book = "pretend"): Tag {
  * so a refresh after the bot's run reads everything afresh, and between runs the copies serve.
  */
 const FRESH_MS = 60_000;
+const EVERY_MS = 10 * 60_000;
 const TRY_MS = 3_000;
 const REST_MS = 30_000; // after the database fails to answer, don't wait on it again for this long
 let downUntil = 0;
@@ -99,7 +100,11 @@ function sturdy<A extends unknown[], R>(name: string, query: (...a: A) => Promis
   return async (...a: A) => {
     const book = isBook(a[0]) ? a[0] : "shared";
     const stamp = book === "shared" ? null : await reported(book);
-    const kept = unstable_cache(async () => ({ at: Date.now(), v: await query(...a) }), [name, JSON.stringify(a), stamp ?? ""],
+    // 11-23 (download allowance): only the headline (status `live`) is read afresh after every 2-minute run; every
+    // other read keeps its copy for up to EVERY_MS of runs (the page summary alone is 121 KB on Training)
+    const every = name === "status" && a[1] === "live" ? 1 : EVERY_MS;
+    const slot = stamp ? String(Math.floor(Date.parse(stamp) / every)) : "";
+    const kept = unstable_cache(async () => ({ at: Date.now(), v: await query(...a) }), [name, JSON.stringify(a), every === 1 ? stamp ?? "" : slot],
       { revalidate: stamp ? 600 : 30, tags: [bookTag(book)] });
     const copy = await kept();
     // Nothing new since the bot's last report: this copy is the latest there is
