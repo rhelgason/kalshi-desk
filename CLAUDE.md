@@ -259,6 +259,10 @@ settings, never in the repo. Schemas: `public` = Training, `real` = real money, 
   read_state/write_state check only the row's stamp; ~45 MB a day less), and forecast.season_days reads one snapshot per
   employee per day. Not yet done (smaller): `SELECT * FROM employees` every run, runner.recently_settled each run,
   website caching. A new Training season makes the old one archivable again: rerun archive_logs.py on the server.
+  Later 11-23 (still ~520 MB/day): the website re-read every big status row for both books after each 2-minute run
+  (Training's `_page` is 121 KB): now only `live` follows each run, other reads keep a copy up to 10 minutes
+  (web/lib/db.ts EVERY_MS) and /api/warm warms the real book only. Bot: Ledger.employee_rows refetches only when the
+  table's md5 changes; runner.recently_settled sums in SQL (one row per market). Measured reads 15k -> 7k rows per 15 min.
 - **11-23: the model reined in** (owner: the week ran at the 20th percentile of the 11-17 prediction). Real coin bids
   fill less than the tape says (queue position, other makers): each employee's fill rate is now real dollars filled a
   day over the model's at the same pool, last 10 days (forecast.real_fill_rates / calibrate_fills, `Staff.fill`, blended
