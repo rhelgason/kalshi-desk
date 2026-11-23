@@ -839,3 +839,30 @@ html[data-navigating] body { cursor: progress; }
 .segmented button[aria-checked="true"] { background: var(--surface-1); color: var(--text-primary); box-shadow: 0 1px 3px var(--shadow); }
 .lane-odds-word { font-weight: 500; font-size: 0.85em; opacity: 0.8; }
 
+
+/* TEMPORARY (11-22): cockpit chart candidates and their switcher */
+.chart-switch { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 12px; }
+.chart-switch button { font: inherit; font-size: 12.5px; font-weight: 600; padding: 5px 11px; border-radius: var(--r-pill); cursor: pointer;
+  color: var(--text-secondary); background: var(--surface-2); border: 1px dashed var(--border); }
+.chart-switch button.on { color: var(--text-primary); border-style: solid; border-color: var(--series-1);
+  background: color-mix(in srgb, var(--series-1) 18%, var(--surface-2)); }
+.cockpit-lines .readout { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; margin-bottom: 6px; }
+.cockpit-lines .readout-item { display: inline-flex; align-items: center; gap: 5px; }
+.glow-line { filter: drop-shadow(0 0 5px color-mix(in srgb, var(--glow) 65%, transparent)); }
+.chart-caption { margin-top: 6px; }
+.money-bars { display: flex; flex-direction: column; gap: 14px; padding: 6px 0 2px; }
+.money-bar-row { display: grid; grid-template-columns: 110px minmax(0, 1fr) 170px; gap: 12px; align-items: center;
+  animation: bar-in 0.7s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(var(--i) * 90ms); }
+.money-bar-name { display: flex; align-items: center; gap: 6px; font-weight: 650; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.money-bar-track { position: relative; height: 26px; border-radius: var(--r-pill); background: color-mix(in srgb, var(--grid) 60%, transparent); }
+.money-bar-put { position: absolute; inset: 0 auto 0 0; border-radius: var(--r-pill); background: color-mix(in srgb, var(--c) 22%, transparent); }
+.money-bar-now { position: absolute; inset: 5px auto 5px 0; border-radius: var(--r-pill); background: linear-gradient(90deg, color-mix(in srgb, var(--c) 55%, transparent), var(--c));
+  box-shadow: 0 0 14px color-mix(in srgb, var(--c) 55%, transparent); transform-origin: left; animation: bar-grow 0.9s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(var(--i) * 90ms + 0.1s); }
+.money-bar-mark { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--text-primary); opacity: 0.7; border-radius: 1px; }
+.money-bar-nums { display: flex; flex-direction: column; font-variant-numeric: tabular-nums; line-height: 1.3; }
+.money-bar-nums strong { font-size: 17px; }
+@keyframes bar-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes bar-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .money-bar-row, .money-bar-now { animation: none; } }
+@media (max-width: 560px) { .money-bar-row { grid-template-columns: 1fr auto; } .money-bar-track { grid-column: 1 / -1; grid-row: 2; }
+  .money-bar-nums { align-items: flex-end; } }

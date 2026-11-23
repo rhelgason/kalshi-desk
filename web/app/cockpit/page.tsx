@@ -1,7 +1,8 @@
 import AutoRefresh from "@/components/AutoRefresh";
 import Card from "@/components/ui/Card";
 import StatRow, { toneOf } from "@/components/ui/StatRow";
-import ReturnsChart, { type ReturnLine } from "@/components/ReturnsChart";
+import { type ReturnLine } from "@/components/ReturnsChart";
+import CockpitCharts, { type OfficeSeries } from "@/components/CockpitCharts";
 import { isAdmin } from "@/lib/admin";
 import { requireViewer } from "@/lib/book";
 import { getAnalysis, getBets, getForecast, getKillSwitch, getLive, getMoneyMoves, getPolicy, getRoster, getSeasonStart, home, withRoster, type Book } from "@/lib/db";
@@ -64,6 +65,32 @@ async function loadOffices(): Promise<Office[]> {
 
 const won = (bs: Bet[]) => bs.filter((b) => b.pnl > 0).length;
 
+/**
+ * An office's worth and money put in over the range (11-22, for the chart candidates): put in steps up at each deposit,
+ * worth is put in plus finished bets' profit, thinned to ~200 points; the last point is today's worth (with open bets).
+ */
+function officeSeries(o: Office, color: string, from: number, now: number): OfficeSeries {
+  const start = Math.max(from, o.since);
+  const base = o.putIn - o.moves.reduce((s, m) => s + m.amount, 0);
+  const putInAt = (t: number) => base + o.moves.filter((m) => m.t <= t).reduce((s, m) => s + m.amount, 0);
+  let profit = 0, i = 0;
+  for (; i < o.bets.length && o.bets[i].t <= start; i++) profit += o.bets[i].pnl;
+  const pts = [{ t: start, v: putInAt(start) + profit, p: putInAt(start) }];
+  const bin = Math.max(60_000, (now - start) / 200);
+  const events = [...o.bets.slice(i).map((b) => ({ t: b.t, pnl: b.pnl, move: false })),
+    ...o.moves.filter((m) => m.t > start && m.t <= now).map((m) => ({ t: m.t, pnl: 0, move: true }))].sort((a, b) => a.t - b.t);
+  for (const e of events) {
+    if (e.move) pts.push({ t: e.t - 1, v: putInAt(e.t - 1) + profit, p: putInAt(e.t - 1) });
+    profit += e.pnl;
+    const pt = { t: e.t, v: putInAt(e.t) + profit, p: putInAt(e.t) };
+    const last = pts[pts.length - 1];
+    if (!e.move && pts.length > 1 && last.p === pt.p && Math.floor((last.t - start) / bin) === Math.floor((e.t - start) / bin)) pts[pts.length - 1] = pt;
+    else pts.push(pt);
+  }
+  pts.push({ t: Math.max(now, pts[pts.length - 1].t + 1), v: o.worth, p: o.putIn });
+  return { key: o.book, label: o.name, color, worth: o.worth, putIn: o.putIn, since: o.since, pts: pts.filter((p) => p.p >= 1) };
+}
+
 /** An office's running profit after each finished bet, for the chart. */
 function returnLine(o: Office, color: string): ReturnLine {
   let sum = 0;
@@ -102,6 +129,7 @@ export default async function CockpitPage({ searchParams }: { searchParams: Prom
   const rangeDays = RANGES[range].days;
   const from = rangeDays == null ? 0 : now - rangeDays * 86_400_000;
   const lines = offices.map((o, i) => returnLine(o, COLORS[i % COLORS.length]));
+  const series = offices.map((o, i) => officeSeries(o, COLORS[i % COLORS.length], from, now));
   const rows: OfficeRow[] = offices.map((o, i) => ({
     key: o.book, name: o.name, color: COLORS[i % COLORS.length], paused: o.paused, since: o.since, putIn: o.putIn, worth: o.worth,
     week: o.bets.filter((b) => b.t >= Math.max(from, o.since)).reduce((s, b) => s + b.pnl, 0), bets: o.bets.length, won: won(o.bets),
@@ -159,7 +187,8 @@ export default async function CockpitPage({ searchParams }: { searchParams: Prom
       {admin && <SystemAlert />}
       <Card title="Cockpit" className="cockpit-main">
         <div className="hero-chart-head"><RangeTabs value={range} path="/cockpit" /></div>
-        <ReturnsChart lines={lines} from={from} now={now} checked={offices[0]?.updated} />
+        {/* TEMPORARY (11-22): the chart candidates behind a switcher until the owner picks one */}
+        <CockpitCharts series={series} lines={lines} from={from} now={now} checked={offices[0]?.updated} money={admin} />
         <OfficeTable rows={rows} money={admin} now={now} period={RANGE_WORDS[range]} />
       </Card>
       {admin && forecast?.fan?.length ? <ForecastCard f={forecast} /> : null}
