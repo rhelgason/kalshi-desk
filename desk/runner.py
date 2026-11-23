@@ -828,7 +828,8 @@ class Desk:
         self.update_marks(snap)
         self.record_snapshot(snap)
         with j.phase("tape"):
-            self._safely("record market tape", lambda: self.record_tape(snap))
+            if not (self.ledger.schema or "").startswith("office_"):  # 11-23: offices repeat the owner's tape
+                self._safely("record market tape", lambda: self.record_tape(snap))
         with j.phase("decide"):
             results = await self.run_strategies(snap)
 

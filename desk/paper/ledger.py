@@ -253,7 +253,11 @@ def is_postgres(url: str) -> bool:
 
 
 # How long the logs stay in the database, in days (Ledger.prune_logs; older rows are archived on the server first)
-RETENTION = {"runs": 7, "decisions": 14, "market_tape": 14, "equity_full": 14, "market_history": 30}
+RETENTION = {"runs": 3, "decisions": 7, "market_tape": 7, "equity_full": 14, "market_history": 30}
+# 11-23 (database at 460 of 500 MB): shorter on the owner's books (runs 7 -> 3 days, decisions and tape 14 -> 7; the
+# weekly review reads 7 days of decisions, `desk log`/health read hours), and a friend's office keeps run journals
+# 2 days and no market tape at all (it never records one: the owner's books already record the same markets)
+OFFICE_RETENTION = {**RETENTION, "runs": 2, "market_tape": 0}
 PRUNE_KEY = "_prune"
 
 class _Postgres:
@@ -496,10 +500,11 @@ class Ledger:
         if not force and last and datetime.fromisoformat(last) > now - timedelta(hours=every_hours):
             return False
         ago = lambda d: (now - timedelta(days=d)).isoformat()
-        self.prune_runs()
-        self._write("DELETE FROM decisions WHERE ts < ?", (ago(RETENTION["decisions"]),))
-        self._write("DELETE FROM market_tape WHERE ts < ?", (ago(RETENTION["market_tape"]),))
-        cut = ago(RETENTION["equity_full"])
+        keep = OFFICE_RETENTION if (self.schema or "").startswith("office_") else RETENTION
+        self.prune_runs(keep["runs"])
+        self._write("DELETE FROM decisions WHERE ts < ?", (ago(keep["decisions"]),))
+        self._write("DELETE FROM market_tape WHERE ts < ?", (ago(keep["market_tape"]),))
+        cut = ago(keep["equity_full"])
         self._write(
             "DELETE FROM equity WHERE ts < ?"
             " AND id NOT IN (SELECT MAX(id) FROM equity WHERE ts < ? GROUP BY strategy, season, substr(ts, 1, 13))"
